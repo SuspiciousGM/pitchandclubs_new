@@ -330,7 +330,9 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
   border-bottom:1px solid #1A1B1E;
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   display:flex;align-items:center;justify-content:space-between;
-  padding:0 18px;height:52px;
+  padding:0 18px;
+  padding-top:env(safe-area-inset-top);
+  height:calc(52px + env(safe-area-inset-top));
 }
 .header-logo{font-family:'Bebas Neue';font-size:22px;letter-spacing:.06em;cursor:pointer;user-select:none;}
 .header-logo em{color:#CAFF4D;font-style:normal;}
@@ -365,7 +367,7 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .nav-game-btn{color:#CAFF4D!important;}
 
 /* ── PAGE SCROLL */
-.page-scroll{padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;height:calc(100svh - 52px);}
+.page-scroll{padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;height:calc(100svh - 52px - env(safe-area-inset-top));}
 
 /* ── CARDS */
 .card{background:#1A1B1E;border:1px solid #222327;border-radius:10px;padding:16px;}
@@ -2072,8 +2074,8 @@ function ProfileScreen({ user, userPts, setScreen, lang }) {
   return (
     <div className="page-scroll">
       {/* Header */}
-      <div style={{marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-        <div>
+      <div style={{marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"flex-start",overflow:"hidden"}}>
+        <div style={{flex:1,minWidth:0,paddingRight:12}}>
           <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:5}}>Perfil</div>
           <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(26px,7vw,40px)",letterSpacing:".04em",lineHeight:1}}>{user?.name||profile.name}</div>
           {(user?.club||profile.club) && <div style={{fontSize:12,color:"#787C8A",marginTop:3}}>{user?.club||profile.club}</div>}
@@ -2146,13 +2148,13 @@ function ProfileScreen({ user, userPts, setScreen, lang }) {
       {/* Distribution */}
       <div className="card" style={{marginBottom:12,padding:"14px"}}>
         <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:12}}>Distribució de resultats</div>
-        {[{k:"eagle",l:"Eagle",c:"#FBBF24"},{k:"birdie",l:"Birdie",c:"#60A5FA"},{k:"par",l:"Par",c:"#CAFF4D"},{k:"bogey",l:"Bogey",c:"#9CA3AF"},{k:"double",l:"D.Bogey",c:"#EF4444"},{k:"triple",l:"Triple+",c:"#7F1D1D"}].map(r=>(
-          <div key={r.k} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-            <div style={{width:52,fontSize:10,fontWeight:600,color:r.c,textAlign:"right",flexShrink:0}}>{r.l}</div>
-            <div style={{flex:1,height:14,background:"#111214",borderRadius:3,overflow:"hidden"}}>
+        {[{k:"eagle",l:"HiO",c:"#FBBF24"},{k:"birdie",l:"Birdie",c:"#60A5FA"},{k:"par",l:"Par",c:"#CAFF4D"},{k:"bogey",l:"Bogey",c:"#9CA3AF"},{k:"double",l:"D.Bogey",c:"#EF4444"},{k:"triple",l:"Triple+",c:"#7F1D1D"}].map(r=>(
+          <div key={r.k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+            <div style={{width:46,fontSize:10,fontWeight:600,color:r.c,textAlign:"right",flexShrink:0}}>{r.l}</div>
+            <div style={{flex:1,height:14,background:"#111214",borderRadius:3,overflow:"hidden",minWidth:0}}>
               <div style={{height:"100%",width:`${distPct(r.k)}%`,background:r.c,borderRadius:3,transition:"width .4s"}}/>
             </div>
-            <div style={{width:36,fontSize:10,color:"#555761",flexShrink:0}}>{profile.dist[r.k]} ({distPct(r.k)}%)</div>
+            <div style={{width:46,fontSize:10,color:"#555761",flexShrink:0,textAlign:"right"}}>{profile.dist[r.k]} ({distPct(r.k)}%)</div>
           </div>
         ))}
       </div>

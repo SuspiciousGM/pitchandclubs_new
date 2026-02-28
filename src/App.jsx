@@ -295,7 +295,7 @@ const G = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;}
+html,body{height:100%;width:100%;overflow-x:hidden;}
 body{
   background:#0A0A0B;
   color:#FFFFFF;
@@ -303,6 +303,8 @@ body{
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
   overscroll-behavior:none;
+  display:flex;
+  justify-content:center;
 }
 ::-webkit-scrollbar{display:none;}
 input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
@@ -2080,7 +2082,7 @@ function ProfileScreen({ user, userPts, setScreen, lang }) {
           <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(26px,7vw,40px)",letterSpacing:".04em",lineHeight:1}}>{user?.name||profile.name}</div>
           {(user?.club||profile.club) && <div style={{fontSize:12,color:"#787C8A",marginTop:3}}>{user?.club||profile.club}</div>}
         </div>
-        <div style={{width:54,height:54,borderRadius:"50%",background:tier.color,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue'",fontSize:18,color:"#0A0A0B"}}>{(user?.name||profile.name).split(" ").map(w=>w[0]).slice(0,2).join("")}</div>
+        <div style={{width:54,height:54,minWidth:54,borderRadius:"50%",background:tier.color,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue'",fontSize:18,color:"#0A0A0B",flexShrink:0}}>{(user?.name||profile.name).split(" ").map(w=>w[0]).slice(0,2).join("")}</div>
       </div>
 
       {/* Tier card */}

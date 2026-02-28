@@ -1,31 +1,30 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Home, BarChart2, ShoppingBag, Trophy, User, Plus, ChevronRight, ChevronLeft,
   Check, X, Search, MapPin, Calendar, Users, Zap, Star, TrendingUp,
   Award, Flag, Target, Activity, Heart, Globe, Flame, Crown, ArrowRight,
-  Play, Share2, Bell, AlertCircle, CheckCircle, Minus, Menu,
-  Circle, Hash, ClipboardList, Aperture, Navigation, List
+  Play, Share2, Bell, AlertCircle, CheckCircle, Minus, Menu
 } from "lucide-react";
 
 /* ─── i18n ───────────────────────────────────────────────────── */
 const T = {
   ca:{
-    nav_home:"Inici",nav_ranking:"Rànquing",nav_game:"Partida",nav_tournaments:tl("profile_tournaments"),nav_shop:"Botiga",nav_profile:tl("profile_title"),
+    nav_home:"Inici",nav_ranking:"Rànquing",nav_game:"Partida",nav_tournaments:"Tornejos",nav_shop:"Botiga",nav_profile:"Perfil",
     hero_title:"PITCH&CLUBS",hero_sub:"L'Strava del golf.",hero_desc:"Registra partides, puja al rànquing i suporta el teu club.",hero_live:"Beta oberta · {n} jugadors",
     cta_new_game:"Nova Partida",cta_join:"Uneix-te",cta_join_free:"Uneix-te gratis →",cta_create_account:"Crea un compte — guarda les teves stats →",
     cta_register_now:"Registrar ara →",cta_ready:"READY TO PLAY?",cta_ready_sub:"Registra la primera partida sense necessitat de fer login.",cta_ready_btn:"Registra una partida",cta_stats:"Les meves estadístiques →",
-    sec_activity:"Activitat",sec_last_games:"ÚLTIMES PARTIDES",sec_ranking:tl("classification"),sec_top_ranking:"TOP RÀNQUING",
+    sec_activity:"Activitat",sec_last_games:"ÚLTIMES PARTIDES",sec_ranking:"Classificació",sec_top_ranking:"TOP RÀNQUING",
     sec_how:"Com funciona",sec_how_title:"3 PASSOS. SIMPLE.",sec_levels:"Sistema de nivells",sec_levels_title:"PUJA. GUANYA.",sec_points:"Sistema de punts",
     sec_tournaments:"Competicions",sec_next_tournaments:"PROPERS TORNEJOS",sec_community:"Comunitat",sec_community_title:"LA GENT JUGA AVUI",
     sec_courses:"Cobertura",sec_courses_title:"61 CAMPS A ESPANYA",no_games:"Sense partides",no_games_sub:"Registra la primera partida sense necessitat de fer login",
     step1_t:"Registra la partida",step1_d:"Sense login. Tria entre 61 camps reals i registra cada cop forat a forat.",
     step2_t:"Puja al rànquing",step2_d:"Caddie → Player → Pro → Master. Cada partida i torneig suma punts P&C.",
     step3_t:"Suporta el teu club",step3_d:"10% de cada compra al kit oficial va directament al teu club. Automàtic.",
-    stat_games:"Partides",stat_best:tl("col_best"),stat_holes:"Forats",stat_hcp:"HCP",stat_streak:"Ratxa",
+    stat_games:"Partides",stat_best:"Millor",stat_holes:"Forats",stat_hcp:"HCP",stat_streak:"Ratxa",
     pts_completion:"Partida completada",pts_tournament_win:"Victòria torneig",pts_inactivity:"Inactivitat",
     tier_caddie_desc:"Aprèn les bases",tier_player_desc:"Juga amb consistència",tier_pro_desc:"Nivell competitiu real",tier_master_desc:"Elit de l'elit P&C",
     tier_max:"🔥 Nivell màxim — Master!",pts_to:"pts per arribar a",
-    setup_title:tl("setup_title"),setup_sub:"Configura la teva sessió",setup_guest_sub:"Mode visitant · sense login",
+    setup_title:"NOVA PARTIDA",setup_sub:"Configura la teva sessió",setup_guest_sub:"Mode visitant · sense login",
     guest_banner_title:"Mode visitant actiu",guest_banner_desc:"Juga ara sense compte. {link} per guardar l'historial i acumular punts.",guest_create_link:"Crea un compte",
     label_date:"Data",label_course:"Camp",course_hint:"61 camps disponibles",course_placeholder:"Busca per nom, localitat o província...",
     course_not_found:"No trobat — configura'l manualment ↓",custom_course:"Camp personalitzat",custom_name:"Nom del camp",custom_name_ph:"Ex: Club de Golf de Lleida",
@@ -35,24 +34,24 @@ const T = {
     holes_label:"forats",prov_pts:"pts prov.",shots_label:"Cops",
     legend_eagle:"Eagle+",legend_birdie:"Birdie",legend_par:"Par",legend_bogey:"Bogey",legend_bad:"Pena",
     hole_next:"Forat {n} →",finish:"Finalitzar ✓",save_hint:"Mode visitant · {link} per guardar",scorecard_title:"Targeta de puntuació",total_row:"TOT",
-    game_done:"PARTIDA ACABADA",level_up:"LEVEL UP! →",classification:tl("classification"),score_label:"Score",pts_earned:tl("pts_earned"),total_accum:"Total acumulat",
+    game_done:"PARTIDA ACABADA",level_up:"LEVEL UP! →",classification:"Classificació",score_label:"Score",pts_earned:"Punts guanyats",total_accum:"Total acumulat",
     save_game_q:"Vols guardar aquesta partida?",save_game_desc:"Crea un compte gratuït per guardar l'historial i acumular {pts} punts al rànquing.",save_game_btn:"Crea un compte — és gratis →",
-    hole_summary:tl("hole_summary"),new_game:"Nova partida",back_setup:"Setup",back_home:"Tornar a l'inici",back:"← Tornar",
-    ranking_title:tl("ranking_title"),ranking_global:tl("ranking_global"),ranking_week:tl("ranking_week"),ranking_course:tl("ranking_course"),
-    ranking_week_note:tl("ranking_week_note"),ranking_course_note:tl("ranking_course_note"),
-    ranking_join:tl("ranking_join"),ranking_join_btn:tl("ranking_join_btn"),
-    col_player:tl("col_player"),col_best:tl("col_best"),col_pts:"Pts",pts_week:"Pts 7d",best_score:"millor score",games_reg:"partides registrades",leader:"Líder",avg_label:"avg",
-    tourn_title:tl("tourn_title"),tourn_sub:tl("tourn_sub"),tourn_open:tl("tourn_open"),tourn_soon:tl("tourn_soon"),
-    tourn_full:tl("tourn_full"),tourn_last_spots:"⚡ Últims {n} llocs!",tourn_spots_left:"{n} llocs disponibles",
-    tourn_inscribe:tl("tourn_inscribe"),tourn_join_first:tl("tourn_join_first"),tourn_notify:tl("tourn_notify"),tourn_no_cat:tl("tourn_no_cat"),
-    cat_all:tl("cat_all"),cat_open:tl("cat_open"),cat_club:tl("cat_club"),cat_master:tl("cat_master"),cat_social:tl("cat_social"),
-    shop_title:tl("shop_title"),shop_sub:tl("shop_sub"),shop_soon_title:tl("shop_soon_title"),
-    shop_soon_desc:tl("shop_soon_desc"),
-    shop_soon_btn_user:"Avisa'm quan obri →",shop_soon_btn_guest:"Crea un compte per ser el primer →",shop_preview:tl("shop_preview"),
-    shop_club_title:tl("shop_club_title"),shop_club_desc:tl("shop_club_desc"),
-    profile_title:tl("profile_title"),profile_score_trend:tl("profile_score_trend"),profile_hcp_trend:tl("profile_hcp_trend"),
-    profile_hcp_current:"HCP actual: {v} · millora de {d} des de novembre",profile_dist:tl("profile_dist"),profile_best_courses:tl("profile_best_courses"),
-    profile_played:tl("profile_played"),profile_tournaments:tl("profile_tournaments"),profile_pts_month:tl("profile_pts_month"),profile_win:"1 victòria",profile_no_win:"Cap victòria",
+    hole_summary:"Resum forat a forat",new_game:"Nova partida",back_setup:"Setup",back_home:"Tornar a l'inici",back:"← Tornar",
+    ranking_title:"RÀNQUING P&C",ranking_global:"Global",ranking_week:"Setmana",ranking_course:"Per camp",
+    ranking_week_note:"Rànquing de la setmana actual · es reinicia cada dilluns",ranking_course_note:"Millors scores per camp · tots els temps",
+    ranking_join:"Crea un compte per aparèixer al rànquing",ranking_join_btn:"Uneix-te →",
+    col_player:"Jugador",col_best:"Millor",col_pts:"Pts",pts_week:"Pts 7d",best_score:"millor score",games_reg:"partides registrades",leader:"Líder",avg_label:"avg",
+    tourn_title:"TORNEJOS P&C",tourn_sub:"Competicions 2025",tourn_open:"● Obert",tourn_soon:"Aviat",
+    tourn_full:"Complet",tourn_last_spots:"⚡ Últims {n} llocs!",tourn_spots_left:"{n} llocs disponibles",
+    tourn_inscribe:"Inscriure\'m →",tourn_join_first:"Uneix-te per inscriure\'t →",tourn_notify:"Avisa\'m quan s\'obri →",tourn_no_cat:"Aviat hi haurà tornejos d\'aquesta categoria",
+    cat_all:"Tots",cat_open:"Oberts",cat_club:"De club",cat_master:"Master",cat_social:"Social",
+    shop_title:"BOTIGA P&C",shop_sub:"Kits & Gear",shop_soon_title:"AVIAT DISPONIBLE",
+    shop_soon_desc:"La botiga oficial de P&C obrirà aviat. Kits de clubs, gear exclusiu P&C i molt més. El 10% de cada compra va al teu club.",
+    shop_soon_btn_user:"Avisa'm quan obri →",shop_soon_btn_guest:"Crea un compte per ser el primer →",shop_preview:"Avantvisualització",
+    shop_club_title:"El teu club cobra el 10%",shop_club_desc:"Cada compra al kit oficial del teu club li aporta un 10% directament. Suport real, no màrqueting.",
+    profile_title:"Perfil",profile_score_trend:"Evolució de scores — últims 10 rounds",profile_hcp_trend:"Evolució Handicap",
+    profile_hcp_current:"HCP actual: {v} · millora de {d} des de novembre",profile_dist:"Distribució de resultats",profile_best_courses:"Millors camps",
+    profile_played:"partides",profile_tournaments:"Tornejos",profile_pts_month:"Pts aquest mes",profile_win:"1 victòria",profile_no_win:"Cap victòria",
     auth_register_title:"UNEIX-TE A P&C",auth_login_title:"ENTRAR",auth_register_sub:"Gratuït · Sense targeta de crèdit",auth_login_sub:"Benvingut de nou",
     auth_name:"Nom o àlies",auth_name_ph:"Marc Puig",auth_club:"Club (opcional)",auth_club_ph:"Pink Beaks, Canal Olímpic...",auth_email:"Email",
     auth_register_btn:"Crear compte gratuït →",auth_login_btn:"Entrar →",auth_to_login:"Ja tens compte?",auth_to_login_link:"Entra",
@@ -61,7 +60,7 @@ const T = {
     ticker:["Pitch & Clubs","61 camps","Registra · Puja · Domina","Kits Oficials","Less Elitist. More Real","Beta oberta","Tornejos 2025"],
   },
   es:{
-    nav_home:"Inicio",nav_ranking:"Ranking",nav_game:"Partida",nav_tournaments:"Torneos",nav_shop:"Tienda",nav_profile:tl("profile_title"),
+    nav_home:"Inicio",nav_ranking:"Ranking",nav_game:"Partida",nav_tournaments:"Torneos",nav_shop:"Tienda",nav_profile:"Perfil",
     hero_title:"PITCH&CLUBS",hero_sub:"El Strava del golf.",hero_desc:"Registra partidas, sube en el ranking y apoya a tu club.",hero_live:"Beta abierta · {n} jugadores",
     cta_new_game:"Nueva Partida",cta_join:"Únete",cta_join_free:"Únete gratis →",cta_create_account:"Crea una cuenta — guarda tus stats →",
     cta_register_now:"Registrar ahora →",cta_ready:"¿LISTO PARA JUGAR?",cta_ready_sub:"Registra la primera partida sin necesidad de login.",cta_ready_btn:"Registra una partida",cta_stats:"Mis estadísticas →",
@@ -89,19 +88,19 @@ const T = {
     game_done:"PARTIDA TERMINADA",level_up:"LEVEL UP! →",classification:"Clasificación",score_label:"Score",pts_earned:"Puntos ganados",total_accum:"Total acumulado",
     save_game_q:"¿Quieres guardar esta partida?",save_game_desc:"Crea una cuenta gratuita para guardar el historial y acumular {pts} puntos en el ranking.",save_game_btn:"Crea una cuenta — es gratis →",
     hole_summary:"Resumen hoyo a hoyo",new_game:"Nueva partida",back_setup:"Setup",back_home:"Volver al inicio",back:"← Volver",
-    ranking_title:"RANKING P&C",ranking_global:tl("ranking_global"),ranking_week:"Semana",ranking_course:"Por campo",
+    ranking_title:"RANKING P&C",ranking_global:"Global",ranking_week:"Semana",ranking_course:"Por campo",
     ranking_week_note:"Ranking de la semana actual · se reinicia cada lunes",ranking_course_note:"Mejores scores por campo · todos los tiempos",
     ranking_join:"Crea una cuenta para aparecer en el ranking",ranking_join_btn:"Únete →",
-    col_player:tl("col_player"),col_best:"Mejor",col_pts:"Pts",pts_week:"Pts 7d",best_score:"mejor score",games_reg:"partidas registradas",leader:"Líder",avg_label:"media",
+    col_player:"Jugador",col_best:"Mejor",col_pts:"Pts",pts_week:"Pts 7d",best_score:"mejor score",games_reg:"partidas registradas",leader:"Líder",avg_label:"media",
     tourn_title:"TORNEOS P&C",tourn_sub:"Competiciones 2025",tourn_open:"● Abierto",tourn_soon:"Próximo",
     tourn_full:"Completo",tourn_last_spots:"⚡ ¡Últimas {n} plazas!",tourn_spots_left:"{n} plazas disponibles",
     tourn_inscribe:"Inscribirme →",tourn_join_first:"Únete para inscribirte →",tourn_notify:"Avísame cuando abra →",tourn_no_cat:"Próximamente habrá torneos de esta categoría",
-    cat_all:"Todos",cat_open:"Abiertos",cat_club:tl("cat_club"),cat_master:tl("cat_master"),cat_social:tl("cat_social"),
-    shop_title:"TIENDA P&C",shop_sub:tl("shop_sub"),shop_soon_title:"PRÓXIMAMENTE",
+    cat_all:"Todos",cat_open:"Abiertos",cat_club:"De club",cat_master:"Master",cat_social:"Social",
+    shop_title:"TIENDA P&C",shop_sub:"Kits & Gear",shop_soon_title:"PRÓXIMAMENTE",
     shop_soon_desc:"La tienda oficial de P&C abrirá pronto. Kits de clubs, gear exclusivo P&C y mucho más. El 10% de cada compra va a tu club.",
     shop_soon_btn_user:"Avísame cuando abra →",shop_soon_btn_guest:"Crea una cuenta para ser el primero →",shop_preview:"Previsualización",
     shop_club_title:"Tu club cobra el 10%",shop_club_desc:"Cada compra en el kit oficial de tu club le aporta un 10% directamente. Apoyo real, no marketing.",
-    profile_title:tl("profile_title"),profile_score_trend:"Evolución de scores — últimos 10 rounds",profile_hcp_trend:"Evolución Hándicap",
+    profile_title:"Perfil",profile_score_trend:"Evolución de scores — últimos 10 rounds",profile_hcp_trend:"Evolución Hándicap",
     profile_hcp_current:"HCP actual: {v} · mejora de {d} desde noviembre",profile_dist:"Distribución de resultados",profile_best_courses:"Mejores campos",
     profile_played:"partidas",profile_tournaments:"Torneos",profile_pts_month:"Pts este mes",profile_win:"1 victoria",profile_no_win:"Sin victorias",
     auth_register_title:"ÚNETE A P&C",auth_login_title:"ENTRAR",auth_register_sub:"Gratis · Sin tarjeta de crédito",auth_login_sub:"Bienvenido de nuevo",
@@ -140,15 +139,15 @@ const T = {
     game_done:"ROUND COMPLETE",level_up:"LEVEL UP! →",classification:"Leaderboard",score_label:"Score",pts_earned:"Points earned",total_accum:"Total accumulated",
     save_game_q:"Want to save this round?",save_game_desc:"Create a free account to save your history and earn {pts} points on the leaderboard.",save_game_btn:"Create an account — it's free →",
     hole_summary:"Hole-by-hole summary",new_game:"New round",back_setup:"Setup",back_home:"Back to home",back:"← Back",
-    ranking_title:"P&C RANKING",ranking_global:tl("ranking_global"),ranking_week:"This week",ranking_course:"By course",
+    ranking_title:"P&C RANKING",ranking_global:"Global",ranking_week:"This week",ranking_course:"By course",
     ranking_week_note:"Current week ranking · resets every Monday",ranking_course_note:"Best scores by course · all time",
     ranking_join:"Create an account to appear on the ranking",ranking_join_btn:"Join →",
     col_player:"Player",col_best:"Best",col_pts:"Pts",pts_week:"Pts 7d",best_score:"best score",games_reg:"rounds logged",leader:"Leader",avg_label:"avg",
     tourn_title:"P&C TOURNAMENTS",tourn_sub:"Competitions 2025",tourn_open:"● Open",tourn_soon:"Coming soon",
     tourn_full:"Full",tourn_last_spots:"⚡ Last {n} spots!",tourn_spots_left:"{n} spots left",
     tourn_inscribe:"Sign me up →",tourn_join_first:"Join to sign up →",tourn_notify:"Notify me when open →",tourn_no_cat:"Tournaments in this category coming soon",
-    cat_all:"All",cat_open:"Open",cat_club:"Club",cat_master:tl("cat_master"),cat_social:tl("cat_social"),
-    shop_title:"P&C SHOP",shop_sub:tl("shop_sub"),shop_soon_title:"COMING SOON",
+    cat_all:"All",cat_open:"Open",cat_club:"Club",cat_master:"Master",cat_social:"Social",
+    shop_title:"P&C SHOP",shop_sub:"Kits & Gear",shop_soon_title:"COMING SOON",
     shop_soon_desc:"The official P&C shop is opening soon. Club kits, exclusive P&C gear and more. 10% of every purchase goes to your club.",
     shop_soon_btn_user:"Notify me when open →",shop_soon_btn_guest:"Create an account to be first →",shop_preview:"Preview",
     shop_club_title:"Your club gets 10%",shop_club_desc:"Every purchase from your club's official kit gives them 10% directly. Real support, not marketing.",
@@ -170,7 +169,7 @@ const TIERS = [
   { id:"caddie", name:"Caddie", emoji:"🎒", color:"#34D399", bg:"rgba(52,211,153,.12)", border:"rgba(52,211,153,.3)",  min:0,    max:349   },
   { id:"player", name:"Player", emoji:"⛳", color:"#60A5FA", bg:"rgba(96,165,250,.12)", border:"rgba(96,165,250,.3)",  min:350,  max:899   },
   { id:"pro",    name:"Pro",    emoji:"🏆", color:"#A78BFA", bg:"rgba(167,139,250,.12)",border:"rgba(167,139,250,.3)", min:900,  max:1999  },
-  { id:"master", name:tl("cat_master"), emoji:"👑", color:"#CAFF4D", bg:"rgba(202,255,77,.12)", border:"rgba(202,255,77,.3)",  min:2000, max:99999 },
+  { id:"master", name:"Master", emoji:"👑", color:"#CAFF4D", bg:"rgba(202,255,77,.12)", border:"rgba(202,255,77,.3)",  min:2000, max:99999 },
 ];
 const getTier = (pts) => TIERS.find(t => pts >= t.min && pts <= t.max) || TIERS[0];
 const getTierPct = (pts) => {
@@ -488,6 +487,7 @@ input[type="date"].inp{color-scheme:dark;}
 /* ── LIVE DOT */
 .live-dot{width:6px;height:6px;border-radius:50%;background:#EF4444;animation:blink 1.2s infinite;flex-shrink:0;}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes pulse-border{0%,100%{border-color:rgba(202,255,77,.35)}50%{border-color:rgba(202,255,77,.9)}}
 `;
 
 /* ─── HELPERS ────────────────────────────────────────────────── */
@@ -529,8 +529,16 @@ function BottomNav({ screen, setScreen, lang }) {
       <button className={`nav-item${screen==="ranking"?" active":""}`} onClick={()=>setScreen("ranking")}>
         <BarChart2 size={21} strokeWidth={screen==="ranking"?2.5:1.8}/><span>{lbl("nav_ranking")}</span>
       </button>
-      <button className={`nav-item nav-game-btn${isGame?" active":""}`} onClick={()=>setScreen("game-setup")}>
-        <Flag size={22} strokeWidth={2.5} style={{color:"#0A0A0B"}}/>
+      <button onClick={()=>setScreen("game-setup")}
+        style={{flex:"0 0 56px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",
+          border:"none",background:"transparent",cursor:"pointer",padding:"4px 0",gap:3,paddingTop:2}}>
+        <div style={{width:48,height:48,background:"#CAFF4D",borderRadius:"50%",display:"flex",alignItems:"center",
+          justifyContent:"center",marginTop:-18,flexShrink:0,
+          boxShadow:"0 0 0 3px #111214, 0 6px 20px rgba(202,255,77,.45)"}}>
+          <Flag size={20} strokeWidth={2.5} color="#0A0A0B"/>
+        </div>
+        <span style={{fontSize:9,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",
+          color:isGame?"#CAFF4D":"#555761"}}>{lbl("nav_game")}</span>
       </button>
       <button className={`nav-item${screen==="tournaments"?" active":""}`} onClick={()=>setScreen("tournaments")}>
         <Trophy size={21} strokeWidth={screen==="tournaments"?2.5:1.8}/><span>{lbl("nav_tournaments")}</span>
@@ -547,6 +555,7 @@ const LANGS = [{id:"ca",label:"CAT"},{id:"es",label:"ESP"},{id:"en",label:"ENG"}
 
 function AppHeader({ screen, setScreen, user, openAuth, userPts, lang, setLang }) {
   const [showLang, setShowLang] = useState(false);
+  const tl = (k) => t(lang, k);
   const tier = getTier(userPts);
   const isGameFlow = screen==="game-setup"||screen==="scorecard"||screen==="summary";
   return (
@@ -573,7 +582,7 @@ function AppHeader({ screen, setScreen, user, openAuth, userPts, lang, setLang }
 
         {isGameFlow && (
           <button className="btn btn-sm btn-ghost" style={{width:"auto",display:"flex",alignItems:"center",gap:5}} onClick={()=>setScreen("home")}>
-            <X size={14}/>{t(lang,"exit")}
+            <X size={14}/>{tl("exit")}
           </button>
         )}
         {user && !isGameFlow && (
@@ -589,7 +598,7 @@ function AppHeader({ screen, setScreen, user, openAuth, userPts, lang, setLang }
         )}
         {!user && !isGameFlow && (
           <button className="btn btn-sm" style={{background:"#CAFF4D",color:"#0A0A0B",border:"none",borderRadius:100,padding:"6px 14px",fontSize:11,fontWeight:700,textTransform:"uppercase"}} onClick={openAuth}>
-            {t(lang,"cta_join")}
+            {tl("cta_join")}
           </button>
         )}
       </div>
@@ -617,12 +626,54 @@ const UGC_FEED = [
   {id:4,user:"jordi_mas",club:"Áccura Teià",label:"Eagle",course:"Vallromanes",hole:3,time:"fa 6h",likes:58,img:"https://images.unsplash.com/photo-1622979135225-d2ba269cf1ac?w=600&q=75",caption:"Tres sous seguits",lc:"#FBBF24"},
 ];
 
-const TOURNAMENTS_DATA = [
+// ── TOURNAMENTS: fallback data (used if Google Sheets API unavailable) ──
+// To update live: edit the Google Sheet linked in TournamentsScreen
+const TOURNAMENTS_FALLBACK = [
   {id:1,name:"P&C Spring Open",dateS:"15/06",course:"Vallromanes",location:"Vilanova del Vallès",format:"Strokeplay 18H",minTier:"player",spots:24,left:8,prize:"Kit P&C + 200 pts",status:"open",fee:"€15",category:"open"},
   {id:2,name:"Copa Canal Olímpic",dateS:"22/06",course:"Canal Olímpic",location:"Castelldefels",format:"Matchplay 9H",minTier:"caddie",spots:16,left:3,prize:"150 pts + greenfees",status:"open",fee:"€10",category:"club"},
   {id:3,name:"Master Series — R1",dateS:"05/07",course:"HCP1",location:"Sant Vicenç",format:"Strokeplay 18H",minTier:"master",spots:12,left:12,prize:"300 pts + trofeu",status:"soon",fee:"€25",category:"master"},
   {id:4,name:"Nit de Sant Joan",dateS:"23/06",course:"P&P Badalona",location:"Badalona",format:"Stableford 9H",minTier:"caddie",spots:32,left:19,prize:"Festa + 80 pts",status:"open",fee:"Gratis",category:"social"},
 ];
+// ── Keep alias for HomeScreen previews ──
+const TOURNAMENTS_DATA = TOURNAMENTS_FALLBACK;
+
+// ── Google Sheets config ──────────────────────────────────────
+// 1. Crea un Google Sheet públic (veure instruccions a README)
+// 2. Publica'l com a CSV: Arxiu → Compartir → Publicar al web → CSV
+// 3. Copia la URL i pega-la aquí:
+const SHEETS_CSV_URL = ""; // <-- posa aquí la URL del teu Google Sheet publicat
+
+// Converteix una fila CSV a objecte torneig
+function parseSheetRow(row) {
+  const [id,name,dateS,course,location,format,minTier,spots,left,prize,status,fee,category] = row;
+  if (!name || !name.trim()) return null;
+  return {
+    id: parseInt(id)||0, name:name.trim(), dateS:dateS.trim(),
+    course:course.trim(), location:location.trim(), format:format.trim(),
+    minTier:(minTier||'caddie').trim().toLowerCase(),
+    spots:parseInt(spots)||0, left:parseInt(left)||0,
+    prize:prize.trim(), status:(status||'soon').trim().toLowerCase(),
+    fee:fee.trim(), category:(category||'open').trim().toLowerCase(),
+  };
+}
+
+async function fetchTournamentsFromSheet() {
+  if (!SHEETS_CSV_URL) return null;
+  try {
+    const res  = await fetch(SHEETS_CSV_URL);
+    const text = await res.text();
+    const rows = text.trim().split('\n').slice(1); // skip header row
+    const parsed = rows.map(r => {
+      // Basic CSV parse (handles simple cases; no embedded commas in fields)
+      const cols = r.split(',').map(c => c.replace(/^"|"$/g,'').trim());
+      return parseSheetRow(cols);
+    }).filter(Boolean);
+    return parsed.length ? parsed : null;
+  } catch(e) {
+    console.warn('P&C: Could not load tournaments from Google Sheet:', e.message);
+    return null;
+  }
+}
 
 const PRODUCTS_DATA = [
   {id:1,name:"Kit Oficial Pink Beaks 24/25",club:"Pink Beaks",price:"€49",emoji:"👕",tag:"Kit Oficial"},
@@ -1005,7 +1056,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
 
       <div style={{marginBottom:20}}>
         <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:".04em",marginBottom:2}}>Nova Partida</div>
-        <div style={{fontSize:13,color:"#555761",fontWeight:400}}>Configura i comença</div>
+        <div style={{fontSize:13,color:"#555761",fontWeight:400}}>{tl("setup_sub")}</div>
       </div>
 
       {/* DATE */}
@@ -1016,7 +1067,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
 
       {/* COURSE SEARCH */}
       <div style={{marginBottom:16}}>
-        <span className="label">Camp ({COURSES.length} disponibles)</span>
+        <span className="label">{tl("label_course")} ({COURSES.length} {tl("course_hint").split(" ")[0]})</span>
         <div style={{position:"relative"}}>
           <input className="inp" placeholder="🔍  Cerca per nom, localitat o província..."
             value={courseQ}
@@ -1050,18 +1101,18 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
 
         {showCustom && (
           <div className="card ani-up" style={{marginTop:10,padding:"14px"}}>
-            <span className="label">Nom del camp</span>
+            <span className="label">{tl("custom_name")}</span>
             <input className="inp" style={{marginBottom:10}} placeholder="Ex: Club de Golf de Lleida" value={customName} onChange={e=>setCustomName(e.target.value)} />
             <div style={{display:"flex",gap:8}}>
               <div style={{flex:1}}>
-                <span className="label">Forats</span>
+                <span className="label">{tl("custom_holes")}</span>
                 <select className="inp" value={customHoles} onChange={e=>{setCustomHoles(Number(e.target.value));setCustomPar(Number(e.target.value)===9?27:54);}}>
                   <option value={9}>9 forats</option>
                   <option value={18}>18 forats</option>
                 </select>
               </div>
               <div style={{flex:1}}>
-                <span className="label">Par total</span>
+                <span className="label">{tl("custom_par")}</span>
                 <select className="inp" value={customPar} onChange={e=>setCustomPar(Number(e.target.value))}>
                   {customHoles===9 ? [27,28,29,30].map(v=><option key={v} value={v}>Par {v}</option>) : [52,54,56,58,72].map(v=><option key={v} value={v}>Par {v}</option>)}
                 </select>
@@ -1090,7 +1141,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
       {/* PLAYERS */}
       <div style={{marginBottom:16}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <span className="label" style={{marginBottom:0}}>Jugadors ({players.length}/4)</span>
+          <span className="label" style={{marginBottom:0}}>{tl("label_players")} ({players.length}/4)</span>
           {players.length < 4 && <button className="btn btn-ghost btn-sm" onClick={addPlayer}>+ Afegir</button>}
         </div>
         {players.map((p,i) => (
@@ -1125,197 +1176,482 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SCORECARD SCREEN
+   SCORECARD SCREEN — Dial C1 + Global D1 + Wheel
+═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   SCORECARD SCREEN — Dial C1 + Global D1 (tab intern)
 ═══════════════════════════════════════════════════════════════ */
 function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
   const tl = (k,v={}) => t(lang,k,v);
   const { course, date, gameMode, players, liveShare } = gameData;
   const pph = Math.round(course.par / course.holes);
 
+  /* ── State ── */
   const [scores, setScores] = useState(() =>
     Array.from({length:course.holes}, (_,i) => ({
-      hole: i+1,
-      par: pph,
-      playerScores: Object.fromEntries(players.map(p => [p.id, null])),
+      hole: i+1, par: pph,
+      playerScores: Object.fromEntries(players.map(p => [p.id, pph])),
     }))
   );
-  const [curHole, setCurHole] = useState(0);
+  const [curHole, setCurHole]               = useState(0);
   const [activePlayerId, setActivePlayerId] = useState(players[0].id);
+  const [panel, setPanel]                   = useState('dial'); // 'dial' | 'global'
+  const [confirmed, setConfirmed]           = useState(new Set()); // holes explicitly confirmed
 
-  const hole = scores[curHole];
-  const par = hole.par;
+  const confirmHole = (holeIdx, pid) => {
+    setConfirmed(prev => new Set([...prev, holeIdx]));
+  };
+
+  /* ── Derived ── */
+  const hole    = scores[curHole];
+  const par     = hole.par;
   const myScore = hole.playerScores[activePlayerId];
 
-  const filled = scores.filter((_,i) => players.every(p => scores[i].playerScores[p.id] !== null)).length;
-  const allDone = filled === course.holes;
+  const filledHoles  = confirmed.size;
+  const allDone      = confirmed.size >= course.holes;
+  const allThisHole  = confirmed.has(curHole);
 
-  const playerTotalScore = (pid) => scores.reduce((a,h) => a + (h.playerScores[pid] ?? h.par), 0);
-  const playerPCPts = (pid) => scores.reduce((a,h) => {
-    const s = h.playerScores[pid];
-    return a + (s !== null ? calcPCPoints(s, h.par) : 0);
-  }, 0);
+  const playerAccum = (pid, upTo) => {
+    let tot=0, cnt=0;
+    for(let i=0; i<upTo; i++) {
+      const v=scores[i].playerScores[pid];
+      if(v!==null){ tot+=v; cnt++; }
+    }
+    return cnt ? tot - pph*cnt : null;
+  };
 
+  const fmtDiff = (d) => {
+    if(d===null) return '—';
+    if(d>0)  return `+${d}`;
+    if(d===0) return 'E';
+    return `${d}`;
+  };
+
+  const dialBg = (v) => {
+    const d=v-par;
+    if(d<=-2) return '#FBBF24';
+    if(d===-1) return '#60A5FA';
+    if(d===0)  return '#CAFF4D';
+    if(d===1)  return '#EF4444';
+    return '#7F1D1D';
+  };
+
+  const diffColor = (d) =>
+    d===null?'#555761':d<0?'#CAFF4D':d===0?'#fff':'#EF4444';
+
+  /* ── Score setter ── */
   const setHoleScore = (pid, val) => {
     setScores(prev => prev.map((h,i) =>
       i===curHole ? {...h, playerScores:{...h.playerScores,[pid]:val}} : h
     ));
+    confirmHole(curHole, pid);
   };
 
-  const si = myScore !== null ? scoreInfo(myScore, par) : null;
-
-  const getScoreClass = (s) => {
-    const d = s - par;
-    if (d <= -2) return "eagle-col";
-    if (d === -1) return "birdie-col";
-    if (d === 0)  return "par-col";
-    if (d === 1)  return "bogey-col";
-    return "bad-col";
+  const changeDial = (delta) => {
+    const cur = myScore ?? par;
+    setHoleScore(activePlayerId, Math.max(1, cur + delta));
   };
 
+  /* Auto-advance to next player after registering */
+  const advancePlayer = () => {
+    const pidx = players.findIndex(p=>p.id===activePlayerId);
+    if(pidx < players.length-1) setActivePlayerId(players[pidx+1].id);
+  };
+
+  /* ── Badge style for global table ── */
+  const badgeStyle = (v, p) => {
+    const d=v-p;
+    if(d<=-2) return {background:'rgba(251,191,36,.12)',border:'1px solid rgba(251,191,36,.35)',color:'#FBBF24'};
+    if(d===-1) return {background:'rgba(96,165,250,.12)',border:'1px solid rgba(96,165,250,.35)',color:'#60A5FA'};
+    if(d===0)  return {background:'rgba(202,255,77,.1)', border:'1px solid rgba(202,255,77,.3)', color:'#CAFF4D'};
+    if(d===1)  return {background:'rgba(239,68,68,.08)', border:'1px solid rgba(239,68,68,.2)',  color:'#EF4444'};
+    return     {background:'rgba(127,29,29,.4)',  border:'1px solid rgba(239,68,68,.4)',  color:'#EF4444'};
+  };
+
+  const curVal    = myScore ?? par;
+  const curSI     = scoreInfo(curVal, par);
+  const curBg     = dialBg(curVal);
+  const labelText = curSI?.label.replace(/ [🎯🦅🐦✓😬]/u,'') ?? '';
+
+  /* ─────────────────────────────────────────────
+     RENDER
+  ───────────────────────────────────────────── */
   return (
-    <div className="page-scroll">
-      {/* ── Header info */}
-      <div style={{marginBottom:14}}>
-        <div style={{fontWeight:600,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{course.name}</div>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5}}>
-          <span style={{fontSize:11,color:"#555761",fontWeight:400}}>{filled}/{course.holes} forats · {GAME_MODES.find(m=>m.id===gameMode)?.label}</span>
-          <span className="pill" style={{fontSize:10,color:"#CAFF4D",borderColor:"rgba(202,255,77,.25)"}}>{playerPCPts(players.find(p=>p.isMe)?.id||players[0].id)} pts prov.</span>
+    <div style={{
+      position:'fixed', inset:0, background:'#0A0A0B',
+      display:'flex', flexDirection:'column', overflow:'hidden',
+      paddingBottom:'env(safe-area-inset-bottom)',
+    }}>
+
+      {/* ══ TOP BAR ══ */}
+      <div style={{
+        display:'flex', alignItems:'center', justifyContent:'space-between',
+        padding:'10px 16px 8px', borderBottom:'1px solid #1A1B1E', flexShrink:0,
+      }}>
+        <div style={{minWidth:0,flex:1,marginRight:8}}>
+          <div style={{fontSize:12,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>
+          <div style={{fontSize:10,color:'#555761',marginTop:1}}>
+            {filledHoles}/{course.holes} {tl('holes_label')} · {GAME_MODES.find(m=>m.id===gameMode)?.label}
+          </div>
         </div>
-        <div className="prog" style={{marginTop:6}}>
-          <div className="prog-fill" style={{width:`${(filled/course.holes)*100}%`,background:"#CAFF4D"}}/>
+        {/* Global button in top bar — pill style */}
+        <button onClick={()=>setPanel(p=>p==='global'?'dial':'global')} style={{
+          display:'flex',alignItems:'center',gap:5,flexShrink:0,
+          padding:'6px 12px',borderRadius:100,cursor:'pointer',
+          border: panel==='global'?'1px solid rgba(202,255,77,.5)':'1px solid #222327',
+          background: panel==='global'?'rgba(202,255,77,.1)':'#1A1B1E',
+          color: panel==='global'?'#CAFF4D':'#555761',
+          fontSize:11,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',fontFamily:'Inter',
+          transition:'all .15s',
+        }}>
+          <span style={{fontSize:13}}>📋</span>
+          <span>{panel==='global'?(lang==='en'?'← Score':lang==='es'?'← Jugar':'← Registrar'):'Global'}</span>
+        </button>
+      </div>
+
+      {/* ══ PROGRESS ══ */}
+      <div style={{display:'flex',gap:2,padding:'6px 16px 0',flexShrink:0}}>
+        {Array.from({length:course.holes},(_,i)=>(
+          <div key={i} style={{
+            flex:1, height:3, borderRadius:2,
+            background: i<curHole?'#CAFF4D':i===curHole?'rgba(202,255,77,.45)':'#1A1B1E',
+            transition:'background .3s',
+          }}/>
+        ))}
+      </div>
+
+      {/* ══ HOLE HEADER ══ */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',padding:'6px 16px 4px',flexShrink:0}}>
+        <div>
+          <div style={{fontSize:9,fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',color:'#555761'}}>
+            {lang==='en'?'Hole':lang==='es'?'Hoyo':'Forat'}
+          </div>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:52,color:'#CAFF4D',lineHeight:1}}>
+            {String(curHole+1).padStart(2,'0')}
+          </div>
+        </div>
+        <div style={{textAlign:'right'}}>
+          <div style={{fontSize:9,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#555761'}}>Par</div>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:28,lineHeight:1}}>{par}</div>
+          <div style={{fontSize:9,color:'#2A2B30',marginTop:1}}>{filledHoles}/{course.holes} {lang==='en'?'done':lang==='es'?'hechos':'fets'}</div>
         </div>
       </div>
 
-      {/* ── Player tabs (multiplayer) */}
-      {players.length > 1 && (
-        <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:2}}>
-          {players.map((p,i) => {
-            const done = hole.playerScores[p.id] !== null;
-            return (
-              <button key={p.id} className={`player-tab${activePlayerId===p.id?" active":""}`}
-                style={{"--pc":PLAYER_COLORS[i]} as React.CSSProperties}
-                onClick={()=>setActivePlayerId(p.id)}>
-                {done ? `${p.name.split(" ")[0]} ✓` : p.name.split(" ")[0]}
-              </button>
-            );
-          })}
+      {/* ══ ACUM PILLS ══ */}
+      <div style={{display:'flex',gap:5,padding:'0 16px 6px',flexWrap:'wrap',flexShrink:0}}>
+        {players.map((p,i)=>{
+          const d = playerAccum(p.id, curHole);
+          return (
+            <div key={p.id} style={{
+              display:'flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:100,
+              border:'1px solid #1A1B1E',background:'#0D0D0F',fontSize:10,fontWeight:700,
+            }}>
+              <div style={{width:5,height:5,borderRadius:'50%',background:PLAYER_COLORS[i]}}/>
+              <span style={{color:'#555761'}}>{p.name.split(' ')[0]}</span>
+              <span style={{fontFamily:"'Bebas Neue'",fontSize:14,lineHeight:1,color:diffColor(d)}}>{fmtDiff(d)}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{height:1,background:'#1A1B1E',margin:'0 16px',flexShrink:0}}/>
+
+      {/* ══════════════════════════════════════════
+          PANEL: DIAL (registrar)
+      ══════════════════════════════════════════ */}
+      {panel==='dial' && (
+        <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'10px 16px',gap:10,overflow:'hidden'}}>
+
+          {/* Player tabs */}
+          {players.length > 1 && (
+            <div style={{display:'flex',gap:5,flexWrap:'wrap',justifyContent:'center'}}>
+              {players.map((p,i)=>{
+                const scored = hole.playerScores[p.id] !== null;
+                const active = p.id === activePlayerId;
+                const sv     = hole.playerScores[p.id];
+                return (
+                  <div key={p.id} onClick={()=>setActivePlayerId(p.id)} style={{
+                    display:'flex',alignItems:'center',gap:4,padding:'5px 11px',borderRadius:100,
+                    border: active?`1px solid ${PLAYER_COLORS[i]}55`:'1px solid #222327',
+                    background: active?`${PLAYER_COLORS[i]}10`:'#1A1B1E',
+                    cursor:'pointer',position:'relative',transition:'all .15s',
+                  }}>
+                    <div style={{
+                      width:18,height:18,borderRadius:'50%',background:PLAYER_COLORS[i],
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      fontSize:7,fontWeight:700,color:'#0A0A0B',flexShrink:0,
+                    }}>{p.name[0]}</div>
+                    <span style={{fontSize:10,fontWeight:700,color:active?PLAYER_COLORS[i]:'#555761'}}>{p.name.split(' ')[0]}</span>
+                    <span style={{fontFamily:"'Bebas Neue'",fontSize:14,color:active?PLAYER_COLORS[i]:'#555761',lineHeight:1}}>
+                      {sv ?? '?'}
+                    </span>
+                    {scored && (
+                      <div style={{
+                        position:'absolute',top:-4,right:-4,width:13,height:13,
+                        borderRadius:'50%',background:'#34D399',border:'2px solid #111214',
+                        display:'flex',alignItems:'center',justifyContent:'center',
+                        fontSize:7,color:'#fff',fontWeight:700,
+                      }}>✓</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Result label */}
+          <div style={{
+            fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:'.06em',
+            color: curVal===par ? '#CAFF4D' : curSI?.color ?? '#fff',
+            transition:'color .2s',
+          }}>
+            {labelText || 'Par'}
+          </div>
+
+          {/* ── BIG DIAL CIRCLE ── */}
+          <div style={{display:'flex',alignItems:'center',gap:0}}>
+            {/* Minus */}
+            <button onClick={()=>changeDial(-1)} style={{
+              width:60,height:60,borderRadius:'50%',
+              background:'#1A1B1E',border:'2px solid #222327',
+              cursor:'pointer',fontSize:26,color:'#555761',
+              display:'flex',alignItems:'center',justifyContent:'center',
+              transition:'all .12s',flexShrink:0,fontFamily:'Inter',
+            }}>−</button>
+
+            {/* Circle — always shows curVal in color; dim ring if not yet confirmed */}
+            <div style={{
+              width:120,height:120,borderRadius:'50%',
+              background: curBg,
+              display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+              margin:'0 -10px',zIndex:2,position:'relative',
+              boxShadow: myScore===null
+                ? `0 0 0 4px #111214, 0 0 0 6px ${curBg}30, 0 8px 28px rgba(0,0,0,.5)`
+                : `0 0 0 4px #111214, 0 8px 32px ${curBg}70`,
+              transition:'background .2s,box-shadow .2s',
+              opacity: 1,
+            }}>
+              <div style={{
+                fontFamily:"'Bebas Neue'",fontSize:68,
+                color:'#0A0A0B',
+                lineHeight:1,transition:'none',
+              }}>
+                {curVal}
+              </div>
+              <div style={{
+                fontSize:9,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',
+                color:'rgba(0,0,0,.4)',
+                marginTop:-4,
+              }}>
+                {lang==='en'?'shots':lang==='es'?'golpes':'cops'}
+              </div>
+            </div>
+
+            {/* Plus */}
+            <button onClick={()=>changeDial(1)} style={{
+              width:60,height:60,borderRadius:'50%',
+              background:'#1A1B1E',border:'2px solid #222327',
+              cursor:'pointer',fontSize:26,color:'#555761',
+              display:'flex',alignItems:'center',justifyContent:'center',
+              transition:'all .12s',flexShrink:0,fontFamily:'Inter',
+            }}>+</button>
+          </div>
+
+          {/* Confirm / next player button */}
+          {players.length > 1 && myScore !== null && !allThisHole && (
+            <button onClick={advancePlayer} style={{
+              padding:'8px 22px',borderRadius:100,
+              border:'1px solid rgba(202,255,77,.3)',background:'rgba(202,255,77,.07)',
+              color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',
+              letterSpacing:'.06em',textTransform:'uppercase',
+            }}>
+              ✓ {lang==='en'?'Next player':lang==='es'?'Sig. jugador':'Seg. jugador'} →
+            </button>
+          )}
+
+          {/* Score legend */}
+          <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'center',marginTop:2}}>
+            {[['Eagle+','#FBBF24'],['Birdie','#60A5FA'],['Par','#CAFF4D'],['Bogey','#fff'],['D.Bogey','#EF4444']].map(([l,c])=>(
+              <div key={l} style={{display:'flex',alignItems:'center',gap:3}}>
+                <div style={{width:5,height:5,borderRadius:'50%',background:c,flexShrink:0}}/>
+                <span style={{fontSize:9,color:'#555761',fontWeight:600}}>{l}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* ── Hole navigation */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-        <button className="btn btn-ghost btn-icon" disabled={curHole===0} onClick={()=>setCurHole(h=>h-1)}>‹</button>
-        <div style={{textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase"}}>Forat</div>
-          <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(60px,18vw,84px)",lineHeight:1,color:"#fff"}}>{curHole+1}</div>
-          <div style={{display:"flex",gap:5,justifyContent:"center",flexWrap:"wrap"}}>
-            <span className="pill" style={{fontSize:11}}>Par {par}</span>
-            {si && <span className="pill" style={{fontSize:11,color:si.color,borderColor:`${si.color}44`}}>{si.label}</span>}
-          </div>
-        </div>
-        <button className="btn btn-ghost btn-icon" disabled={curHole===course.holes-1} onClick={()=>setCurHole(h=>h+1)}>›</button>
-      </div>
-
-      {/* ── Score buttons */}
-      <div style={{marginBottom:18}}>
-        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",textAlign:"center",marginBottom:12}}>
-          Cops{players.length>1?` — ${players.find(p=>p.id===activePlayerId)?.name}`:""}
-        </div>
-        <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
-          {Array.from({length:par+4},(_,i)=>i+1).map(s => {
-            const isOn = myScore===s;
-            const si2 = scoreInfo(s,par);
-            return (
-              <button key={s} className={`score-ring ${getScoreClass(s)}${isOn?" active":""}`}
-                style={isOn?{background:si2?.color||"#CAFF4D",borderColor:si2?.color||"#CAFF4D",color:"#0A0A0B"}:{borderColor:scoreColor(s-par)+"44"}}
-                onClick={()=>{
-                  setHoleScore(activePlayerId, s);
-                  const pidx = players.findIndex(p=>p.id===activePlayerId);
-                  if (pidx < players.length-1) {
-                    setActivePlayerId(players[pidx+1].id);
-                  }
-                }}>{s}</button>
-            );
-          })}
-        </div>
-        <div style={{display:"flex",gap:10,justifyContent:"center",marginTop:10,flexWrap:"wrap"}}>
-          {[["Eagle+","#FBBF24"],["Birdie","#60A5FA"],["Par","#CAFF4D"],["Bogey","#fff"],["Pena","#EF4444"]].map(([l,c])=>(
-            <div key={l} style={{display:"flex",alignItems:"center",gap:3}}>
-              <div style={{width:5,height:5,borderRadius:"50%",background:c}}/>
-              <span style={{fontSize:10,color:"#555761",fontWeight:600}}>{l}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Mini scorecard */}
-      <div className="card" style={{padding:"12px 13px",marginBottom:14}}>
-        <div className="sec-title" style={{marginBottom:6}}>{tl("scorecard_title")}</div>
-        <div style={{overflowX:"auto"}}>
-          <table className="sc-table">
+      {/* ══════════════════════════════════════════
+          PANEL: GLOBAL TABLE
+      ══════════════════════════════════════════ */}
+      {panel==='global' && (
+        <div style={{flex:1,overflowY:'auto',padding:'10px 14px'}}>
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
             <thead>
               <tr>
-                <th style={{textAlign:"left"}}>F.</th>
-                <th>Par</th>
-                {players.map((p,i)=><th key={p.id} style={{color:PLAYER_COLORS[i]}}>{p.name.split(" ")[0]}</th>)}
+                <th style={{fontSize:8,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#555761',padding:'5px 4px 6px',textAlign:'left',borderBottom:'1px solid #1A1B1E'}}>
+                  {lang==='en'?'H.':lang==='es'?'H.':'F.'}
+                </th>
+                <th style={{fontSize:8,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#555761',padding:'5px 4px 6px',textAlign:'center',borderBottom:'1px solid #1A1B1E'}}>Par</th>
+                {players.map((p,i)=>(
+                  <th key={p.id} style={{fontSize:8,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:PLAYER_COLORS[i],padding:'5px 4px 6px',textAlign:'center',borderBottom:'1px solid #1A1B1E'}}>
+                    {p.name.split(' ')[0].slice(0,5).toUpperCase()}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {scores.slice(0,curHole+1).map((h,idx)=>(
-                <tr key={idx} onClick={()=>setCurHole(idx)} style={{cursor:"pointer",background:idx===curHole?"#1A1B1E":"transparent"}}>
-                  <td style={{textAlign:"left",fontWeight:700}}>{h.hole}</td>
-                  <td style={{color:"#555761"}}>{h.par}</td>
-                  {players.map((p,pi)=>{
-                    const s = h.playerScores[p.id];
-                    const d = s !== null ? s - h.par : null;
-                    const c = d===null?"#555761":d<0?"#FBBF24":d===0?"#CAFF4D":d===1?"#FFFFFF":"#EF4444";
-                    return <td key={p.id} style={{color:c,fontWeight:700}}>{s??"-"}</td>;
-                  })}
-                </tr>
-              ))}
-              {curHole > 0 && (
-                <tr style={{borderTop:"2px solid #2A2B30"}}>
-                  <td style={{textAlign:"left",fontSize:10,color:"#555761",letterSpacing:".06em"}}>TOT.</td>
-                  <td style={{color:"#555761",fontWeight:700}}>{scores.slice(0,curHole+1).reduce((a,h)=>a+h.par,0)}</td>
-                  {players.map((p)=>{
-                    const tot = scores.slice(0,curHole+1).reduce((a,h)=>a+(h.playerScores[p.id]??h.par),0);
-                    const totPar = scores.slice(0,curHole+1).reduce((a,h)=>a+h.par,0);
-                    const d = tot - totPar;
-                    return <td key={p.id} style={{fontWeight:700,color:d<0?"#FBBF24":d===0?"#CAFF4D":"#FFFFFF"}}>{d>0?`+${d}`:d}</td>;
-                  })}
-                </tr>
-              )}
+              {scores.map((h,idx)=>{
+                const isCur  = idx===curHole;
+                const isPast = idx<curHole;
+                return (
+                  <tr key={idx}
+                    onClick={()=>{setCurHole(idx);setActivePlayerId(players[0].id);setPanel('dial');}}
+                    style={{cursor:'pointer',background:isCur?'rgba(202,255,77,.04)':'transparent'}}>
+                    <td style={{
+                      fontFamily:"'Bebas Neue'",fontSize:13,padding:'5px 4px',
+                      borderBottom:'1px solid #111214',textAlign:'left',
+                      color:isCur?'#fff':isPast?'#CAFF4D':'#2A2B30',
+                    }}>
+                      {String(h.hole).padStart(2,'0')}{isCur?' ▶':''}
+                    </td>
+                    <td style={{fontSize:10,color:'#555761',padding:'5px 4px',borderBottom:'1px solid #111214',textAlign:'center'}}>{h.par}</td>
+                    {players.map((p)=>{
+                      const v=h.playerScores[p.id];
+                      if(v===null){
+                        return (
+                          <td key={p.id} style={{padding:'5px 4px',borderBottom:'1px solid #111214',textAlign:'center'}}>
+                            <div style={{
+                              width:26,height:26,borderRadius:6,margin:'0 auto',
+                              border:isCur?'1.5px dashed rgba(202,255,77,.5)':'1px solid #1A1B1E',
+                              display:'flex',alignItems:'center',justifyContent:'center',
+                              fontFamily:"'Bebas Neue'",fontSize:11,
+                              color:isCur?'rgba(202,255,77,.6)':'transparent',
+                            }}>?</div>
+                          </td>
+                        );
+                      }
+                      const bs=badgeStyle(v,h.par);
+                      return (
+                        <td key={p.id} style={{padding:'5px 4px',borderBottom:'1px solid #111214',textAlign:'center'}}>
+                          <div style={{
+                            width:26,height:26,borderRadius:6,margin:'0 auto',
+                            ...bs,
+                            display:'flex',alignItems:'center',justifyContent:'center',
+                            fontFamily:"'Bebas Neue'",fontSize:16,
+                          }}>{v}</div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={2} style={{
+                  fontSize:9,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',
+                  color:'#555761',padding:'7px 4px',borderTop:'1px solid #222327',
+                }}>TOTAL</td>
+                {players.map((p,i)=>{
+                  let tot=0,cnt=0;
+                  scores.forEach(h=>{const v=h.playerScores[p.id];if(v!==null){tot+=v;cnt++;}});
+                  const d=cnt?tot-pph*cnt:null;
+                  return (
+                    <td key={p.id} style={{padding:'7px 4px',borderTop:'1px solid #222327',textAlign:'center'}}>
+                      <span style={{fontFamily:"'Bebas Neue'",fontSize:16,color:diffColor(d)}}>
+                        {fmtDiff(d)}
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
           </table>
+          <div style={{fontSize:10,color:'#555761',textAlign:'center',marginTop:10,fontWeight:500,lineHeight:1.5}}>
+            {lang==='en'?'Tap any hole to jump back to scoring':lang==='es'?'Toca un hoyo para volver':'Toca un forat per tornar al dial'}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Nav & Finish */}
-      <div style={{display:"flex",gap:8}}>
-        {curHole < course.holes-1 && (
-          <button className="btn btn-primary" style={{flex:1}} onClick={()=>{setCurHole(h=>h+1);setActivePlayerId(players[0].id);}}>
-            {tl("hole_next",{n:curHole+2})}
-          </button>
-        )}
-        {allDone && (
-          <button className="btn btn-primary" style={{flex:1,background:"#FBBF24",color:"#0A0A0B"}} onClick={()=>onFinish(scores)}>
-            Finalitzar ✓
-          </button>
+      {/* ══ BOTTOM NAV ══ */}
+      <div style={{display:'flex',gap:8,padding:'8px 16px',borderTop:'1px solid #1A1B1E',flexShrink:0}}>
+
+        {panel==='global' ? (
+          /* ── Global view nav: back button + hole jump info ── */
+          <>
+            <button onClick={()=>setPanel('dial')} style={{
+              flex:1,padding:'13px 8px',borderRadius:10,border:'none',
+              background:'#CAFF4D',color:'#0A0A0B',
+              fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.04em',textTransform:'uppercase',
+              display:'flex',alignItems:'center',justifyContent:'center',gap:6,
+            }}>
+              ⛳ {lang==='en'?'Back to scoring':lang==='es'?'Volver a jugar':'Tornar a registrar'}
+            </button>
+            {allDone && (
+              <button onClick={()=>onFinish(scores)} style={{
+                flex:1,padding:'13px 8px',borderRadius:10,border:'none',
+                background:'#FBBF24',color:'#0A0A0B',
+                fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.04em',textTransform:'uppercase',
+              }}>
+                {tl('finish')}
+              </button>
+            )}
+          </>
+        ) : (
+          /* ── Dial view nav: prev / next ── */
+          <>
+            <button
+              onClick={()=>{if(curHole>0){setCurHole(h=>h-1);setActivePlayerId(players[0].id);}}}
+              disabled={curHole===0}
+              style={{
+                flex:1,padding:'13px 8px',borderRadius:10,border:'1px solid #222327',
+                background:'#1A1B1E',color:curHole===0?'#2A2B30':'#787C8A',
+                fontSize:11,fontWeight:700,cursor:curHole===0?'default':'pointer',
+                letterSpacing:'.04em',textTransform:'uppercase',
+              }}>
+              ← {lang==='en'?'H':lang==='es'?'H':'F'}{String(curHole).padStart(2,'0')}
+            </button>
+
+            {allDone ? (
+              <button onClick={()=>onFinish(scores)} style={{
+                flex:2,padding:'13px 8px',borderRadius:10,border:'none',
+                background:'#FBBF24',color:'#0A0A0B',
+                fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:'.04em',textTransform:'uppercase',
+              }}>
+                {tl('finish')}
+              </button>
+            ) : (
+              <button onClick={()=>{
+                if(!allThisHole){ confirmHole(curHole); }
+                if(curHole<course.holes-1){
+                  setCurHole(h=>h+1);
+                  setActivePlayerId(players[0].id);
+                }
+              }} style={{
+                flex:2,padding:'13px 8px',borderRadius:10,border:'none',
+                background:'#CAFF4D',color:'#0A0A0B',
+                fontSize:11,fontWeight:700,cursor:'pointer',letterSpacing:'.04em',textTransform:'uppercase',
+              }}>
+                {lang==='en'?'H':lang==='es'?'H':'F'}{String(curHole+2).padStart(2,'0')} →
+              </button>
+            )}
+          </>
         )}
       </div>
 
       {!user && (
-        <div style={{marginTop:12,fontSize:11,color:"#555761",textAlign:"center",fontWeight:400}}>
-          Mode visitant · <span style={{color:"#CAFF4D",cursor:"pointer",fontWeight:600}} onClick={openAuth}>Crea un compte</span> per guardar l'historial
+        <div style={{textAlign:'center',fontSize:10,color:'#555761',padding:'4px 16px 6px',flexShrink:0}}>
+          {lang==='en'?'Guest mode ·':lang==='es'?'Modo visitante ·':'Mode visitant ·'}{' '}
+          <span style={{color:'#CAFF4D',cursor:'pointer',fontWeight:600}} onClick={openAuth}>
+            {lang==='en'?'Create account':lang==='es'?'Crea cuenta':'Crea compte'}
+          </span>
         </div>
       )}
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   GAME SUMMARY SCREEN
-═══════════════════════════════════════════════════════════════ */
 function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang }) {
   const tl = (k,v={}) => t(lang,k,v);
   const me = game.players.find(p => p.isMe);
@@ -1571,14 +1907,54 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
 ═══════════════════════════════════════════════════════════════ */
 function TournamentsScreen({ openAuth, user, lang }) {
   const tl = (k,v={}) => t(lang,k,v);
-  const [cat, setCat] = useState("all");
+  const [cat, setCat]         = useState("all");
+  const [liveData, setLiveData] = useState(null);   // null = not loaded yet
+  const [loading, setLoading]   = useState(!!SHEETS_CSV_URL);
+  const [lastSync, setLastSync] = useState(null);
+
+  // Fetch live data on mount (and every 5 min if visible)
+  useEffect(() => {
+    if (!SHEETS_CSV_URL) return;
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      const data = await fetchTournamentsFromSheet();
+      if (!cancelled) {
+        setLiveData(data);
+        setLastSync(new Date());
+        setLoading(false);
+      }
+    };
+    load();
+    const interval = setInterval(load, 5 * 60 * 1000); // refresh every 5 min
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
+  const allTournaments = liveData ?? TOURNAMENTS_FALLBACK;
   const cats = [{id:"all",l:tl("cat_all")},{id:"open",l:tl("cat_open")},{id:"club",l:tl("cat_club")},{id:"master",l:"Master Series"},{id:"social",l:tl("cat_social")}];
-  const filtered = cat==="all" ? TOURNAMENTS_DATA : TOURNAMENTS_DATA.filter(t=>t.category===cat);
+  const filtered = cat==="all" ? allTournaments : allTournaments.filter(t=>t.category===cat);
   return (
     <div className="page-scroll">
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:5}}>Competicions 2025</div>
-        <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(28px,8vw,44px)",letterSpacing:".04em",lineHeight:1}}>TORNEJOS <span className="lime">P&C</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:5}}>Competicions 2025</div>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(28px,8vw,44px)",letterSpacing:".04em",lineHeight:1}}>TORNEJOS <span className="lime">P&C</span></div>
+          </div>
+          {SHEETS_CSV_URL && (
+            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:6}}>
+              {loading
+                ? <span style={{fontSize:9,color:"#555761",fontWeight:700,letterSpacing:".06em"}}>↻ Sincronitzant...</span>
+                : liveData
+                  ? <span style={{display:"flex",alignItems:"center",gap:4,fontSize:9,color:"#34D399",fontWeight:700,letterSpacing:".06em"}}>
+                      <span style={{width:5,height:5,borderRadius:"50%",background:"#34D399",display:"inline-block",flexShrink:0}}/>
+                      EN DIRECTE
+                    </span>
+                  : <span style={{fontSize:9,color:"#EF4444",fontWeight:700,letterSpacing:".06em"}}>⚠ Fallback</span>
+              }
+            </div>
+          )}
+        </div>
       </div>
       {/* Category filter */}
       <div style={{display:"flex",gap:6,marginBottom:16,overflowX:"auto",paddingBottom:2}}>
@@ -1647,47 +2023,76 @@ function TournamentsScreen({ openAuth, user, lang }) {
 ═══════════════════════════════════════════════════════════════ */
 function ShopScreen({ openAuth, user, lang }) {
   const tl = (k,v={}) => t(lang,k,v);
+  const [notified, setNotified] = useState({});
+
   return (
-    <div className="page-scroll">
-      <div style={{marginBottom:14}}>
-        <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:5}}>Kits & Gear</div>
-        <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(28px,8vw,44px)",letterSpacing:".04em",lineHeight:1}}>BOTIGA <span className="lime">P&C</span></div>
+    <div className="page-scroll ani-up">
+      {/* Header */}
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:5}}>{tl("shop_sub")}</div>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(28px,8vw,44px)",letterSpacing:".04em",lineHeight:1}}>
+          {tl("shop_title").split(" ")[0]} <span style={{color:"#CAFF4D"}}>{tl("shop_title").split(" ").slice(1).join(" ")}</span>
+        </div>
       </div>
+
       {/* Coming soon banner */}
-      <div style={{background:"rgba(202,255,77,.07)",border:"1px solid rgba(202,255,77,.2)",borderRadius:12,padding:"22px 18px",textAlign:"center",marginBottom:18}}>
-        <div style={{fontSize:42,marginBottom:10}}>🛒</div>
-        <div style={{fontFamily:"'Bebas Neue'",fontSize:26,color:"#CAFF4D",letterSpacing:".04em",marginBottom:6}}>AVIAT DISPONIBLE</div>
-        <div style={{fontSize:13,color:"#787C8A",lineHeight:1.7,marginBottom:14}}>La botiga oficial de P&C obrirà aviat. Kits de clubs, gear exclusiu P&C i molt més. El 10% de cada compra va al teu club.</div>
-        <button className="btn btn-primary" style={{fontSize:13}} onClick={!user?openAuth:undefined}>
-          {user?tl("shop_soon_btn_user"):tl("shop_soon_btn_guest")}
-        </button>
+      <div style={{background:"rgba(202,255,77,.06)",border:"1px solid rgba(202,255,77,.2)",borderRadius:12,padding:"18px 16px",marginBottom:20,display:"flex",alignItems:"flex-start",gap:14}}>
+        <div style={{fontSize:28,flexShrink:0,marginTop:2}}>🛒</div>
+        <div style={{flex:1}}>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:"#CAFF4D",letterSpacing:".04em",marginBottom:4}}>{tl("shop_soon_title")}</div>
+          <div style={{fontSize:12,color:"#787C8A",lineHeight:1.6,marginBottom:12}}>{tl("shop_soon_desc")}</div>
+          <button className="btn btn-primary" style={{fontSize:12,padding:"11px 16px",borderRadius:8}} onClick={!user?openAuth:undefined}>
+            {user ? tl("shop_soon_btn_user") : tl("shop_soon_btn_guest")}
+          </button>
+        </div>
       </div>
-      {/* Preview products */}
-      <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:12}}>Avantvisualització</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+
+      {/* Products preview */}
+      <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:12}}>{tl("shop_preview")}</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}>
         {PRODUCTS_DATA.map(p => (
-          <div key={p.id} className="card" style={{padding:"14px 12px",position:"relative",overflow:"hidden"}}>
-            <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,#CAFF4D,rgba(202,255,77,0))"}}/>
-            <div style={{fontSize:28,marginBottom:8}}>{p.emoji}</div>
-            <div style={{fontSize:11,fontWeight:700,marginBottom:3,lineHeight:1.3}}>{p.name}</div>
-            <div style={{fontSize:10,color:"#555761",marginBottom:8}}>{p.club}</div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:"#CAFF4D"}}>{p.price}</div>
-              <span style={{fontSize:8,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",padding:"2px 7px",borderRadius:3,background:"rgba(202,255,77,.1)",color:"#CAFF4D",border:"1px solid rgba(202,255,77,.2)"}}>{p.tag}</span>
+          <div key={p.id} className="card" style={{padding:"14px 12px",position:"relative",overflow:"hidden",opacity:.85}}>
+            {/* Coming soon overlay badge */}
+            <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:"linear-gradient(90deg,#CAFF4D,rgba(202,255,77,0))"}}/>
+            <div style={{position:"absolute",top:9,right:9,fontSize:8,fontWeight:700,letterSpacing:".06em",
+              textTransform:"uppercase",padding:"2px 7px",borderRadius:3,
+              background:"rgba(202,255,77,.08)",color:"rgba(202,255,77,.5)",border:"1px solid rgba(202,255,77,.15)"}}>
+              {tl("shop_soon_title")}
             </div>
+            <div style={{fontSize:26,marginBottom:8,marginTop:2}}>{p.emoji}</div>
+            <div style={{fontSize:11,fontWeight:700,marginBottom:2,lineHeight:1.3,paddingRight:44}}>{p.name}</div>
+            <div style={{fontSize:10,color:"#555761",marginBottom:10}}>{p.club}</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:"#CAFF4D"}}>{p.price}</div>
+              <span style={{fontSize:8,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",
+                padding:"2px 7px",borderRadius:3,background:"rgba(202,255,77,.06)",color:"#555761",
+                border:"1px solid #1A1B1E"}}>{p.tag}</span>
+            </div>
+            <button
+              onClick={() => setNotified(n => ({...n,[p.id]:true}))}
+              style={{width:"100%",padding:"8px 6px",borderRadius:7,border:"1px solid #222327",
+                background:notified[p.id]?"rgba(202,255,77,.1)":"#111214",
+                color:notified[p.id]?"#CAFF4D":"#555761",
+                fontSize:9,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",cursor:"pointer",
+                display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+              {notified[p.id] ? "✓ Apuntat!" : (lang==="en"?"Notify me":lang==="es"?"Avisarme":"Avisa'm")}
+            </button>
           </div>
         ))}
       </div>
-      <div className="card" style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
-        <div style={{fontSize:24,flexShrink:0}}>💡</div>
+
+      {/* 10% club info */}
+      <div className="card" style={{padding:"14px 16px",display:"flex",alignItems:"flex-start",gap:12}}>
+        <div style={{fontSize:22,flexShrink:0,marginTop:2}}>💡</div>
         <div>
-          <div style={{fontWeight:600,fontSize:13,marginBottom:3}}>El teu club cobra el 10%</div>
-          <div style={{fontSize:11,color:"#787C8A",lineHeight:1.6}}>Cada compra al kit oficial del teu club li aporta un 10% directament. Suport real, no màrqueting.</div>
+          <div style={{fontWeight:700,fontSize:13,marginBottom:4}}>{tl("shop_club_title")}</div>
+          <div style={{fontSize:11,color:"#787C8A",lineHeight:1.6}}>{tl("shop_club_desc")}</div>
         </div>
       </div>
     </div>
   );
 }
+
 
 /* ═══════════════════════════════════════════════════════════════
    PROFILE / STATS SCREEN

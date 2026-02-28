@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Home, BarChart2, ShoppingBag, Trophy, User, Plus, ChevronRight, ChevronLeft,
   Check, X, Search, MapPin, Calendar, Users, Zap, Star, TrendingUp,
@@ -591,7 +591,13 @@ function AppHeader({ screen, setScreen, user, openAuth, userPts, lang, setLang }
         </div>
 
         {isGameFlow && (
-          <button className="btn btn-sm btn-ghost" style={{width:"auto",display:"flex",alignItems:"center",gap:5}} onClick={()=>setScreen("home")}>
+          <button className="btn btn-sm btn-ghost" style={{width:"auto",display:"flex",alignItems:"center",gap:5}} onClick={()=>{
+            localStorage.removeItem('pc_gameData');
+            localStorage.removeItem('pc_scores');
+            localStorage.removeItem('pc_curHole');
+            localStorage.removeItem('pc_screen');
+            setScreen("home");
+          }}>
             <X size={14}/>{tl("exit")}
           </button>
         )}
@@ -721,7 +727,7 @@ const LEADERBOARD_CAMP = [
 /* ═══════════════════════════════════════════════════════════════
    HOME SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang }) {
+function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, activeGame, onResumeGame }) {
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [liked, setLiked] = useState({});
@@ -735,6 +741,28 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang }
 
   return (
     <div className="page-scroll ani-up">
+
+      {/* ── PARTIDA EN CURS ── */}
+      {activeGame && (
+        <div onClick={onResumeGame} style={{
+          display:'flex',alignItems:'center',justifyContent:'space-between',
+          background:'rgba(202,255,77,.08)',border:'1px solid rgba(202,255,77,.3)',
+          borderRadius:10,padding:'12px 14px',marginBottom:14,cursor:'pointer',
+        }}>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',color:'#CAFF4D',marginBottom:2}}>
+              ⛳ {lang==='en'?'Game in progress':lang==='es'?'Partida en curso':'Partida en curs'}
+            </div>
+            <div style={{fontSize:13,fontWeight:600}}>{activeGame.course?.name}</div>
+          </div>
+          <div style={{
+            background:'#CAFF4D',color:'#0A0A0B',borderRadius:8,
+            padding:'7px 14px',fontSize:11,fontWeight:700,flexShrink:0,
+          }}>
+            {lang==='en'?'Resume →':lang==='es'?'Continuar →':'Continuar →'}
+          </div>
+        </div>
+      )}
 
       {/* ── PLAYER CARD / HERO ── */}
       {user ? (
@@ -988,7 +1016,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
   const [customPar, setCustomPar] = useState(54);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [gameMode, setGameMode] = useState("stableford");
-  const [players, setPlayers] = useState([{ id:1, name:"Tu", isMe:true }]);
+  const [players, setPlayers] = useState([{ id:1, name: user?.name || "Tu", isMe:true }]);
   const [liveShare, setLiveShare] = useState(false);
 
   const activeCourse = customCourse || selCourse;
@@ -1114,10 +1142,13 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
         {players.map((p,i) => (
           <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",background:"#1A1B1E",border:"1px solid #222327",borderRadius:8,marginBottom:6}}>
             <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[i],flexShrink:0}} />
-            {p.isMe
-              ? <div style={{flex:1,fontWeight:600,fontSize:14}}>{p.name} <span style={{fontSize:11,color:"#555761",fontWeight:400}}>· Tu</span></div>
-              : <input className="inp" style={{flex:1,padding:"6px 8px",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0}} placeholder="Nom del jugador" value={p.name} onChange={e=>updateName(p.id,e.target.value)} />
-            }
+            <div style={{flex:1,position:"relative"}}>
+              <input className="inp" style={{width:"100%",padding:"6px 8px",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0}} 
+                placeholder={p.isMe ? (user?.name || "El teu nom") : "Nom del jugador"} 
+                value={p.name === "Tu" && p.isMe ? (user?.name || "") : p.name} 
+                onChange={e=>updateName(p.id,e.target.value)} />
+              {p.isMe && <span style={{position:"absolute",right:4,top:"50%",transform:"translateY(-50%)",fontSize:10,color:"#555761",fontWeight:600,pointerEvents:"none"}}>TU</span>}
+            </div>
             {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:18,padding:4,lineHeight:1}} onClick={()=>removePlayer(p.id)}>×</button>}
           </div>
         ))}
@@ -1148,19 +1179,102 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
 /* ═══════════════════════════════════════════════════════════════
    SCORECARD SCREEN — Dial C1 + Global D1 (tab intern)
 ═══════════════════════════════════════════════════════════════ */
+/* ─── NUMBER PICKER ───────────────────────────────────────── */
+function NumberPicker({ value, par, onChange, lang }) {
+  const scoreColor = (v) => {
+    const d = v - par;
+    if (d <= -2) return '#FBBF24';
+    if (d === -1) return '#60A5FA';
+    if (d === 0)  return '#CAFF4D';
+    if (d === 1)  return '#FFFFFF';
+    return '#EF4444';
+  };
+  const scoreLabel = (v) => {
+    const d = v - par;
+    if (d <= -2) return 'HiO 🎯';
+    if (d === -1) return 'Birdie';
+    if (d === 0)  return 'Par';
+    if (d === 1)  return 'Bogey';
+    if (d === 2)  return 'D.Bogey';
+    return `+${d}`;
+  };
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:12,width:'100%',maxWidth:320}}>
+      {/* Big number + label */}
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:80,lineHeight:1,
+          color:scoreColor(value),transition:'color .15s',
+          textShadow:`0 0 40px ${scoreColor(value)}30`}}>
+          {value}
+        </div>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:'.08em',
+          color:scoreColor(value),transition:'color .15s'}}>
+          {scoreLabel(value)}
+        </div>
+      </div>
+
+      {/* Number grid 1–9 + minus */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:8,width:'100%'}}>
+        {[1,2,3,4,5,6,7,8,9].map(v => {
+          const active = v === value;
+          const col = scoreColor(v);
+          return (
+            <div key={v} onClick={()=>onChange(v)} style={{
+              height:52,borderRadius:10,
+              display:'flex',alignItems:'center',justifyContent:'center',
+              cursor:'pointer',
+              border: active ? `2px solid ${col}` : '1px solid #222327',
+              background: active ? `${col}18` : '#1A1B1E',
+              transition:'all .1s',
+            }}>
+              <span style={{fontFamily:"'Bebas Neue'",fontSize:26,
+                color: active ? col : '#555761',
+                transition:'color .1s'}}>
+                {v}
+              </span>
+            </div>
+          );
+        })}
+        {/* Minus button */}
+        <div onClick={()=>onChange(Math.max(1,value-1))} style={{
+          height:52,borderRadius:10,
+          display:'flex',alignItems:'center',justifyContent:'center',
+          cursor:'pointer',
+          border:'1px solid #222327',background:'#1A1B1E',
+          transition:'all .1s',
+        }}>
+          <span style={{fontFamily:"'Bebas Neue'",fontSize:26,color:'#555761'}}>−</span>
+        </div>
+      </div>
+
+      <div style={{fontSize:9,color:'#555761',fontWeight:600,letterSpacing:'.1em',textTransform:'uppercase'}}>
+        {lang==='en'?'SHOTS':lang==='es'?'GOLPES':'COPS'} · Par {par}
+      </div>
+    </div>
+  );
+}
+
 function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
   const tl = (k,v={}) => t(lang,k,v);
   const { course, date, gameMode, players, liveShare } = gameData;
   const pph = Math.round(course.par / course.holes);
 
   /* ── State ── */
-  const [scores, setScores] = useState(() =>
-    Array.from({length:course.holes}, (_,i) => ({
+  const [scores, setScores] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pc_scores');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return Array.from({length:course.holes}, (_,i) => ({
       hole: i+1, par: pph,
-      playerScores: Object.fromEntries(players.map(p => [p.id, pph])),
-    }))
-  );
-  const [curHole, setCurHole]               = useState(0);
+      playerScores: Object.fromEntries(players.map(p => [p.id, null])),
+    }));
+  });
+  const [curHole, setCurHole] = useState(() => {
+    const saved = localStorage.getItem('pc_curHole');
+    return saved ? parseInt(saved) : 0;
+  });
   const [activePlayerId, setActivePlayerId] = useState(players[0].id);
   const [panel, setPanel]                   = useState('dial'); // 'dial' | 'global'
   const [confirmed, setConfirmed]           = useState(new Set()); // holes explicitly confirmed
@@ -1208,15 +1322,32 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
 
   /* ── Score setter ── */
   const setHoleScore = (pid, val) => {
-    setScores(prev => prev.map((h,i) =>
-      i===curHole ? {...h, playerScores:{...h.playerScores,[pid]:val}} : h
-    ));
+    setScores(prev => {
+      const next = prev.map((h,i) =>
+        i===curHole ? {...h, playerScores:{...h.playerScores,[pid]:val}} : h
+      );
+      localStorage.setItem('pc_scores', JSON.stringify(next));
+      return next;
+    });
     confirmHole(curHole, pid);
   };
 
   const changeDial = (delta) => {
     const cur = myScore ?? par;
-    setHoleScore(activePlayerId, Math.max(1, cur + delta));
+    const newVal = Math.max(1, cur + delta);
+    setHoleScore(activePlayerId, newVal);
+    // Auto-advance to next player
+    const pidx = players.findIndex(p=>p.id===activePlayerId);
+    if (pidx < players.length - 1) {
+      setTimeout(() => setActivePlayerId(players[pidx+1].id), 300);
+    }
+  };
+
+  const goToHole = (idx) => {
+    setCurHole(idx);
+    localStorage.setItem('pc_curHole', idx);
+    setActivePlayerId(players[0].id);
+    setPanel('dial');
   };
 
   /* Auto-advance to next player after registering */
@@ -1255,13 +1386,19 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
         display:'flex', alignItems:'center', justifyContent:'space-between',
         padding:'10px 16px 8px', borderBottom:'1px solid #1A1B1E', flexShrink:0,
       }}>
-        <div style={{minWidth:0,flex:1,marginRight:8}}>
-          <div style={{fontSize:12,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>
-          <div style={{fontSize:10,color:'#555761',marginTop:1}}>
-            {filledHoles}/{course.holes} {tl('holes_label')} · {GAME_MODES.find(m=>m.id===gameMode)?.label}
-          </div>
+        {/* Exit button — saves to localStorage */}
+        <button onClick={()=>onFinish(scores, true)} style={{
+          display:'flex',alignItems:'center',gap:5,flexShrink:0,
+          padding:'6px 10px',borderRadius:100,cursor:'pointer',
+          border:'1px solid #222327',background:'#1A1B1E',
+          color:'#555761',fontSize:11,fontWeight:700,fontFamily:'Inter',
+        }}>
+          ← {lang==='en'?'Save & exit':lang==='es'?'Guardar y salir':'Guardar i sortir'}
+        </button>
+        <div style={{minWidth:0,flex:1,marginRight:8,textAlign:'center'}}>
+          <div style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>
         </div>
-        {/* Global button in top bar — pill style */}
+        {/* Global button */}
         <button onClick={()=>setPanel(p=>p==='global'?'dial':'global')} style={{
           display:'flex',alignItems:'center',gap:5,flexShrink:0,
           padding:'6px 12px',borderRadius:100,cursor:'pointer',
@@ -1272,7 +1409,7 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
           transition:'all .15s',
         }}>
           <span style={{fontSize:13}}>📋</span>
-          <span>{panel==='global'?(lang==='en'?'← Score':lang==='es'?'← Jugar':'← Registrar'):'Global'}</span>
+          <span>{panel==='global'?(lang==='en'?'← Score':lang==='es'?'← Jugar':'← Reg.'):'Global'}</span>
         </button>
       </div>
 
@@ -1329,40 +1466,64 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
       {panel==='dial' && (
         <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'10px 16px',gap:10,overflow:'hidden'}}>
 
-          {/* Player tabs */}
+          {/* Player tabs with arrows */}
           {players.length > 1 && (
-            <div style={{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'center'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,width:'100%',justifyContent:'center'}}>
+              {/* Left arrow */}
+              <button onClick={()=>{
+                const idx = players.findIndex(p=>p.id===activePlayerId);
+                if(idx > 0) setActivePlayerId(players[idx-1].id);
+              }} style={{
+                width:32,height:32,borderRadius:'50%',border:'1px solid #222327',
+                background: players.findIndex(p=>p.id===activePlayerId)>0?'#1A1B1E':'transparent',
+                color: players.findIndex(p=>p.id===activePlayerId)>0?'#CAFF4D':'#2A2B30',
+                cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
+              }}>‹</button>
+
+              {/* Active player tab */}
               {players.map((p,i)=>{
                 const scored = hole.playerScores[p.id] !== null;
                 const active = p.id === activePlayerId;
                 const sv     = hole.playerScores[p.id];
+                if (!active) return null;
                 return (
-                  <div key={p.id} onClick={()=>setActivePlayerId(p.id)} style={{
-                    display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:100,
-                    border: active?`1px solid ${PLAYER_COLORS[i]}55`:'1px solid #222327',
-                    background: active?`${PLAYER_COLORS[i]}10`:'#1A1B1E',
-                    cursor:'pointer',position:'relative',transition:'all .15s',
+                  <div key={p.id} style={{
+                    display:'flex',alignItems:'center',gap:6,padding:'8px 20px',borderRadius:100,
+                    border:`1px solid ${PLAYER_COLORS[i]}55`,
+                    background:`${PLAYER_COLORS[i]}10`,
+                    position:'relative',flex:1,justifyContent:'center',maxWidth:200,
                   }}>
                     <div style={{
-                      width:22,height:22,borderRadius:'50%',background:PLAYER_COLORS[i],
+                      width:24,height:24,borderRadius:'50%',background:PLAYER_COLORS[i],
                       display:'flex',alignItems:'center',justifyContent:'center',
-                      fontSize:9,fontWeight:700,color:'#0A0A0B',flexShrink:0,
+                      fontSize:10,fontWeight:700,color:'#0A0A0B',flexShrink:0,
                     }}>{p.name[0]}</div>
-                    <span style={{fontSize:13,fontWeight:700,color:active?PLAYER_COLORS[i]:'#555761'}}>{p.name.split(' ')[0]}</span>
-                    <span style={{fontFamily:"'Bebas Neue'",fontSize:16,color:active?PLAYER_COLORS[i]:'#555761',lineHeight:1}}>
+                    <span style={{fontSize:14,fontWeight:700,color:PLAYER_COLORS[i]}}>{p.name.split(' ')[0]}</span>
+                    <span style={{fontFamily:"'Bebas Neue'",fontSize:18,color:PLAYER_COLORS[i],lineHeight:1}}>
                       {sv ?? '?'}
                     </span>
                     {scored && (
                       <div style={{
-                        position:'absolute',top:-4,right:-4,width:14,height:14,
+                        position:'absolute',top:-4,right:-4,width:16,height:16,
                         borderRadius:'50%',background:'#34D399',border:'2px solid #111214',
                         display:'flex',alignItems:'center',justifyContent:'center',
-                        fontSize:8,color:'#fff',fontWeight:700,
+                        fontSize:9,color:'#fff',fontWeight:700,
                       }}>✓</div>
                     )}
                   </div>
                 );
               })}
+
+              {/* Right arrow */}
+              <button onClick={()=>{
+                const idx = players.findIndex(p=>p.id===activePlayerId);
+                if(idx < players.length-1) setActivePlayerId(players[idx+1].id);
+              }} style={{
+                width:32,height:32,borderRadius:'50%',border:'1px solid #222327',
+                background: players.findIndex(p=>p.id===activePlayerId)<players.length-1?'#1A1B1E':'transparent',
+                color: players.findIndex(p=>p.id===activePlayerId)<players.length-1?'#CAFF4D':'#2A2B30',
+                cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
+              }}>›</button>
             </div>
           )}
 
@@ -1375,56 +1536,14 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
             {labelText || 'Par'}
           </div>
 
-          {/* ── BIG DIAL CIRCLE ── */}
-          <div style={{display:'flex',alignItems:'center',gap:0}}>
-            {/* Minus */}
-            <button onClick={()=>changeDial(-1)} style={{
-              width:60,height:60,borderRadius:'50%',
-              background:'#1A1B1E',border:'2px solid #222327',
-              cursor:'pointer',fontSize:26,color:'#555761',
-              display:'flex',alignItems:'center',justifyContent:'center',
-              transition:'all .12s',flexShrink:0,fontFamily:'Inter',
-            }}>−</button>
-
-            {/* Circle — always shows curVal in color; dim ring if not yet confirmed */}
-            <div style={{
-              width:120,height:120,borderRadius:'50%',
-              background: curBg,
-              display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-              margin:'0 -10px',zIndex:2,position:'relative',
-              boxShadow: myScore===null
-                ? `0 0 0 4px #111214, 0 0 0 6px ${curBg}30, 0 8px 28px rgba(0,0,0,.5)`
-                : `0 0 0 4px #111214, 0 8px 32px ${curBg}70`,
-              transition:'background .2s,box-shadow .2s',
-              opacity: 1,
-            }}>
-              <div style={{
-                fontFamily:"'Bebas Neue'",fontSize:68,
-                color:'#0A0A0B',
-                lineHeight:1,transition:'none',
-              }}>
-                {curVal}
-              </div>
-              <div style={{
-                fontSize:9,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',
-                color:'rgba(0,0,0,.4)',
-                marginTop:-4,
-              }}>
-                {lang==='en'?'shots':lang==='es'?'golpes':'cops'}
-              </div>
-            </div>
-
-            {/* Plus */}
-            <button onClick={()=>changeDial(1)} style={{
-              width:60,height:60,borderRadius:'50%',
-              background:'#1A1B1E',border:'2px solid #222327',
-              cursor:'pointer',fontSize:26,color:'#555761',
-              display:'flex',alignItems:'center',justifyContent:'center',
-              transition:'all .12s',flexShrink:0,fontFamily:'Inter',
-            }}>+</button>
-          </div>
-
-
+          {/* ── NUMBER PICKER ── */}
+          <NumberPicker value={curVal} par={par} onChange={(v) => {
+            setHoleScore(activePlayerId, v);
+            const pidx = players.findIndex(p=>p.id===activePlayerId);
+            if (pidx < players.length - 1) {
+              setTimeout(() => setActivePlayerId(players[pidx+1].id), 400);
+            }
+          }} lang={lang} />
 
           {/* Score legend */}
           <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'center',marginTop:2}}>
@@ -1463,7 +1582,7 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
                 const isPast = idx<curHole;
                 return (
                   <tr key={idx}
-                    onClick={()=>{setCurHole(idx);setActivePlayerId(players[0].id);setPanel('dial');}}
+                    onClick={()=>goToHole(idx)}
                     style={{cursor:'pointer',background:isCur?'rgba(202,255,77,.04)':'transparent'}}>
                     <td style={{
                       fontFamily:"'Bebas Neue'",fontSize:13,padding:'5px 4px',
@@ -1559,7 +1678,7 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
           /* ── Dial view nav: prev / next ── */
           <>
             <button
-              onClick={()=>{if(curHole>0){setCurHole(h=>h-1);setActivePlayerId(players[0].id);}}}
+              onClick={()=>{if(curHole>0)goToHole(curHole-1);}}
               disabled={curHole===0}
               style={{
                 flex:1,padding:'13px 8px',borderRadius:10,border:'1px solid #222327',
@@ -1581,10 +1700,7 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
             ) : (
               <button onClick={()=>{
                 if(!allThisHole){ confirmHole(curHole); }
-                if(curHole<course.holes-1){
-                  setCurHole(h=>h+1);
-                  setActivePlayerId(players[0].id);
-                }
+                if(curHole<course.holes-1){ goToHole(curHole+1); }
               }} style={{
                 flex:2,padding:'13px 8px',borderRadius:10,border:'none',
                 background:'#CAFF4D',color:'#0A0A0B',
@@ -2267,14 +2383,19 @@ function AuthModal({ onClose, onAuth, lang }) {
    APP ROOT
 ═══════════════════════════════════════════════════════════════ */
 export default function App() {
-  const [screen, setScreen] = useState("home");
+  const [screen, setScreen] = useState(() => {
+    const saved = localStorage.getItem('pc_screen');
+    return saved === 'scorecard' ? 'scorecard' : 'home';
+  });
   const [lang, setLang] = useState("ca");
   const [user, setUser] = useState(null);
   const [userPts, setUserPts] = useState(0);
   const [history, setHistory] = useState([]);
   const [showAuth, setShowAuth] = useState(false);
   const [toast, setToast] = useState("");
-  const [gameData, setGameData] = useState(null);
+  const [gameData, setGameData] = useState(() => {
+    try { const s = localStorage.getItem('pc_gameData'); return s ? JSON.parse(s) : null; } catch { return null; }
+  });
   const [lastGame, setLastGame] = useState(null);
   const [prevPts, setPrevPts] = useState(0);
   const leads = useRef([]);
@@ -2288,10 +2409,21 @@ export default function App() {
     showToast(greet);
   };
 
-  const handleGameStart = (data) => { setGameData(data); setScreen("scorecard"); };
+  const handleGameStart = (data) => {
+    localStorage.setItem('pc_gameData', JSON.stringify(data));
+    localStorage.setItem('pc_screen', 'scorecard');
+    setGameData(data);
+    setScreen("scorecard");
+  };
 
-  const handleGameFinish = (scores) => {
+  const handleGameFinish = (scores, saveAndExit=false) => {
     if (!gameData) return;
+    if (saveAndExit) {
+      // Save scores to localStorage and go home, keeping game alive
+      localStorage.setItem('pc_scores', JSON.stringify(scores));
+      setScreen("home");
+      return;
+    }
     const totalPar = gameData.course.par;
     const players = gameData.players.map(p => {
       const pPts = scores.reduce((a,h) => { const s=h.playerScores[p.id]; return a+(s!==null?calcPCPoints(s,h.par):0); },0) + 8;
@@ -2303,6 +2435,10 @@ export default function App() {
     const me = players.find(p=>p.isMe);
     if (me) { setPrevPts(userPts); setUserPts(p=>p+me.points); }
     setLastGame(game);
+    localStorage.removeItem('pc_gameData');
+    localStorage.removeItem('pc_scores');
+    localStorage.removeItem('pc_curHole');
+    localStorage.removeItem('pc_screen');
     setScreen("summary");
   };
 
@@ -2321,7 +2457,7 @@ export default function App() {
       <div className="app">
         {screen!=="scorecard" && <AppHeader screen={screen} setScreen={setScreenSafe} user={user} openAuth={openAuth} userPts={userPts} lang={lang} setLang={setLang}/>}
 
-        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang}/>}
+        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")}/>}
         {screen==="game-setup" && <GameSetupScreen   user={user} openAuth={openAuth} onStart={handleGameStart} lang={lang}/>}
         {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang}/>}

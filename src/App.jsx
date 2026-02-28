@@ -11,7 +11,7 @@ const T = {
   ca:{
     nav_home:"Inici",nav_ranking:"Rànquing",nav_game:"Partida",nav_tournaments:"Tornejos",nav_shop:"Botiga",nav_profile:"Perfil",
     hero_title:"PITCH&CLUBS",hero_sub:"L'Strava del golf.",hero_desc:"Registra partides, puja al rànquing i suporta el teu club.",hero_live:"Beta oberta · {n} jugadors",
-    cta_new_game:"Nova Partida",cta_join:"Uneix-te",cta_join_free:"Uneix-te gratis →",cta_create_account:"Crea un compte — guarda les teves stats →",
+    cta_new_game:"Nova Partida",cta_join:"Uneix-te",cta_join_free:"Uneix-te gratis →",cta_create_account:"Crea un compte →",
     cta_register_now:"Registrar ara →",cta_ready:"READY TO PLAY?",cta_ready_sub:"Registra la primera partida sense necessitat de fer login.",cta_ready_btn:"Registra una partida",cta_stats:"Les meves estadístiques →",
     sec_activity:"Activitat",sec_last_games:"ÚLTIMES PARTIDES",sec_ranking:"Classificació",sec_top_ranking:"TOP RÀNQUING",
     sec_how:"Com funciona",sec_how_title:"3 PASSOS. SIMPLE.",sec_levels:"Sistema de nivells",sec_levels_title:"PUJA. GUANYA.",sec_points:"Sistema de punts",
@@ -166,10 +166,10 @@ const t = (lang,key,vars={}) => { let s=T[lang]?.[key]??T.ca[key]??key; Object.e
 
 /* ─── TIER / GAME DATA ───────────────────────────────────────── */
 const TIERS = [
-  { id:"caddie", name:"Caddie", emoji:"🎒", color:"#34D399", bg:"rgba(52,211,153,.12)", border:"rgba(52,211,153,.3)",  min:0,    max:349   },
-  { id:"player", name:"Player", emoji:"⛳", color:"#60A5FA", bg:"rgba(96,165,250,.12)", border:"rgba(96,165,250,.3)",  min:350,  max:899   },
-  { id:"pro",    name:"Pro",    emoji:"🏆", color:"#A78BFA", bg:"rgba(167,139,250,.12)",border:"rgba(167,139,250,.3)", min:900,  max:1999  },
-  { id:"master", name:"Master", emoji:"👑", color:"#CAFF4D", bg:"rgba(202,255,77,.12)", border:"rgba(202,255,77,.3)",  min:2000, max:99999 },
+  { id:"caddie", name:"Caddie", emoji:"🎒", color:"#34D399", bg:"rgba(52,211,153,.12)", border:"rgba(52,211,153,.3)",  min:0,    max:699   },
+  { id:"player", name:"Player", emoji:"⛳", color:"#60A5FA", bg:"rgba(96,165,250,.12)", border:"rgba(96,165,250,.3)",  min:700,  max:1799  },
+  { id:"pro",    name:"Pro",    emoji:"🏆", color:"#A78BFA", bg:"rgba(167,139,250,.12)",border:"rgba(167,139,250,.3)", min:1800, max:3999  },
+  { id:"master", name:"Master", emoji:"👑", color:"#CAFF4D", bg:"rgba(202,255,77,.12)", border:"rgba(202,255,77,.3)",  min:4000, max:99999 },
 ];
 const getTier = (pts) => TIERS.find(t => pts >= t.min && pts <= t.max) || TIERS[0];
 const getTierPct = (pts) => {
@@ -179,22 +179,26 @@ const getTierPct = (pts) => {
 };
 
 /* ─── PUNTUACIÓ ──────────────────────────────────────────────── */
-const calcPCPoints = (score, par) => {
+const calcPCPoints = (score, par, hcp) => {
   const d = score - par;
-  if (d <= -3) return 50;  // HiO / Albatros
-  if (d === -2) return 30; // Eagle
-  if (d === -1) return 20; // Birdie
-  if (d === 0)  return 12; // Par
-  if (d === 1)  return 5;  // Bogey
-  if (d === 2)  return -3; // Doble
-  return -8;               // Triple+
+  let pts = 0;
+  if (d <= -3) pts = 25;  // HiO
+  else if (d === -2) pts = 25; // HiO pitch&putt
+  else if (d === -1) pts = 12; // Birdie
+  else if (d === 0)  pts = 6;  // Par
+  else if (d === 1)  pts = 2;  // Bogey
+  else if (d === 2)  pts = -3; // Doble
+  else pts = -8;               // Triple+
+  // Penalització si score > hcp
+  if (hcp !== undefined && score > hcp) pts -= 5;
+  return pts;
 };
 
 const scoreInfo = (s, p) => {
   if (s === null || s === undefined) return null;
   const d = s - p;
   if (d <= -3) return { label:"HiO! 🎯",    color:"#FBBF24", short:"HiO" };
-  if (d === -2) return { label:"Eagle 🦅",   color:"#FBBF24", short:"EAG" };
+  if (d === -2) return { label:"HiO! 🎯",   color:"#FBBF24", short:"HiO" };
   if (d === -1) return { label:"Birdie 🐦",  color:"#60A5FA", short:"BIR" };
   if (d === 0)  return { label:"Par ✓",      color:"#CAFF4D", short:"PAR" };
   if (d === 1)  return { label:"Bogey",       color:"#FFFFFF", short:"BOG" };
@@ -312,9 +316,11 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
   background:#111214;
   color:#FFFFFF;
   min-height:100svh;
+  width:100%;
   max-width:430px;
   margin:0 auto;
   position:relative;
+  overflow-x:hidden;
 }
 
 /* ── HEADER */
@@ -456,8 +462,8 @@ input[type="date"].inp{color-scheme:dark;}
 .sec-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#555761;margin-bottom:10px;}
 
 /* ── MODAL */
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:400;display:flex;align-items:flex-end;justify-content:center;max-width:430px;left:50%;transform:translateX(-50%);animation:fadeIn .2s;}
-.modal-sheet{background:#1A1B1E;border-radius:16px 16px 0 0;padding:20px 18px calc(32px + env(safe-area-inset-bottom));width:100%;border-top:1px solid #2A2B30;animation:slideUp .22s ease;max-height:85vh;overflow-y:auto;height:calc(100svh - 52px);}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:400;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s;}
+.modal-sheet{background:#1A1B1E;border-radius:16px 16px 0 0;padding:20px 18px calc(32px + env(safe-area-inset-bottom));width:100%;max-width:430px;border-top:1px solid #2A2B30;animation:slideUp .22s ease;max-height:85vh;overflow-y:auto;}
 .modal-handle{width:36px;height:4px;background:#2A2B30;border-radius:2px;margin:0 auto 18px;}
 
 /* ── ANIMATIONS */
@@ -507,10 +513,10 @@ function TierBadge({ tierId, size }) {
 function Ticker({ lang }) {
   const items = T[lang]?.ticker || T.ca.ticker;
   return (
-    <div style={{overflow:"hidden",borderTop:"1px solid #1A1B1E",borderBottom:"1px solid #1A1B1E",padding:"9px 0",marginBottom:16}}>
-      <div style={{display:"flex",gap:0,animation:"ticker 22s linear infinite",whiteSpace:"nowrap"}}>
-        {[...items,...items].map((it,i)=>(
-          <span key={i} style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:i%2===0?"#555761":"#CAFF4D",paddingRight:32}}>{it}</span>
+    <div style={{overflow:"hidden",borderTop:"1px solid #1A1B1E",borderBottom:"1px solid #1A1B1E",padding:"9px 0",marginBottom:16,background:"#CAFF4D"}}>
+      <div className="ticker-track">
+        {[...items,...items,...items].map((it,i)=>(
+          <span key={i} className="ticker-item">{it} <span style={{color:"#0A0A0B",opacity:.4,margin:"0 8px"}}>·</span></span>
         ))}
       </div>
     </div>
@@ -902,7 +908,7 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang }
         <div className="card" style={{padding:"14px"}}>
           <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:10}}>{tl("sec_points")}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6}}>
-            {[{l:"Eagle (−2)",p:"+30",c:"#FBBF24"},{l:"Birdie (−1)",p:"+20",c:"#60A5FA"},{l:"Par",p:"+12",c:"#CAFF4D"},{l:"Bogey (+1)",p:"+5",c:"#9CA3AF"},{l:tl("pts_tournament_win"),p:"+100",c:"#CAFF4D"},{l:tl("pts_inactivity"),p:"−5/m",c:"#EF4444"}].map((r,i)=>(
+            {[{l:"Hole in One 🎯",p:"+25",c:"#FBBF24"},{l:"Birdie (−1)",p:"+12",c:"#60A5FA"},{l:"Par",p:"+6",c:"#CAFF4D"},{l:"Bogey (+1)",p:"+2",c:"#9CA3AF"},{l:tl("pts_tournament_win"),p:"+100",c:"#CAFF4D"},{l:tl("pts_inactivity"),p:"−15/m",c:"#EF4444"}].map((r,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:"#111214",borderRadius:7}}>
                 <div style={{fontFamily:"'Bebas Neue'",fontSize:15,color:r.p.startsWith("-")||r.p.startsWith("−")?"#EF4444":"#CAFF4D",width:38,textAlign:"right",flexShrink:0}}>{r.p}</div>
                 <div style={{fontSize:11,color:"#787C8A",fontWeight:500}}>{r.l}</div>
@@ -944,50 +950,7 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang }
         })}
       </div>
 
-      {/* ── UGC FEED ── */}
-      <div style={{marginBottom:16}}>
-        <SectionHeader sub={tl("sec_community")} title={tl("sec_community_title")}/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          {UGC_FEED.map((p,i)=>(
-            <div key={p.id} style={{gridColumn:i===0?"span 2":"span 1",height:i===0?240:175,borderRadius:10,overflow:"hidden",cursor:"pointer",position:"relative",border:"1px solid #1A1B1E"}}>
-              <img src={p.img} alt={p.user} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-              <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(10,10,11,.92) 0%,transparent 55%)"}}/>
-              <div style={{position:"absolute",top:10,left:10,background:"rgba(10,10,11,.75)",border:`1px solid ${p.lc}40`,borderRadius:4,padding:"3px 8px",fontSize:9,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:p.lc}}>{p.label}</div>
-              <div style={{position:"absolute",bottom:0,left:0,right:0,padding:10}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:i===0?4:0}}>
-                  <div style={{width:20,height:20,borderRadius:"50%",background:"#CAFF4D",display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{p.user[0].toUpperCase()}</div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:10,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>@{p.user}</div>
-                    <div style={{fontSize:8,color:"rgba(255,255,255,.45)",display:"flex",alignItems:"center",gap:3}}><MapPin size={7}/>{p.course}{p.hole>0?` · F${p.hole}`:""} · {p.time}</div>
-                  </div>
-                  <button onClick={e=>{e.stopPropagation();setLiked(l=>({...l,[p.id]:!l[p.id]}));}}
-                    style={{background:"none",border:"none",cursor:"pointer",color:liked[p.id]?"#EF4444":"rgba(255,255,255,.4)",flexShrink:0,display:"flex",alignItems:"center",gap:2,padding:2}}>
-                    <Heart size={13} fill={liked[p.id]?"#EF4444":"none"}/><span style={{fontSize:9,color:"rgba(255,255,255,.35)"}}>{p.likes+(liked[p.id]?1:0)}</span>
-                  </button>
-                </div>
-                {i===0 && <p style={{fontSize:11,color:"rgba(255,255,255,.75)",lineHeight:1.4,fontWeight:400}}>{p.caption}</p>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      {/* ── 61 CAMPS ── */}
-      <div style={{marginBottom:16}}>
-        <SectionHeader sub={tl("sec_courses")} title={tl("sec_courses_title")}/>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:10}}>
-          {[["36","Catalunya"],["5","Madrid"],["4","Andalucía"],["16",lang==="en"?"Rest of Spain":lang==="es"?"Resto España":"Resta Espanya"]].map(([n,l])=>(
-            <div key={l} className="card" style={{padding:"14px",textAlign:"center"}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:30,color:"#CAFF4D",lineHeight:1}}>{n}</div>
-              <div style={{fontSize:9,color:"#555761",textTransform:"uppercase",letterSpacing:".06em",marginTop:2,fontWeight:600}}>{l}</div>
-            </div>
-          ))}
-        </div>
-        <div className="card" style={{padding:"12px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
-          <div style={{fontSize:12,color:"#787C8A",fontWeight:400}}>{tl("courses_missing")}</div>
-          <button className="btn btn-ghost btn-sm" style={{whiteSpace:"nowrap",flexShrink:0}} onClick={()=>setScreen("game-setup")}>{tl("courses_add")}</button>
-        </div>
-      </div>
 
       {/* ── TICKER ── */}
       <Ticker lang={lang}/>
@@ -1471,7 +1434,7 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
 
           {/* Score legend */}
           <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'center',marginTop:2}}>
-            {[['Eagle+','#FBBF24'],['Birdie','#60A5FA'],['Par','#CAFF4D'],['Bogey','#fff'],['D.Bogey','#EF4444']].map(([l,c])=>(
+            {[['HiO 🎯','#FBBF24'],['Birdie','#60A5FA'],['Par','#CAFF4D'],['Bogey','#fff'],['D.Bogey','#EF4444']].map(([l,c])=>(
               <div key={l} style={{display:'flex',alignItems:'center',gap:3}}>
                 <div style={{width:5,height:5,borderRadius:'50%',background:c,flexShrink:0}}/>
                 <span style={{fontSize:9,color:'#555761',fontWeight:600}}>{l}</span>
@@ -1931,7 +1894,7 @@ function TournamentsScreen({ openAuth, user, lang }) {
   }, []);
 
   const allTournaments = liveData ?? TOURNAMENTS_FALLBACK;
-  const cats = [{id:"all",l:tl("cat_all")},{id:"open",l:tl("cat_open")},{id:"club",l:tl("cat_club")},{id:"master",l:"Master Series"},{id:"social",l:tl("cat_social")}];
+  const cats = [{id:"all",l:tl("cat_all")},{id:"open",l:tl("cat_open")}];
   const filtered = cat==="all" ? allTournaments : allTournaments.filter(t=>t.category===cat);
   return (
     <div className="page-scroll">

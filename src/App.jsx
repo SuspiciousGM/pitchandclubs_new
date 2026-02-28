@@ -2313,13 +2313,13 @@ export default function App() {
   const [screen, setScreen] = useState("home");
   const [lang, setLang] = useState("ca");
   const [user, setUser] = useState(null);
-  const [userPts, setUserPts] = useState(340);
+  const [userPts, setUserPts] = useState(0);
   const [history, setHistory] = useState([]);
   const [showAuth, setShowAuth] = useState(false);
   const [toast, setToast] = useState("");
   const [gameData, setGameData] = useState(null);
   const [lastGame, setLastGame] = useState(null);
-  const [prevPts, setPrevPts] = useState(340);
+  const [prevPts, setPrevPts] = useState(0);
   const leads = useRef([]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),3000); };

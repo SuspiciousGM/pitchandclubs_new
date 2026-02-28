@@ -295,16 +295,15 @@ const G = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;width:100%;overflow-x:hidden;}
+html{height:100%;background:#0A0A0B;}
 body{
+  min-height:100%;
   background:#0A0A0B;
   color:#FFFFFF;
   font-family:'Inter',sans-serif;
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
   overscroll-behavior:none;
-  display:flex;
-  justify-content:center;
 }
 ::-webkit-scrollbar{display:none;}
 input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
@@ -333,8 +332,9 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   display:flex;align-items:center;justify-content:space-between;
   padding:0 18px;
-  padding-top:env(safe-area-inset-top);
-  height:calc(52px + env(safe-area-inset-top));
+  height:52px;
+  padding-top:0;
+  margin-top:env(safe-area-inset-top);
 }
 .header-logo{font-family:'Bebas Neue';font-size:22px;letter-spacing:.06em;cursor:pointer;user-select:none;}
 .header-logo em{color:#CAFF4D;font-style:normal;}
@@ -369,7 +369,7 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .nav-game-btn{color:#CAFF4D!important;}
 
 /* ── PAGE SCROLL */
-.page-scroll{padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;height:calc(100svh - 52px - env(safe-area-inset-top));}
+.page-scroll{padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;}
 
 /* ── CARDS */
 .card{background:#1A1B1E;border:1px solid #222327;border-radius:10px;padding:16px;}
@@ -1331,33 +1331,33 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
 
           {/* Player tabs */}
           {players.length > 1 && (
-            <div style={{display:'flex',gap:5,flexWrap:'wrap',justifyContent:'center'}}>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'center'}}>
               {players.map((p,i)=>{
                 const scored = hole.playerScores[p.id] !== null;
                 const active = p.id === activePlayerId;
                 const sv     = hole.playerScores[p.id];
                 return (
                   <div key={p.id} onClick={()=>setActivePlayerId(p.id)} style={{
-                    display:'flex',alignItems:'center',gap:4,padding:'5px 11px',borderRadius:100,
+                    display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:100,
                     border: active?`1px solid ${PLAYER_COLORS[i]}55`:'1px solid #222327',
                     background: active?`${PLAYER_COLORS[i]}10`:'#1A1B1E',
                     cursor:'pointer',position:'relative',transition:'all .15s',
                   }}>
                     <div style={{
-                      width:18,height:18,borderRadius:'50%',background:PLAYER_COLORS[i],
+                      width:22,height:22,borderRadius:'50%',background:PLAYER_COLORS[i],
                       display:'flex',alignItems:'center',justifyContent:'center',
-                      fontSize:7,fontWeight:700,color:'#0A0A0B',flexShrink:0,
+                      fontSize:9,fontWeight:700,color:'#0A0A0B',flexShrink:0,
                     }}>{p.name[0]}</div>
-                    <span style={{fontSize:10,fontWeight:700,color:active?PLAYER_COLORS[i]:'#555761'}}>{p.name.split(' ')[0]}</span>
-                    <span style={{fontFamily:"'Bebas Neue'",fontSize:14,color:active?PLAYER_COLORS[i]:'#555761',lineHeight:1}}>
+                    <span style={{fontSize:13,fontWeight:700,color:active?PLAYER_COLORS[i]:'#555761'}}>{p.name.split(' ')[0]}</span>
+                    <span style={{fontFamily:"'Bebas Neue'",fontSize:16,color:active?PLAYER_COLORS[i]:'#555761',lineHeight:1}}>
                       {sv ?? '?'}
                     </span>
                     {scored && (
                       <div style={{
-                        position:'absolute',top:-4,right:-4,width:13,height:13,
+                        position:'absolute',top:-4,right:-4,width:14,height:14,
                         borderRadius:'50%',background:'#34D399',border:'2px solid #111214',
                         display:'flex',alignItems:'center',justifyContent:'center',
-                        fontSize:7,color:'#fff',fontWeight:700,
+                        fontSize:8,color:'#fff',fontWeight:700,
                       }}>✓</div>
                     )}
                   </div>
@@ -1424,17 +1424,7 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
             }}>+</button>
           </div>
 
-          {/* Confirm / next player button */}
-          {players.length > 1 && myScore !== null && !allThisHole && (
-            <button onClick={advancePlayer} style={{
-              padding:'8px 22px',borderRadius:100,
-              border:'1px solid rgba(202,255,77,.3)',background:'rgba(202,255,77,.07)',
-              color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',
-              letterSpacing:'.06em',textTransform:'uppercase',
-            }}>
-              ✓ {lang==='en'?'Next player':lang==='es'?'Sig. jugador':'Seg. jugador'} →
-            </button>
-          )}
+
 
           {/* Score legend */}
           <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'center',marginTop:2}}>
@@ -2322,8 +2312,14 @@ export default function App() {
   return (
     <>
       <style>{G}</style>
+      <style>{`
+        @media (min-width: 431px) {
+          body { display:flex; justify-content:center; background:#0A0A0B; }
+          .app { box-shadow: 0 0 60px rgba(0,0,0,.5); }
+        }
+      `}</style>
       <div className="app">
-        <AppHeader screen={screen} setScreen={setScreenSafe} user={user} openAuth={openAuth} userPts={userPts} lang={lang} setLang={setLang}/>
+        {screen!=="scorecard" && <AppHeader screen={screen} setScreen={setScreenSafe} user={user} openAuth={openAuth} userPts={userPts} lang={lang} setLang={setLang}/>}
 
         {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang}/>}
         {screen==="game-setup" && <GameSetupScreen   user={user} openAuth={openAuth} onStart={handleGameStart} lang={lang}/>}

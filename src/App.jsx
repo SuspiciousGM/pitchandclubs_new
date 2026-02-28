@@ -359,7 +359,7 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .nav-game-btn{color:#CAFF4D!important;}
 
 /* ── PAGE SCROLL */
-.page-scroll{padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;}
+.page-scroll{padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;height:calc(100svh - 52px);}
 
 /* ── CARDS */
 .card{background:#1A1B1E;border:1px solid #222327;border-radius:10px;padding:16px;}
@@ -457,7 +457,7 @@ input[type="date"].inp{color-scheme:dark;}
 
 /* ── MODAL */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:400;display:flex;align-items:flex-end;justify-content:center;max-width:430px;left:50%;transform:translateX(-50%);animation:fadeIn .2s;}
-.modal-sheet{background:#1A1B1E;border-radius:16px 16px 0 0;padding:20px 18px calc(32px + env(safe-area-inset-bottom));width:100%;border-top:1px solid #2A2B30;animation:slideUp .22s ease;max-height:85vh;overflow-y:auto;}
+.modal-sheet{background:#1A1B1E;border-radius:16px 16px 0 0;padding:20px 18px calc(32px + env(safe-area-inset-bottom));width:100%;border-top:1px solid #2A2B30;animation:slideUp .22s ease;max-height:85vh;overflow-y:auto;height:calc(100svh - 52px);}
 .modal-handle{width:36px;height:4px;background:#2A2B30;border-radius:2px;margin:0 auto 18px;}
 
 /* ── ANIMATIONS */

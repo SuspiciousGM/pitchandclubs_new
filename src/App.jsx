@@ -296,9 +296,11 @@ const G = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html{height:100%;background:#0A0A0B;}
+html{height:100%;background:#0A0A0B;width:100%;overflow-x:hidden;}
 body{
   min-height:100%;
+  width:100%;
+  max-width:100vw;
   background:#0A0A0B;
   color:#FFFFFF;
   font-family:'Inter',sans-serif;
@@ -332,10 +334,8 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
   border-bottom:1px solid #1A1B1E;
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   display:flex;align-items:center;justify-content:space-between;
-  padding:0 18px;
-  height:52px;
-  padding-top:0;
-  margin-top:env(safe-area-inset-top);
+  padding:env(safe-area-inset-top) 18px 0;
+  height:calc(52px + env(safe-area-inset-top));
 }
 .header-logo{font-family:'Bebas Neue';font-size:22px;letter-spacing:.06em;cursor:pointer;user-select:none;}
 .header-logo em{color:#CAFF4D;font-style:normal;}
@@ -370,7 +370,7 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .nav-game-btn{color:#CAFF4D!important;}
 
 /* ── PAGE SCROLL */
-.page-scroll{padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;}
+.page-scroll{padding:16px max(16px,env(safe-area-inset-right)) calc(80px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overflow-y:auto;overflow-x:hidden;}
 
 /* ── CARDS */
 .card{background:#1A1B1E;border:1px solid #222327;border-radius:10px;padding:16px;}
@@ -1276,8 +1276,8 @@ function NumberPicker({ value, par, onChange, lang }) {
         </div>
       </div>
 
-      {/* Number grid 1–9 + minus */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:8,width:'100%'}}>
+      {/* Number grid 1–9 (3×3) */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,width:'100%'}}>
         {[1,2,3,4,5,6,7,8,9].map(v => {
           const active = v === value;
           const col = scoreColor(v);
@@ -1298,16 +1298,20 @@ function NumberPicker({ value, par, onChange, lang }) {
             </div>
           );
         })}
-        {/* Minus button */}
-        <div onClick={()=>onChange(Math.max(1,value-1))} style={{
-          height:52,borderRadius:10,
-          display:'flex',alignItems:'center',justifyContent:'center',
-          cursor:'pointer',
-          border:'1px solid #222327',background:'#1A1B1E',
-          transition:'all .1s',
-        }}>
-          <span style={{fontFamily:"'Bebas Neue'",fontSize:26,color:'#555761'}}>−</span>
-        </div>
+      </div>
+
+      {/* −1 / +1 controls */}
+      <div style={{display:'flex',gap:8,width:'100%'}}>
+        {[{label:'−1',delta:-1},{label:'+1',delta:1}].map(({label,delta})=>(
+          <div key={label} onClick={()=>onChange(Math.max(1, value+delta))} style={{
+            flex:1,height:40,borderRadius:10,
+            display:'flex',alignItems:'center',justifyContent:'center',
+            cursor:'pointer',border:'1px solid #2A2B30',background:'#111214',
+            transition:'all .1s',
+          }}>
+            <span style={{fontFamily:"'Bebas Neue'",fontSize:20,color:'#787C8A'}}>{label}</span>
+          </div>
+        ))}
       </div>
 
       <div style={{fontSize:9,color:'#555761',fontWeight:600,letterSpacing:'.1em',textTransform:'uppercase'}}>
@@ -1317,7 +1321,7 @@ function NumberPicker({ value, par, onChange, lang }) {
   );
 }
 
-function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
+function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang }) {
   const tl = (k,v={}) => t(lang,k,v);
   const { course, date, gameMode, players, liveShare } = gameData;
   const pph = Math.round(course.par / course.holes);
@@ -1340,6 +1344,7 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
   const [activePlayerId, setActivePlayerId] = useState(players[0].id);
   const [panel, setPanel]                   = useState('dial'); // 'dial' | 'global'
   const [confirmed, setConfirmed]           = useState(new Set()); // holes explicitly confirmed
+  const [confirmDelete, setConfirmDelete]   = useState(false);
 
   const confirmHole = (holeIdx, pid) => {
     setConfirmed(prev => new Set([...prev, holeIdx]));
@@ -1448,15 +1453,37 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
         display:'flex', alignItems:'center', justifyContent:'space-between',
         padding:'10px 16px 8px', borderBottom:'1px solid #1A1B1E', flexShrink:0,
       }}>
-        {/* Exit button — saves to localStorage */}
-        <button onClick={()=>onFinish(scores, true)} style={{
-          display:'flex',alignItems:'center',gap:5,flexShrink:0,
-          padding:'6px 10px',borderRadius:100,cursor:'pointer',
-          border:'1px solid #222327',background:'#1A1B1E',
-          color:'#555761',fontSize:11,fontWeight:700,fontFamily:'Inter',
-        }}>
-          ← {lang==='en'?'Save & exit':lang==='es'?'Guardar y salir':'Guardar i sortir'}
-        </button>
+        <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+          {/* Exit button — saves to localStorage */}
+          <button onClick={()=>onFinish(scores, true)} style={{
+            display:'flex',alignItems:'center',gap:5,
+            padding:'6px 10px',borderRadius:100,cursor:'pointer',
+            border:'1px solid #222327',background:'#1A1B1E',
+            color:'#555761',fontSize:11,fontWeight:700,fontFamily:'Inter',
+          }}>
+            ← {lang==='en'?'Save & exit':lang==='es'?'Guardar y salir':'Guardar i sortir'}
+          </button>
+          {/* Delete button */}
+          {confirmDelete ? (
+            <button onClick={onDelete} style={{
+              display:'flex',alignItems:'center',gap:4,
+              padding:'6px 10px',borderRadius:100,cursor:'pointer',
+              border:'1px solid rgba(239,68,68,.5)',background:'rgba(239,68,68,.12)',
+              color:'#EF4444',fontSize:11,fontWeight:700,fontFamily:'Inter',
+            }}>
+              {lang==='en'?'Delete?':lang==='es'?'Borrar?':'Eliminar?'}
+            </button>
+          ) : (
+            <button onClick={()=>setConfirmDelete(true)} style={{
+              display:'flex',alignItems:'center',justifyContent:'center',
+              width:30,height:30,borderRadius:100,cursor:'pointer',
+              border:'1px solid #222327',background:'#1A1B1E',
+              color:'#555761',fontSize:13,fontFamily:'Inter',
+            }}>
+              🗑
+            </button>
+          )}
+        </div>
         <div style={{minWidth:0,flex:1,marginRight:8,textAlign:'center'}}>
           <div style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>
         </div>
@@ -2232,16 +2259,32 @@ function ShopScreen({ openAuth, user, lang }) {
 /* ═══════════════════════════════════════════════════════════════
    PROFILE / STATS SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange }) {
+function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history }) {
   const tl = (k,v={}) => t(lang,k,v);
-  const profile = PLAYER_PROFILE;
   const tier = getTier(userPts);
   const nextTier = TIERS[TIERS.findIndex(t=>t.id===tier.id)+1];
   const pct = getTierPct(userPts);
-  const distTotal = Object.values(profile.dist).reduce((a,b)=>a+b,0);
-  const distPct = (k) => Math.round((profile.dist[k]/distTotal)*100);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  const myGames = (history||[]).filter(g => g.players?.some(p => p.isMe));
+  const myDiffs = myGames.map(g => g.players.find(p => p.isMe)?.diff).filter(d => d !== undefined && d !== null);
+  const bestDiff = myDiffs.length ? Math.min(...myDiffs) : null;
+  const trendData = myGames.slice(0, 10).reverse().map(g => ({
+    date: g.date,
+    s: g.players.find(p => p.isMe)?.diff ?? 0,
+  }));
+  const courseMap = {};
+  myGames.forEach(g => {
+    const me = g.players.find(p => p.isMe);
+    if (!me) return;
+    if (!courseMap[g.course]) courseMap[g.course] = { name: g.course, diffs: [] };
+    courseMap[g.course].diffs.push(me.diff);
+  });
+  const bestCourses = Object.values(courseMap)
+    .map(c => ({ name: c.name, played: c.diffs.length, best: Math.min(...c.diffs), avg: +(c.diffs.reduce((a,b)=>a+b,0)/c.diffs.length).toFixed(1) }))
+    .sort((a,b) => a.best - b.best)
+    .slice(0, 4);
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -2286,7 +2329,11 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange }) {
 
       {/* Key stats */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
-        {[{l:"Partides",v:profile.games},{l:"HCP",v:profile.hcp},{l:"Ratxa",v:`${profile.streak}🔥`}].map(s=>(
+        {[
+          {l:tl("stat_games"), v:myGames.length},
+          {l:tl("stat_best"),  v:bestDiff !== null ? (bestDiff > 0 ? `+${bestDiff}` : bestDiff === 0 ? "E" : bestDiff) : "—"},
+          {l:tl("stat_holes"), v:myGames.reduce((a,g)=>a+(g.scores?.length||0),0)||"—"},
+        ].map(s=>(
           <div key={s.l} className="card" style={{padding:"11px 8px",textAlign:"center"}}>
             <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:"#CAFF4D",lineHeight:1}}>{s.v}</div>
             <div style={{fontSize:9,color:"#555761",textTransform:"uppercase",letterSpacing:".06em",marginTop:2,fontWeight:600}}>{s.l}</div>
@@ -2296,85 +2343,47 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange }) {
 
       {/* Score trend */}
       <div className="card" style={{marginBottom:12,padding:"14px"}}>
-        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:12}}>Evolució de scores — últims 10 rounds</div>
-        <div style={{display:"flex",alignItems:"flex-end",gap:5,height:56,marginBottom:6}}>
-          {profile.trend.map((r,i) => {
-            const worst = Math.max(...profile.trend.map(x=>x.s));
-            const best = Math.min(...profile.trend.map(x=>x.s));
-            const range = worst - best || 1;
-            const h = Math.round(((worst-r.s)/range)*44)+8;
-            const c = r.s<=-2?"#FBBF24":r.s<0?"#60A5FA":r.s===0?"#CAFF4D":"#9CA3AF";
-            return <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:2}}>
-              <div style={{fontSize:8,color:c,fontWeight:700,letterSpacing:".04em"}}>{r.s>0?`+${r.s}`:r.s}</div>
-              <div style={{width:"100%",background:c,borderRadius:"2px 2px 0 0",height:h,opacity:.9}}/>
-            </div>;
-          })}
-        </div>
-        <div style={{display:"flex",justifyContent:"space-between"}}>
-          <div style={{fontSize:8,color:"#555761"}}>{profile.trend[0].date}</div>
-          <div style={{fontSize:8,color:"#555761"}}>{profile.trend[profile.trend.length-1].date}</div>
-        </div>
-      </div>
-
-      {/* HCP evolution */}
-      <div className="card" style={{marginBottom:12,padding:"14px"}}>
-        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:12}}>Evolució Handicap</div>
-        <div style={{display:"flex",alignItems:"flex-end",gap:6,height:48,marginBottom:6}}>
-          {profile.hcpHist.map((h,i) => {
-            const max = Math.max(...profile.hcpHist.map(x=>x.v));
-            const ht = Math.round((h.v/max)*40)+4;
-            const isLast = i===profile.hcpHist.length-1;
-            return <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:2}}>
-              <div style={{fontSize:8,color:isLast?"#CAFF4D":"#555761",fontWeight:isLast?700:400}}>{h.v}</div>
-              <div style={{width:"100%",background:isLast?"#CAFF4D":"#2A2B30",borderRadius:"2px 2px 0 0",height:ht,transition:"height .3s"}}/>
-              <div style={{fontSize:8,color:"#555761"}}>{h.m}</div>
-            </div>;
-          })}
-        </div>
-        <div style={{fontSize:11,color:"#787C8A",fontWeight:400}}>{tl("profile_hcp_current",{v:profile.hcp,d:(profile.hcpHist[0].v-profile.hcp).toFixed(1)})}</div>
-      </div>
-
-      {/* Distribution */}
-      <div className="card" style={{marginBottom:12,padding:"14px"}}>
-        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:12}}>Distribució de resultats</div>
-        {[{k:"eagle",l:"HiO",c:"#FBBF24"},{k:"birdie",l:"Birdie",c:"#60A5FA"},{k:"par",l:"Par",c:"#CAFF4D"},{k:"bogey",l:"Bogey",c:"#9CA3AF"},{k:"double",l:"D.Bogey",c:"#EF4444"},{k:"triple",l:"Triple+",c:"#7F1D1D"}].map(r=>(
-          <div key={r.k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-            <div style={{width:46,fontSize:10,fontWeight:600,color:r.c,textAlign:"right",flexShrink:0}}>{r.l}</div>
-            <div style={{flex:1,height:14,background:"#111214",borderRadius:3,overflow:"hidden",minWidth:0}}>
-              <div style={{height:"100%",width:`${distPct(r.k)}%`,background:r.c,borderRadius:3,transition:"width .4s"}}/>
-            </div>
-            <div style={{width:46,fontSize:10,color:"#555761",flexShrink:0,textAlign:"right"}}>{profile.dist[r.k]} ({distPct(r.k)}%)</div>
+        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:12}}>{tl("profile_score_trend")}</div>
+        {trendData.length >= 2 ? <>
+          <div style={{display:"flex",alignItems:"flex-end",gap:5,height:56,marginBottom:6}}>
+            {trendData.map((r,i) => {
+              const worst = Math.max(...trendData.map(x=>x.s));
+              const best  = Math.min(...trendData.map(x=>x.s));
+              const range = worst - best || 1;
+              const h = Math.round(((worst-r.s)/range)*44)+8;
+              const c = r.s<=-2?"#FBBF24":r.s<0?"#60A5FA":r.s===0?"#CAFF4D":"#9CA3AF";
+              return <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:2}}>
+                <div style={{fontSize:8,color:c,fontWeight:700,letterSpacing:".04em"}}>{r.s>0?`+${r.s}`:r.s===0?"E":r.s}</div>
+                <div style={{width:"100%",background:c,borderRadius:"2px 2px 0 0",height:h,opacity:.9}}/>
+              </div>;
+            })}
           </div>
-        ))}
+          <div style={{display:"flex",justifyContent:"space-between"}}>
+            <div style={{fontSize:8,color:"#555761"}}>{trendData[0].date}</div>
+            <div style={{fontSize:8,color:"#555761"}}>{trendData[trendData.length-1].date}</div>
+          </div>
+        </> : <div style={{textAlign:"center",padding:"16px 0",fontSize:12,color:"#555761"}}>{lang==="en"?"Play more rounds to see your trend":lang==="es"?"Juega más partidas para ver tu evolución":"Juga més partides per veure la teva evolució"}</div>}
       </div>
 
       {/* Best courses */}
-      <div className="card" style={{marginBottom:12,padding:"14px"}}>
-        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:10}}>Millors camps</div>
-        {profile.bestCourses.map((c,i)=>(
-          <div key={c.name} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<3?"1px solid #111214":"none"}}>
-            <div style={{fontSize:18,width:24,textAlign:"center",flexShrink:0}}>{c.f||`0${i+1}`}</div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
-              <div style={{fontSize:10,color:"#555761"}}>{c.played} partides · avg {c.avg>0?`+${c.avg}`:c.avg}</div>
+      {bestCourses.length > 0 && (
+        <div className="card" style={{marginBottom:12,padding:"14px"}}>
+          <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:10}}>{tl("profile_best_courses")}</div>
+          {bestCourses.map((c,i)=>(
+            <div key={c.name} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<bestCourses.length-1?"1px solid #111214":"none"}}>
+              <div style={{fontSize:16,width:24,textAlign:"center",flexShrink:0}}>{["🏆","🥈","🥉",""][i]||`0${i+1}`}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+                <div style={{fontSize:10,color:"#555761"}}>{c.played} {tl("profile_played")} · avg {c.avg>0?`+${c.avg}`:c.avg===0?"E":c.avg}</div>
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:"#CAFF4D",lineHeight:1}}>{c.best>0?`+${c.best}`:c.best===0?"E":c.best}</div>
+                <div style={{fontSize:9,color:"#555761"}}>best</div>
+              </div>
             </div>
-            <div style={{textAlign:"right",flexShrink:0}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:"#CAFF4D",lineHeight:1}}>{c.best>0?`+${c.best}`:c.best}</div>
-              <div style={{fontSize:9,color:"#555761"}}>best</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Tournaments */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-        {[{l:tl("profile_tournaments"),v:profile.tourWon===1?tl("profile_win"):tl("profile_no_win")},{l:tl("profile_pts_month"),v:`+${profile.ptsThisMonth||240}`}].map(s=>(
-          <div key={s.l} className="card" style={{padding:"13px",textAlign:"center"}}>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:"#CAFF4D",lineHeight:1}}>{s.v}</div>
-            <div style={{fontSize:9,color:"#555761",textTransform:"uppercase",letterSpacing:".06em",marginTop:3,fontWeight:600}}>{s.l}</div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <button className="btn btn-ghost" style={{fontSize:13}} onClick={()=>setScreen("home")}>{tl("back")}</button>
     </div>
@@ -2558,6 +2567,16 @@ export default function App() {
     setUser(prev => ({ ...prev, avatarUrl: publicUrl }));
   };
 
+  const handleGameDelete = () => {
+    localStorage.removeItem('pc_gameData');
+    localStorage.removeItem('pc_scores');
+    localStorage.removeItem('pc_curHole');
+    localStorage.removeItem('pc_screen');
+    setGameData(null);
+    setScreen("home");
+    window.scrollTo(0, 0);
+  };
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -2639,12 +2658,12 @@ export default function App() {
 
         {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")} activityFeed={activityFeed}/>}
         {screen==="game-setup" && <GameSetupScreen   user={user} openAuth={openAuth} onStart={handleGameStart} lang={lang}/>}
-        {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} user={user} openAuth={openAuth} lang={lang}/>}
+        {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang}/>}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="shop"       && <ShopScreen       user={user} openAuth={openAuth} lang={lang}/>}
-        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange}/>}
+        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history}/>}
 
         {!isGameFlow && <BottomNav screen={screen} setScreen={setScreenSafe} lang={lang}/>}
 

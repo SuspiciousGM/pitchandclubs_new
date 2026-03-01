@@ -3,8 +3,9 @@ import {
   Home, BarChart2, ShoppingBag, Trophy, User, Plus, ChevronRight, ChevronLeft,
   Check, X, Search, MapPin, Calendar, Users, Zap, Star, TrendingUp,
   Award, Flag, Target, Activity, Heart, Globe, Flame, Crown, ArrowRight,
-  Play, Share2, Bell, AlertCircle, CheckCircle, Minus, Menu
+  Play, Share2, Bell, AlertCircle, CheckCircle, Minus, Menu, LogOut
 } from "lucide-react";
+import { supabase } from "./supabaseClient";
 
 /* ─── i18n ───────────────────────────────────────────────────── */
 const T = {
@@ -563,7 +564,7 @@ function BottomNav({ screen, setScreen, lang }) {
 /* ─── APP HEADER ─────────────────────────────────────────────── */
 const LANGS = [{id:"ca",label:"CAT"},{id:"es",label:"ESP"},{id:"en",label:"ENG"}];
 
-function AppHeader({ screen, setScreen, user, openAuth, userPts, lang, setLang }) {
+function AppHeader({ screen, setScreen, user, openAuth, onSignOut, userPts, lang, setLang }) {
   const [showLang, setShowLang] = useState(false);
   const tl = (k) => t(lang, k);
   const tier = getTier(userPts);
@@ -602,14 +603,22 @@ function AppHeader({ screen, setScreen, user, openAuth, userPts, lang, setLang }
           </button>
         )}
         {user && !isGameFlow && (
-          <div style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",padding:"4px 8px",borderRadius:8}} onClick={()=>setScreen("profile")}>
-            <div style={{width:30,height:30,borderRadius:"50%",background:tier.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>
-              {user.name.split(" ").map(w=>w[0]).slice(0,2).join("")}
+          <div style={{display:"flex",alignItems:"center",gap:4}}>
+            <div style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",padding:"4px 8px",borderRadius:8}} onClick={()=>setScreen("profile")}>
+              <div style={{width:30,height:30,borderRadius:"50%",background:tier.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
+                {user.avatarUrl
+                  ? <img src={user.avatarUrl} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+                  : user.name.split(" ").map(w=>w[0]).slice(0,2).join("")
+                }
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:10,fontWeight:700,color:tier.color,letterSpacing:".06em",textTransform:"uppercase",lineHeight:1}}>{tier.emoji} {tier.name}</div>
+                <div style={{fontSize:9,color:"#555761",lineHeight:1.4}}>{userPts} pts</div>
+              </div>
             </div>
-            <div style={{textAlign:"right"}}>
-              <div style={{fontSize:10,fontWeight:700,color:tier.color,letterSpacing:".06em",textTransform:"uppercase",lineHeight:1}}>{tier.emoji} {tier.name}</div>
-              <div style={{fontSize:9,color:"#555761",lineHeight:1.4}}>{userPts} pts</div>
-            </div>
+            <button onClick={onSignOut} style={{background:"none",border:"none",cursor:"pointer",color:"#555761",padding:"4px",display:"flex",alignItems:"center"}} title="Sign out">
+              <LogOut size={14}/>
+            </button>
           </div>
         )}
         {!user && !isGameFlow && (
@@ -635,6 +644,23 @@ function SectionHeader({ sub, title, limeWord }) {
 }
 
 /* ─── MOCK DATA ──────────────────────────────────────────────── */
+const mapGameToFeedItem = (g) => {
+  const me = g.players?.find(p => p.isMe);
+  const diff = me?.diff ?? 0;
+  const label = diff <= -3 ? "Eagle+" : diff === -2 ? "Eagle" : diff === -1 ? "Birdie" : diff === 0 ? "Par" : diff === 1 ? "Bogey" : `+${diff}`;
+  const lc = diff < -1 ? "#FBBF24" : diff === -1 ? "#60A5FA" : diff === 0 ? "#CAFF4D" : "#9CA3AF";
+  return { id: g.id, user: me?.name || "?", course: g.course, diff, label, lc, points: me?.points ?? 0, created_at: g.created_at };
+};
+
+const timeAgo = (isoStr) => {
+  const mins = Math.floor((Date.now() - new Date(isoStr)) / 60000);
+  if (mins < 1) return "ara";
+  if (mins < 60) return `fa ${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `fa ${hrs}h`;
+  return `fa ${Math.floor(hrs / 24)}d`;
+};
+
 const UGC_FEED = [
   {id:1,user:"marc_pitchking",club:"Pink Beaks",label:"Eagle",course:"Vallromanes",hole:12,time:"fa 2h",likes:47,img:"https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600&q=75",caption:"Millor ronda de la temporada!",lc:"#FBBF24"},
   {id:2,user:"sonia_ros",club:"Canal Olímpic",label:"Birdie",course:"HCP1",hole:7,time:"fa 3h",likes:23,img:"https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600&q=75",caption:"Primera ronda a HCP1",lc:"#60A5FA"},
@@ -727,7 +753,7 @@ const LEADERBOARD_CAMP = [
 /* ═══════════════════════════════════════════════════════════════
    HOME SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, activeGame, onResumeGame }) {
+function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, activeGame, onResumeGame, activityFeed }) {
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [liked, setLiked] = useState({});
@@ -983,6 +1009,42 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
       </div>
 
 
+
+      {/* ── LA GENT JUGA AVUI (live feed) ── */}
+      {(() => {
+        const feed = activityFeed.length > 0 ? activityFeed : UGC_FEED.map(g => ({ id: g.id, user: g.user, course: g.course, diff: 0, label: g.label, lc: g.lc, points: 0, created_at: null }));
+        return (
+          <div style={{marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
+              <div>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:4}}>{tl("sec_community")}</div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(20px,5vw,30px)",letterSpacing:".04em",lineHeight:1,display:"flex",alignItems:"center",gap:8}}>
+                  {tl("sec_community_title")}
+                  {activityFeed.length > 0 && <span style={{width:7,height:7,borderRadius:"50%",background:"#EF4444",display:"inline-block",boxShadow:"0 0 6px #EF4444"}}/>}
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {feed.slice(0,5).map(item => (
+                <div key={item.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"#1A1B1E",borderRadius:10,border:"1px solid #222327"}}>
+                  <div style={{width:34,height:34,borderRadius:"50%",background:item.lc,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>
+                    {item.user.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.user}</div>
+                    <div style={{fontSize:10,color:"#555761",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.course}</div>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{fontSize:11,fontWeight:700,color:item.lc}}>{item.label}</div>
+                    {item.created_at && <div style={{fontSize:9,color:"#555761"}}>{timeAgo(item.created_at)}</div>}
+                    {item.points > 0 && <div style={{fontSize:9,color:"#CAFF4D"}}>+{item.points} pts</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── TICKER ── */}
       <Ticker lang={lang}/>
@@ -2170,7 +2232,7 @@ function ShopScreen({ openAuth, user, lang }) {
 /* ═══════════════════════════════════════════════════════════════
    PROFILE / STATS SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function ProfileScreen({ user, userPts, setScreen, lang }) {
+function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange }) {
   const tl = (k,v={}) => t(lang,k,v);
   const profile = PLAYER_PROFILE;
   const tier = getTier(userPts);
@@ -2178,6 +2240,16 @@ function ProfileScreen({ user, userPts, setScreen, lang }) {
   const pct = getTierPct(userPts);
   const distTotal = Object.values(profile.dist).reduce((a,b)=>a+b,0);
   const distPct = (k) => Math.round((profile.dist[k]/distTotal)*100);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    await onAvatarChange(file);
+    setUploading(false);
+  };
 
   return (
     <div className="page-scroll">
@@ -2188,7 +2260,16 @@ function ProfileScreen({ user, userPts, setScreen, lang }) {
           <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(26px,7vw,40px)",letterSpacing:".04em",lineHeight:1}}>{user?.name||profile.name}</div>
           {(user?.club||profile.club) && <div style={{fontSize:12,color:"#787C8A",marginTop:3}}>{user?.club||profile.club}</div>}
         </div>
-        <div style={{width:54,height:54,minWidth:54,borderRadius:"50%",background:tier.color,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue'",fontSize:18,color:"#0A0A0B",flexShrink:0}}>{(user?.name||profile.name).split(" ").map(w=>w[0]).slice(0,2).join("")}</div>
+        <div style={{position:"relative",flexShrink:0}} onClick={()=>fileInputRef.current?.click()}>
+          {user?.avatarUrl
+            ? <img src={user.avatarUrl} style={{width:54,height:54,borderRadius:"50%",objectFit:"cover",display:"block"}} alt="avatar"/>
+            : <div style={{width:54,height:54,borderRadius:"50%",background:tier.color,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue'",fontSize:18,color:"#0A0A0B"}}>{(user?.name||profile.name).split(" ").map(w=>w[0]).slice(0,2).join("")}</div>
+          }
+          <div style={{position:"absolute",bottom:0,right:0,width:18,height:18,borderRadius:"50%",background:"#1A1B1E",border:"1px solid #222327",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+            {uploading ? <span style={{fontSize:8,color:"#787C8A"}}>…</span> : <span style={{fontSize:10}}>📷</span>}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFileSelect}/>
+        </div>
       </div>
 
       {/* Tier card */}
@@ -2309,13 +2390,33 @@ function AuthModal({ onClose, onAuth, lang }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [club, setClub] = useState("");
+  const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     setErr("");
     if (mode==="register" && !name.trim()) { setErr(tl("err_name")); return; }
-    if (!email.includes("@") || !email.includes(".")) { setErr("Email invàlid"); return; }
-    onAuth({ name: name.trim() || email.split("@")[0], email: email.trim(), club: club.trim() });
+    if (!email.includes("@") || !email.includes(".")) { setErr(tl("err_email")); return; }
+    if (!password || password.length < 6) { setErr(lang==="en"?"Password must be at least 6 characters":lang==="es"?"La contraseña debe tener al menos 6 caracteres":"La contrasenya ha de tenir almenys 6 caràcters"); return; }
+
+    setLoading(true);
+    if (mode === "register") {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { name: name.trim(), club: club.trim() } },
+      });
+      if (error) { setErr(error.message); setLoading(false); return; }
+      const u = data.user;
+      onAuth({ name: u.user_metadata?.name || email.split("@")[0], email: u.email, club: u.user_metadata?.club || "" });
+    } else {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) { setErr(error.message); setLoading(false); return; }
+      const u = data.user;
+      onAuth({ name: u.user_metadata?.name || email.split("@")[0], email: u.email, club: u.user_metadata?.club || "" });
+    }
+    setLoading(false);
   };
 
   return (
@@ -2347,10 +2448,17 @@ function AuthModal({ onClose, onAuth, lang }) {
           </>
         )}
 
-        <div style={{marginBottom:20}}>
+        <div style={{marginBottom:12}}>
           <span className="label">Email</span>
           <input className="inp" type="email" placeholder="tu@email.com" value={email}
             onChange={e=>{setEmail(e.target.value);setErr("");}}
+            onKeyDown={e=>e.key==="Enter"&&submit()}/>
+        </div>
+
+        <div style={{marginBottom:20}}>
+          <span className="label">{lang==="en"?"Password":lang==="es"?"Contraseña":"Contrasenya"}</span>
+          <input className="inp" type="password" placeholder="••••••••" value={password}
+            onChange={e=>{setPassword(e.target.value);setErr("");}}
             onKeyDown={e=>e.key==="Enter"&&submit()}/>
         </div>
 
@@ -2360,8 +2468,8 @@ function AuthModal({ onClose, onAuth, lang }) {
           </div>
         )}
 
-        <button className="btn btn-primary" style={{fontSize:14,marginBottom:14,width:"100%"}} onClick={submit}>
-          {mode==="register"?tl("auth_register_btn"):tl("auth_login_btn")}
+        <button className="btn btn-primary" style={{fontSize:14,marginBottom:14,width:"100%"}} onClick={submit} disabled={loading}>
+          {loading?(lang==="en"?"Loading...":lang==="es"?"Cargando...":"Carregant..."):(mode==="register"?tl("auth_register_btn"):tl("auth_login_btn"))}
         </button>
 
         <div style={{textAlign:"center",fontSize:12,color:"#555761"}}>
@@ -2398,10 +2506,67 @@ export default function App() {
   });
   const [lastGame, setLastGame] = useState(null);
   const [prevPts, setPrevPts] = useState(0);
+  const [activityFeed, setActivityFeed] = useState([]);
   const leads = useRef([]);
+
+  useEffect(() => {
+    supabase.from("games").select("*").order("created_at", { ascending: false }).limit(10)
+      .then(({ data }) => { if (data) setActivityFeed(data.map(mapGameToFeedItem)); });
+
+    const channel = supabase
+      .channel("games-feed")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "games" }, (payload) => {
+        setActivityFeed(prev => [mapGameToFeedItem(payload.new), ...prev].slice(0, 20));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const u = session.user;
+        setUser({ name: u.user_metadata?.name || u.email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", avatarUrl: u.user_metadata?.avatar_url || null });
+        supabase.from("games").select("*").order("created_at", { ascending: false })
+          .then(({ data }) => {
+            if (data) {
+              setHistory(data.map(g => ({ id: g.id, course: g.course, date: g.date, mode: g.mode, players: g.players, scores: g.scores })));
+              setUserPts(data.reduce((sum, g) => { const me = g.players.find(p => p.isMe); return sum + (me?.points || 0); }, 0));
+            }
+          });
+      } else {
+        setUser(null);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),3000); };
   const openAuth = () => setShowAuth(true);
+
+  const handleAvatarChange = async (file) => {
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData?.user) return;
+    const userId = authData.user.id;
+    const ext = file.name.split(".").pop();
+    const path = `${userId}/avatar.${ext}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (error) { showToast("Error uploading avatar"); return; }
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+    await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
+    setUser(prev => ({ ...prev, avatarUrl: publicUrl }));
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setUserPts(0);
+    setHistory([]);
+    setScreen("home");
+    window.scrollTo(0, 0);
+  };
+
   const handleAuth = (u) => {
     setUser(u);
     setShowAuth(false);
@@ -2416,7 +2581,7 @@ export default function App() {
     setScreen("scorecard");
   };
 
-  const handleGameFinish = (scores, saveAndExit=false) => {
+  const handleGameFinish = async (scores, saveAndExit=false) => {
     if (!gameData) return;
     if (saveAndExit) {
       // Save scores to localStorage and go home, keeping game alive
@@ -2435,6 +2600,21 @@ export default function App() {
     const me = players.find(p=>p.isMe);
     if (me) { setPrevPts(userPts); setUserPts(p=>p+me.points); }
     setLastGame(game);
+
+    if (user) {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user) {
+        await supabase.from("games").insert({
+          user_id: authData.user.id,
+          course: game.course,
+          date: game.date,
+          mode: game.mode,
+          players: game.players,
+          scores: game.scores,
+        });
+      }
+    }
+
     localStorage.removeItem('pc_gameData');
     localStorage.removeItem('pc_scores');
     localStorage.removeItem('pc_curHole');
@@ -2455,16 +2635,16 @@ export default function App() {
         }
       `}</style>
       <div className="app">
-        {screen!=="scorecard" && <AppHeader screen={screen} setScreen={setScreenSafe} user={user} openAuth={openAuth} userPts={userPts} lang={lang} setLang={setLang}/>}
+        {screen!=="scorecard" && <AppHeader screen={screen} setScreen={setScreenSafe} user={user} openAuth={openAuth} onSignOut={handleSignOut} userPts={userPts} lang={lang} setLang={setLang}/>}
 
-        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")}/>}
+        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")} activityFeed={activityFeed}/>}
         {screen==="game-setup" && <GameSetupScreen   user={user} openAuth={openAuth} onStart={handleGameStart} lang={lang}/>}
         {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang}/>}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="shop"       && <ShopScreen       user={user} openAuth={openAuth} lang={lang}/>}
-        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang}/>}
+        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange}/>}
 
         {!isGameFlow && <BottomNav screen={screen} setScreen={setScreenSafe} lang={lang}/>}
 

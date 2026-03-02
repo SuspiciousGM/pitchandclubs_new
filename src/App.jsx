@@ -296,18 +296,16 @@ const G = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html{height:100%;background:#0A0A0B;width:100%;overflow-x:hidden;}
+html{height:100%;background:#0A0A0B;}
 body{
-  min-height:100%;
-  width:100%;
-  max-width:100vw;
+  height:100%;
   background:#0A0A0B;
   color:#FFFFFF;
   font-family:'Inter',sans-serif;
   -webkit-font-smoothing:antialiased;
-  overflow-x:hidden;
   overscroll-behavior:none;
 }
+#root{height:100%;}
 ::-webkit-scrollbar{display:none;}
 input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 
@@ -319,7 +317,7 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .app{
   background:#111214;
   color:#FFFFFF;
-  height:100svh;
+  height:100%;
   width:100%;
   max-width:430px;
   margin:0 auto;
@@ -1933,11 +1931,11 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
 
       {/* ── GLOBAL */}
       {filter==="global" && <>
-        <div style={{display:"flex",gap:8,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
+        <div style={{display:"flex",gap:8,marginBottom:16}}>
           {[LEADERBOARD[1],LEADERBOARD[0],LEADERBOARD[2]].map((p,col) => {
             const tier = getTier(p.pts); const isF = col===1;
             return (
-              <div key={p.rank} className="card" style={{flexShrink:0,width:isF?152:128,padding:"14px 10px",textAlign:"center",borderColor:isF?"#CAFF4D":"#222327",background:isF?"rgba(202,255,77,.04)":"#1A1B1E",cursor:"pointer"}} onClick={goProfile}>
+              <div key={p.rank} className="card" style={{flex:isF?1.2:1,minWidth:0,padding:"14px 10px",textAlign:"center",borderColor:isF?"#CAFF4D":"#222327",background:isF?"rgba(202,255,77,.04)":"#1A1B1E",cursor:"pointer"}} onClick={goProfile}>
                 <div style={{fontSize:isF?28:20,marginBottom:4}}>{["🥈","🥇","🥉"][col]}</div>
                 <div style={{width:34,height:34,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0A0A0B",margin:"0 auto 7px"}}>{p.avatar}</div>
                 <div style={{fontWeight:600,fontSize:11,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>

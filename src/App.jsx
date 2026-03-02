@@ -296,16 +296,18 @@ const G = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html{height:100%;background:#0A0A0B;}
+html{height:100%;background:#0A0A0B;width:100%;overflow-x:hidden;}
 body{
-  height:100%;
+  min-height:100%;
+  width:100%;
+  max-width:100vw;
   background:#0A0A0B;
   color:#FFFFFF;
   font-family:'Inter',sans-serif;
   -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
   overscroll-behavior:none;
 }
-#root{height:100%;}
 ::-webkit-scrollbar{display:none;}
 input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 
@@ -317,20 +319,17 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .app{
   background:#111214;
   color:#FFFFFF;
-  height:100%;
+  min-height:100svh;
   width:100%;
   max-width:430px;
   margin:0 auto;
   position:relative;
-  display:flex;
-  flex-direction:column;
-  overflow:hidden;
+  overflow-x:hidden;
 }
 
 /* ── HEADER */
 .app-header{
-  position:relative;z-index:100;
-  flex-shrink:0;
+  position:sticky;top:0;z-index:100;
   background:rgba(17,18,20,.94);
   border-bottom:1px solid #1A1B1E;
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -343,7 +342,8 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 
 /* ── BOTTOM NAV */
 .bottom-nav{
-  flex-shrink:0;
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:430px;z-index:200;
   background:rgba(10,10,11,.97);
   border-top:1px solid #1A1B1E;
   display:flex;
@@ -370,7 +370,7 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .nav-game-btn{color:#CAFF4D!important;}
 
 /* ── PAGE SCROLL */
-.page-scroll{flex:1;padding:16px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+.page-scroll{padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
 
 /* ── CARDS */
 .card{background:#1A1B1E;border:1px solid #222327;border-radius:10px;padding:16px;}

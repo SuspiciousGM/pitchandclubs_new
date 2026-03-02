@@ -828,7 +828,7 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
           </button>
         </div>
       ) : (
-        <div style={{marginBottom:14,paddingTop:8}}>
+        <div style={{paddingTop:8,marginBottom:16}}>
           <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:14}}>
             <div className="live-dot"/>
             <span style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761"}}>
@@ -844,7 +844,7 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
       )}
 
       {/* ── PRIMARY CTA ── */}
-      <button className="btn btn-primary" style={{marginBottom:10,fontSize:17,letterSpacing:".04em",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}
+      <button className="btn btn-primary" style={{marginBottom:10,fontSize:14}}
         onClick={()=>setScreen("game-setup")}>
         <Flag size={18} strokeWidth={2.5}/>{tl("cta_new_game")}
       </button>
@@ -1201,7 +1201,6 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
       <button className="btn btn-primary" disabled={!activeCourse} onClick={handleStart} style={{marginBottom:10,fontSize:17}}>
         Som-hi! →
       </button>
-      <button className="btn btn-ghost" style={{fontSize:13}}>Cancel·lar</button>
     </div>
   );
 }
@@ -1914,7 +1913,7 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
 function RankingScreen({ user, openAuth, setScreen, lang }) {
   const tl = (k,v={}) => t(lang,k,v);
   const [filter, setFilter] = useState("global");
-  const tabs = [["global",tl("ranking_global")],["setmana",tl("ranking_week")],["camp",tl("ranking_course")]];
+  const tabs = [["global",tl("ranking_global")],["setmana",tl("ranking_week")]];
   const goProfile = () => setScreen("profile");
   return (
     <div className="page-scroll">
@@ -1999,32 +1998,6 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
         </div>
       </>}
 
-      {/* ── PER CAMP */}
-      {filter==="camp" && <>
-        <div className="card" style={{padding:"10px 13px",marginBottom:12}}>
-          <span style={{fontSize:11,fontWeight:500,color:"#787C8A"}}>Millors scores per camp · tots els temps</span>
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-          {LEADERBOARD_CAMP.map((c,i) => (
-            <div key={c.camp} className="card" style={{padding:"12px 14px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                <div>
-                  <div style={{fontWeight:700,fontSize:13,marginBottom:2}}>{c.camp}</div>
-                  <div style={{fontSize:10,color:"#555761"}}>{c.games} partides registrades</div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:"#CAFF4D",lineHeight:1}}>{c.best>0?`+${c.best}`:c.best}</div>
-                  <div style={{fontSize:9,color:"#555761"}}>millor score</div>
-                </div>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <div style={{width:22,height:22,borderRadius:"50%",background:c.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{c.avatar}</div>
-                <div style={{fontSize:11,color:"#787C8A"}}>Líder: <span style={{color:"#fff",fontWeight:600}}>{c.leader}</span> · avg {c.avg>0?`+${c.avg}`:c.avg}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </>}
     </div>
   );
 }

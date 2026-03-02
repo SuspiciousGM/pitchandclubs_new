@@ -906,38 +906,6 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
         </div>
       )}
 
-      {/* ── MINI LEADERBOARD ── */}
-      <div style={{marginBottom:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
-          <div>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:4}}>{tl("sec_ranking")}</div>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(20px,5vw,30px)",letterSpacing:".04em",lineHeight:1}}>{tl("sec_top_ranking")}</div>
-          </div>
-          <button style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#CAFF4D",cursor:"pointer",border:"none",background:"none",display:"flex",alignItems:"center",gap:4}} onClick={()=>setScreen("ranking")}>
-            {lang==="en"?"All":tl("cat_all")} <ChevronRight size={13}/>
-          </button>
-        </div>
-        <div className="card" style={{overflow:"hidden",padding:0}}>
-          {LEADERBOARD.slice(0,5).map((p,i)=>{
-            const tier=getTier(p.pts);
-            return (
-              <div key={p.rank} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:i<4?"1px solid #111214":"none"}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:i<3?17:13,color:i<3?"#CAFF4D":"#2A2B30",width:22,textAlign:"center",flexShrink:0}}>0{p.rank}</div>
-                <div style={{width:27,height:27,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{p.avatar}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
-                  <div style={{fontSize:9,color:"#555761"}}>{tier.emoji} {tier.name} · {p.club}</div>
-                </div>
-                <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{fontFamily:"'Bebas Neue'",fontSize:15,color:p.best<0?"#CAFF4D":p.best===0?"#fff":"#555761"}}>{p.best>0?`+${p.best}`:p.best}</div>
-                  <div style={{fontSize:9,color:"#CAFF4D",fontWeight:700}}>{p.pts}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* ── COM FUNCIONA ── */}
       <div style={{marginBottom:16}}>
         <SectionHeader sub={tl("sec_how")} title={tl("sec_how_title")}/>
@@ -1018,6 +986,38 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
 
 
 
+
+      {/* ── MINI LEADERBOARD ── */}
+      <div style={{marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:4}}>{tl("sec_ranking")}</div>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(20px,5vw,30px)",letterSpacing:".04em",lineHeight:1}}>{tl("sec_top_ranking")}</div>
+          </div>
+          <button style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#CAFF4D",cursor:"pointer",border:"none",background:"none",display:"flex",alignItems:"center",gap:4}} onClick={()=>setScreen("ranking")}>
+            {lang==="en"?"All":tl("cat_all")} <ChevronRight size={13}/>
+          </button>
+        </div>
+        <div className="card" style={{overflow:"hidden",padding:0}}>
+          {LEADERBOARD.slice(0,5).map((p,i)=>{
+            const tier=getTier(p.pts);
+            return (
+              <div key={p.rank} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:i<4?"1px solid #111214":"none"}}>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:i<3?17:13,color:i<3?"#CAFF4D":"#2A2B30",width:22,textAlign:"center",flexShrink:0}}>0{p.rank}</div>
+                <div style={{width:27,height:27,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{p.avatar}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                  <div style={{fontSize:9,color:"#555761"}}>{tier.emoji} {tier.name} · {p.club}</div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{fontFamily:"'Bebas Neue'",fontSize:15,color:p.best<0?"#CAFF4D":p.best===0?"#fff":"#555761"}}>{p.best>0?`+${p.best}`:p.best}</div>
+                  <div style={{fontSize:9,color:"#CAFF4D",fontWeight:700}}>{p.pts}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* ── TICKER ── */}
       <Ticker lang={lang}/>
@@ -1317,7 +1317,6 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang })
   const [activePlayerId, setActivePlayerId] = useState(players[0].id);
   const [panel, setPanel]                   = useState('dial'); // 'dial' | 'global'
   const [confirmed, setConfirmed]           = useState(new Set()); // holes explicitly confirmed
-  const [confirmDelete, setConfirmDelete]   = useState(false);
 
   const confirmHole = (holeIdx, pid) => {
     setConfirmed(prev => new Set([...prev, holeIdx]));
@@ -1440,26 +1439,15 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang })
           }}>
             ← {lang==='en'?'Save & exit':lang==='es'?'Guardar y salir':'Guardar i sortir'}
           </button>
-          {/* Delete button */}
-          {confirmDelete ? (
-            <button onClick={onDelete} style={{
-              display:'flex',alignItems:'center',gap:4,
-              padding:'6px 10px',borderRadius:100,cursor:'pointer',
-              border:'1px solid rgba(239,68,68,.5)',background:'rgba(239,68,68,.12)',
-              color:'#EF4444',fontSize:11,fontWeight:700,fontFamily:'Inter',
-            }}>
-              {lang==='en'?'Delete?':lang==='es'?'Borrar?':'Eliminar?'}
-            </button>
-          ) : (
-            <button onClick={()=>setConfirmDelete(true)} style={{
-              display:'flex',alignItems:'center',justifyContent:'center',
-              width:30,height:30,borderRadius:100,cursor:'pointer',
-              border:'1px solid #222327',background:'#1A1B1E',
-              color:'#555761',fontSize:13,fontFamily:'Inter',
-            }}>
-              🗑
-            </button>
-          )}
+          {/* Cancel button */}
+          <button onClick={onDelete} style={{
+            display:'flex',alignItems:'center',gap:4,
+            padding:'6px 10px',borderRadius:100,cursor:'pointer',
+            border:'1px solid #222327',background:'#1A1B1E',
+            color:'#555761',fontSize:11,fontWeight:700,fontFamily:'Inter',
+          }}>
+            <X size={13}/>{lang==='en'?'Cancel':lang==='es'?'Cancelar':'Cancel·lar'}
+          </button>
         </div>
         <div style={{minWidth:0,flex:1,marginRight:8,textAlign:'center'}}>
           <div style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>

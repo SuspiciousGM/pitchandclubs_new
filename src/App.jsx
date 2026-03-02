@@ -319,17 +319,20 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .app{
   background:#111214;
   color:#FFFFFF;
-  min-height:100svh;
+  height:100svh;
   width:100%;
   max-width:430px;
   margin:0 auto;
   position:relative;
-  overflow-x:hidden;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
 }
 
 /* ── HEADER */
 .app-header{
-  position:sticky;top:0;z-index:100;
+  position:relative;z-index:100;
+  flex-shrink:0;
   background:rgba(17,18,20,.94);
   border-bottom:1px solid #1A1B1E;
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -342,13 +345,12 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 
 /* ── BOTTOM NAV */
 .bottom-nav{
-  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
-  width:100%;max-width:430px;
+  flex-shrink:0;
   background:rgba(10,10,11,.97);
   border-top:1px solid #1A1B1E;
   display:flex;
   padding:8px 0 calc(8px + env(safe-area-inset-bottom));
-  backdrop-filter:blur(16px);z-index:200;
+  backdrop-filter:blur(16px);
 }
 .nav-item{
   flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
@@ -370,7 +372,7 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .nav-game-btn{color:#CAFF4D!important;}
 
 /* ── PAGE SCROLL */
-.page-scroll{padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:clip;}
+.page-scroll{flex:1;padding:16px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
 
 /* ── CARDS */
 .card{background:#1A1B1E;border:1px solid #222327;border-radius:10px;padding:16px;}
@@ -622,9 +624,15 @@ function AppHeader({ screen, setScreen, user, openAuth, onSignOut, userPts, lang
           </div>
         )}
         {!user && !isGameFlow && (
-          <button className="btn btn-sm" style={{background:"#CAFF4D",color:"#0A0A0B",border:"none",borderRadius:100,padding:"6px 14px",fontSize:11,fontWeight:700,textTransform:"uppercase"}} onClick={openAuth}>
-            {tl("cta_join")}
-          </button>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <button onClick={()=>openAuth("login")}
+              style={{background:"transparent",border:"1px solid #2A2B30",borderRadius:100,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#FFFFFF",cursor:"pointer",letterSpacing:".04em",textTransform:"uppercase",fontFamily:"Inter"}}>
+              {lang==="en"?"Login":lang==="es"?"Entrar":"Entra"}
+            </button>
+            <button className="btn btn-sm" style={{background:"#CAFF4D",color:"#0A0A0B",border:"none",borderRadius:100,padding:"6px 14px",fontSize:11,fontWeight:700,textTransform:"uppercase"}} onClick={()=>openAuth("register")}>
+              {tl("cta_join")}
+            </button>
+          </div>
         )}
       </div>
     </header>
@@ -753,7 +761,7 @@ const LEADERBOARD_CAMP = [
 /* ═══════════════════════════════════════════════════════════════
    HOME SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, activeGame, onResumeGame, activityFeed }) {
+function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, activeGame, onResumeGame }) {
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [liked, setLiked] = useState({});
@@ -1010,41 +1018,6 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
 
 
 
-      {/* ── LA GENT JUGA AVUI (live feed) ── */}
-      {(() => {
-        const feed = activityFeed.length > 0 ? activityFeed : UGC_FEED.map(g => ({ id: g.id, user: g.user, course: g.course, diff: 0, label: g.label, lc: g.lc, points: 0, created_at: null }));
-        return (
-          <div style={{marginBottom:16}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
-              <div>
-                <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:4}}>{tl("sec_community")}</div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(20px,5vw,30px)",letterSpacing:".04em",lineHeight:1,display:"flex",alignItems:"center",gap:8}}>
-                  {tl("sec_community_title")}
-                  {activityFeed.length > 0 && <span style={{width:7,height:7,borderRadius:"50%",background:"#EF4444",display:"inline-block",boxShadow:"0 0 6px #EF4444"}}/>}
-                </div>
-              </div>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {feed.slice(0,5).map(item => (
-                <div key={item.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"#1A1B1E",borderRadius:10,border:"1px solid #222327"}}>
-                  <div style={{width:34,height:34,borderRadius:"50%",background:item.lc,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>
-                    {item.user.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
-                  </div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.user}</div>
-                    <div style={{fontSize:10,color:"#555761",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.course}</div>
-                  </div>
-                  <div style={{textAlign:"right",flexShrink:0}}>
-                    <div style={{fontSize:11,fontWeight:700,color:item.lc}}>{item.label}</div>
-                    {item.created_at && <div style={{fontSize:9,color:"#555761"}}>{timeAgo(item.created_at)}</div>}
-                    {item.points > 0 && <div style={{fontSize:9,color:"#CAFF4D"}}>+{item.points} pts</div>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
 
       {/* ── TICKER ── */}
       <Ticker lang={lang}/>
@@ -2469,9 +2442,9 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
 /* ═══════════════════════════════════════════════════════════════
    AUTH MODAL
 ═══════════════════════════════════════════════════════════════ */
-function AuthModal({ onClose, onAuth, lang }) {
+function AuthModal({ onClose, onAuth, lang, initialMode="register" }) {
   const tl = (k,v={}) => t(lang,k,v);
-  const [mode, setMode] = useState("register");
+  const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [club, setClub] = useState("");
@@ -2585,6 +2558,7 @@ export default function App() {
   const [userPts, setUserPts] = useState(0);
   const [history, setHistory] = useState([]);
   const [showAuth, setShowAuth] = useState(false);
+  const [authMode, setAuthMode] = useState("register");
   const [toast, setToast] = useState("");
   const [gameData, setGameData] = useState(() => {
     try { const s = localStorage.getItem('pc_gameData'); return s ? JSON.parse(s) : null; } catch { return null; }
@@ -2628,7 +2602,7 @@ export default function App() {
   }, []);
 
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),3000); };
-  const openAuth = () => setShowAuth(true);
+  const openAuth = (mode="register") => { setAuthMode(mode); setShowAuth(true); };
 
   const handleAvatarChange = async (file) => {
     const { data: authData } = await supabase.auth.getUser();
@@ -2732,7 +2706,7 @@ export default function App() {
       <div className="app">
         {screen!=="scorecard" && <AppHeader screen={screen} setScreen={setScreenSafe} user={user} openAuth={openAuth} onSignOut={handleSignOut} userPts={userPts} lang={lang} setLang={setLang}/>}
 
-        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")} activityFeed={activityFeed}/>}
+        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")}/>}
         {screen==="game-setup" && <GameSetupScreen   user={user} openAuth={openAuth} onStart={handleGameStart} lang={lang}/>}
         {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang}/>}
@@ -2743,7 +2717,7 @@ export default function App() {
 
         {!isGameFlow && <BottomNav screen={screen} setScreen={setScreenSafe} lang={lang}/>}
 
-        {showAuth && <AuthModal onClose={()=>setShowAuth(false)} onAuth={handleAuth} lang={lang}/>}
+        {showAuth && <AuthModal onClose={()=>setShowAuth(false)} onAuth={handleAuth} lang={lang} initialMode={authMode}/>}
         {toast && <div className="toast">{toast}</div>}
       </div>
     </>

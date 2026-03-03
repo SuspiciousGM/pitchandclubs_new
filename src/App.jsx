@@ -1533,11 +1533,18 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
   const nudge = (pid,delta) => applyScore(pid, Math.max(1,(hole.playerScores[pid]??par)+delta));
 
   const commitParAndGo = (nextHole) => {
+    // Commit par for the active player if they haven't scored the current hole yet
+    let next = scores;
+    if (next[curHole].playerScores[activePid] == null) {
+      next = next.map((h,i) => i===curHole ? {...h, playerScores:{...h.playerScores,[activePid]:h.par}} : h);
+      setScores(next);
+      localStorage.setItem('pc_scores', JSON.stringify(next));
+    }
     const ni=Math.max(0,Math.min(course.holes-1,nextHole));
     setCurHole(ni);
     localStorage.setItem('pc_curHole', ni);
     setActivePid(players[0].id);
-    if (onLiveUpdate) onLiveUpdate(scores, ni);
+    if (onLiveUpdate) onLiveUpdate(next, ni);
   };
 
   const allDone = players.every(p=>hole.playerScores[p.id]!=null);
@@ -1713,7 +1720,7 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
                 <div style={{display:'flex',alignItems:'center',gap:12,flexShrink:0}}>
                   <AnimPts value={pts} prev={pp}/>
                   <div style={{textAlign:'center'}}>
-                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:52,color:scDiffColor(tot),lineHeight:1,transition:'color .3s',minWidth:50,textShadow:tot!=null&&isAct?`0 0 30px ${scDiffColor(tot)}25`:'none'}}>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:scDiffColor(tot),lineHeight:1,transition:'color .3s',minWidth:30,textShadow:tot!=null&&isAct?`0 0 30px ${scDiffColor(tot)}25`:'none'}}>
                       {scFmtTotal(tot)}
                     </div>
                     <div style={{fontSize:8,color:'#555',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',marginTop:1}}>{played}/{course.holes}</div>
@@ -1736,11 +1743,11 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
                         const isCur=i===curHole;
                         return (
                           <div key={i} onClick={e=>{e.stopPropagation();commitParAndGo(i);setActivePid(p.id);}}
-                            style={{cursor:'pointer',borderRadius:6,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:34,gap:1,transition:'all .15s',
+                            style={{cursor:'pointer',borderRadius:6,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:42,gap:1,transition:'all .15s',
                               border:isCur?`1.5px solid ${pcolor}70`:'1px solid #1e1e28',
                               background:isCur?`${pcolor}0d`:'#0c0c12'}}>
-                            <span style={{fontSize:6,color:isCur?pcolor:'#2a2a38',fontWeight:700,lineHeight:1}}>{h.hole}</span>
-                            <ScoreSymbol v={isCur&&hv==null?h.par:hv} par={h.par} size={22}/>
+                            <span style={{fontSize:9,color:isCur?pcolor:'#2a2a38',fontWeight:700,lineHeight:1}}>{h.hole}</span>
+                            <ScoreSymbol v={isCur&&hv==null?h.par:hv} par={h.par} size={28}/>
                           </div>
                         );
                       })}
@@ -1753,17 +1760,17 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
               {isAct&&(
                 <div style={{display:'flex',alignItems:'center',gap:10,marginTop:2}}>
                   <button onClick={e=>{e.stopPropagation();nudge(p.id,-1);}}
-                    style={{width:56,height:56,borderRadius:14,border:'1px solid #2a2a35',background:'#1c1c26',color:'#9a9aaa',fontSize:30,fontWeight:300,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,lineHeight:1}}>
+                    style={{width:46,height:46,borderRadius:12,border:'1px solid #2a2a35',background:'#1c1c26',color:'#9a9aaa',fontSize:24,fontWeight:300,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,lineHeight:1}}>
                     −
                   </button>
                   <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-                    <ScoreSymbol v={v??par} par={par} size={64}/>
+                    <ScoreSymbol v={v??par} par={par} size={52}/>
                     <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:scDiffColor(d),letterSpacing:'.1em',lineHeight:1,transition:'color .2s'}}>
                       {v==null?'Par (default)':scRowLabel(v,par)}
                     </span>
                   </div>
                   <button onClick={e=>{e.stopPropagation();nudge(p.id,1);}}
-                    style={{width:56,height:56,borderRadius:14,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontSize:30,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,lineHeight:1}}>
+                    style={{width:46,height:46,borderRadius:12,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontSize:24,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,lineHeight:1}}>
                     +
                   </button>
                 </div>

@@ -1,16 +1,48 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Home, BarChart2, ShoppingBag, Trophy, User, Plus, ChevronRight, ChevronLeft,
   Check, X, Search, MapPin, Calendar, Users, Zap, Star, TrendingUp,
   Award, Flag, Target, Activity, Heart, Globe, Flame, Crown, ArrowRight,
   Play, Share2, Bell, AlertCircle, CheckCircle, Minus, Menu, LogOut
 } from "lucide-react";
-import { supabase } from "./supabaseClient";
+// ─── SUPABASE CLIENT ──────────────────────────────────────────
+// In your local Vite project, replace this block with:
+//   import { supabase } from "./supabaseClient";
+//
+// This inline mock lets the preview render without a real connection.
+const _mockQuery = () => {
+  const q = { _filters: [], _order: null, _limit: null };
+  const chain = {
+    select: () => chain,
+    eq: () => chain,
+    order: () => chain,
+    limit: () => chain,
+    then: (resolve) => { resolve({ data: [], error: null }); return Promise.resolve({ data: [], error: null }); },
+  };
+  return chain;
+};
+const _mockAuth = {
+  signUp: async () => ({ data: { user: { id: "mock", email: "mock@test.com", user_metadata: { name: "Mock User" } } }, error: null }),
+  signInWithPassword: async () => ({ data: { user: { id: "mock", email: "mock@test.com", user_metadata: { name: "Mock User" } } }, error: null }),
+  signOut: async () => ({}),
+  getUser: async () => ({ data: { user: null } }),
+  updateUser: async () => ({}),
+  onAuthStateChange: (cb) => { return { data: { subscription: { unsubscribe: () => {} } } }; },
+};
+const _mockStorage = { from: () => ({ upload: async () => ({}), getPublicUrl: () => ({ data: { publicUrl: "" } }) }) };
+const _mockChannel = { on: function() { return this; }, subscribe: function() { return this; } };
+const supabase = {
+  from: () => _mockQuery(),
+  auth: _mockAuth,
+  storage: _mockStorage,
+  channel: () => _mockChannel,
+  removeChannel: () => {},
+};
 
 /* ─── i18n ───────────────────────────────────────────────────── */
 const T = {
   ca:{
-    nav_home:"Inici",nav_ranking:"Rànquing",nav_game:"Partida",nav_tournaments:"Tornejos",nav_shop:"Botiga",nav_profile:"Perfil",
+    nav_home:"Inici",nav_ranking:"Rànquing",nav_game:"Partida",nav_live:"Live",nav_shop:"Botiga",nav_profile:"Perfil",
     hero_title:"PITCH&CLUBS",hero_sub:"L'Strava del golf.",hero_desc:"Registra partides, puja al rànquing i suporta el teu club.",hero_live:"Beta oberta · {n} jugadors",
     cta_new_game:"Nova Partida",cta_join:"Uneix-te",cta_join_free:"Uneix-te gratis →",cta_create_account:"Crea un compte →",
     cta_register_now:"Registrar ara →",cta_ready:"READY TO PLAY?",cta_ready_sub:"Registra la primera partida sense necessitat de fer login.",cta_ready_btn:"Registra una partida",cta_stats:"Les meves estadístiques →",
@@ -61,7 +93,7 @@ const T = {
     ticker:["Pitch & Clubs","61 camps","Registra · Puja · Domina","Kits Oficials","Less Elitist. More Real","Beta oberta","Tornejos 2025"],
   },
   es:{
-    nav_home:"Inicio",nav_ranking:"Ranking",nav_game:"Partida",nav_tournaments:"Torneos",nav_shop:"Tienda",nav_profile:"Perfil",
+    nav_home:"Inicio",nav_ranking:"Ranking",nav_game:"Partida",nav_live:"Live",nav_shop:"Tienda",nav_profile:"Perfil",
     hero_title:"PITCH&CLUBS",hero_sub:"El Strava del golf.",hero_desc:"Registra partidas, sube en el ranking y apoya a tu club.",hero_live:"Beta abierta · {n} jugadores",
     cta_new_game:"Nueva Partida",cta_join:"Únete",cta_join_free:"Únete gratis →",cta_create_account:"Crea una cuenta — guarda tus stats →",
     cta_register_now:"Registrar ahora →",cta_ready:"¿LISTO PARA JUGAR?",cta_ready_sub:"Registra la primera partida sin necesidad de login.",cta_ready_btn:"Registra una partida",cta_stats:"Mis estadísticas →",
@@ -112,7 +144,7 @@ const T = {
     ticker:["Pitch & Clubs","61 campos","Registra · Sube · Domina","Kits Oficiales","Less Elitist. More Real","Beta abierta","Torneos 2025"],
   },
   en:{
-    nav_home:"Home",nav_ranking:"Ranking",nav_game:"Round",nav_tournaments:"Tournaments",nav_shop:"Shop",nav_profile:"Profile",
+    nav_home:"Home",nav_ranking:"Ranking",nav_game:"Round",nav_live:"Live",nav_shop:"Shop",nav_profile:"Profile",
     hero_title:"PITCH&CLUBS",hero_sub:"The Strava of golf.",hero_desc:"Track rounds, climb the leaderboard and support your club.",hero_live:"Open beta · {n} players",
     cta_new_game:"New Round",cta_join:"Join",cta_join_free:"Join for free →",cta_create_account:"Create an account — save your stats →",
     cta_register_now:"Register now →",cta_ready:"READY TO PLAY?",cta_ready_sub:"Track your first round without signing up.",cta_ready_btn:"Track a round",cta_stats:"My statistics →",
@@ -499,6 +531,27 @@ input[type="date"].inp{color-scheme:dark;}
 .live-dot{width:6px;height:6px;border-radius:50%;background:#EF4444;animation:blink 1.2s infinite;flex-shrink:0;}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 @keyframes pulse-border{0%,100%{border-color:rgba(202,255,77,.35)}50%{border-color:rgba(202,255,77,.9)}}
+
+/* ── LIVE SCREEN */
+.live-tab-bar{display:flex;border-bottom:1px solid #1A1B1E;margin-bottom:16px;gap:0;}
+.live-tab{padding:9px 16px;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;font-size:12px;font-weight:700;color:#555761;cursor:pointer;white-space:nowrap;font-family:Inter;letter-spacing:.04em;text-transform:uppercase;transition:color .15s;}
+.live-tab.active{border-bottom-color:#CAFF4D;color:#CAFF4D;}
+.live-card{background:#1A1B1E;border:1px solid #222327;border-radius:10px;padding:13px 14px;margin-bottom:8px;cursor:pointer;transition:all .15s;}
+.live-card.is-live{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.04);}
+.live-card:active{transform:scale(.98);}
+.story-row{display:flex;gap:12px;overflow-x:auto;padding:0 0 10px;margin-bottom:16px;-webkit-overflow-scrolling:touch;}
+.story-row::-webkit-scrollbar{display:none;}
+.story-avatar{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;cursor:pointer;}
+.story-ring{width:50px;height:50px;border-radius:50%;border:2px solid #EF4444;padding:2px;animation:story-pulse 2s infinite;}
+@keyframes story-pulse{0%,100%{border-color:#EF4444}50%{border-color:rgba(239,68,68,.4)}}
+.story-inner{width:100%;height:100%;border-radius:50%;background:#1A1B1E;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;overflow:hidden;}
+.ugc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.ugc-card{border-radius:10px;overflow:hidden;background:#1A1B1E;cursor:pointer;transition:transform .15s;}
+.ugc-card:active{transform:scale(.97);}
+.map-container{position:relative;width:100%;aspect-ratio:1.15;background:#1A1B1E;border-radius:12px;overflow:hidden;border:1px solid #222327;}
+.map-dot{position:absolute;transform:translate(-50%,-50%);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.map-pin{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#0A0A0B;transition:transform .15s;box-shadow:0 2px 8px rgba(0,0,0,.4);}
+.map-dot:hover .map-pin,.map-dot:active .map-pin{transform:scale(1.15);}
 `;
 
 /* ─── HELPERS ────────────────────────────────────────────────── */
@@ -551,8 +604,12 @@ function BottomNav({ screen, setScreen, lang }) {
         <span style={{fontSize:9,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",
           color:isGame?"#CAFF4D":"#555761"}}>{lbl("nav_game")}</span>
       </button>
-      <button className={`nav-item${screen==="tournaments"?" active":""}`} onClick={()=>setScreen("tournaments")}>
-        <Trophy size={21} strokeWidth={screen==="tournaments"?2.5:1.8}/><span>{lbl("nav_tournaments")}</span>
+      <button className={`nav-item${screen==="live"?" active":""}`} onClick={()=>setScreen("live")} style={{position:"relative"}}>
+        <div style={{position:"relative",display:"inline-flex"}}>
+          <Activity size={21} strokeWidth={screen==="live"?2.5:1.8}/>
+          <span style={{position:"absolute",top:-2,right:-3,width:6,height:6,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",border:"1px solid #111214"}}/>
+        </div>
+        <span>{lbl("nav_live")}</span>
       </button>
       <button className={`nav-item${screen==="shop"?" active":""}`} onClick={()=>setScreen("shop")}>
         <ShoppingBag size={21} strokeWidth={screen==="shop"?2.5:1.8}/><span>{lbl("nav_shop")}</span>
@@ -759,7 +816,7 @@ const LEADERBOARD_CAMP = [
 /* ═══════════════════════════════════════════════════════════════
    HOME SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, activeGame, onResumeGame }) {
+function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, activeGame, onResumeGame, activityFeed, liveGames }) {
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [liked, setLiked] = useState({});
@@ -904,13 +961,57 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
         </div>
       )}
 
+      {/* ── LIVE EN DIRECTE preview ── */}
+      {(() => {
+        const livePrev = (liveGames && liveGames.length) ? liveGames.filter(g=>g.is_live).slice(0,3) : MOCK_LIVE_GAMES.filter(g=>g.is_live).slice(0,3);
+        return livePrev.length > 0 ? (
+          <div style={{marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                  <span style={{width:6,height:6,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/>
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761"}}>En directe</div>
+                </div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(18px,4.5vw,28px)",letterSpacing:".04em",lineHeight:1}}>LIVE ARA</div>
+              </div>
+              <button style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#EF4444",cursor:"pointer",border:"none",background:"none",display:"flex",alignItems:"center",gap:4}} onClick={()=>setScreen("live")}>
+                Tot <ChevronRight size={13}/>
+              </button>
+            </div>
+            {livePrev.map(g=><LiveGameCard key={g.id} game={g} compact/>)}
+          </div>
+        ) : null;
+      })()}
+
+      {/* ── ACTIVITAT GLOBAL ── */}
+      {activityFeed && activityFeed.length > 0 && (
+        <div style={{marginBottom:16}}>
+          <SectionHeader sub="Activitat global" title="ÚLTIMES PARTIDES"/>
+          {activityFeed.slice(0,4).map(item=>(
+            <div key={item.id} className="card" style={{padding:"11px 14px",marginBottom:6,display:"flex",alignItems:"center",gap:10}}>
+              <div style={{width:30,height:30,borderRadius:"50%",background:"#2A2B30",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,flexShrink:0}}>
+                {String(item.user||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.user}</div>
+                <div style={{fontSize:10,color:"#555761",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.course} · {timeAgo(item.created_at)}</div>
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:item.lc,lineHeight:1}}>{item.diff>0?`+${item.diff}`:item.diff===0?"E":item.diff}</div>
+                <div style={{fontSize:9,color:"#555761"}}>{item.label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ── COM FUNCIONA ── */}
       <div style={{marginBottom:16}}>
         <SectionHeader sub={tl("sec_how")} title={tl("sec_how_title")}/>
         {[[<Flag size={20}/>,tl("step1_t"),tl("step1_d")],[<TrendingUp size={20}/>,tl("step2_t"),tl("step2_d")],[<ShoppingBag size={20}/>,tl("step3_t"),tl("step3_d")]].map(([icon,title,desc],i)=>(
           <div key={i} className="card" style={{padding:"14px",display:"flex",gap:14,alignItems:"flex-start",marginBottom:8}}>
             <div style={{fontFamily:"'Bebas Neue'",fontSize:32,color:"#1A1B1E",lineHeight:1,flexShrink:0,width:32,textAlign:"center"}}>0{i+1}</div>
-            <div>
+            <div style={{flex:1,textAlign:"left"}}>
               <div style={{color:"#CAFF4D",marginBottom:6}}>{icon}</div>
               <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:".04em",marginBottom:4}}>{title}</div>
               <div style={{fontSize:12,color:"#787C8A",lineHeight:1.6,fontWeight:400}}>{desc}</div>
@@ -1290,482 +1391,408 @@ function NumberPicker({ value, par, onChange, lang }) {
   );
 }
 
-function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang }) {
+/* ── ScoreSymbol: golf standard notation ── */
+function ScoreSymbol({ v, par, size=24 }) {
+  if (v==null) return (
+    <div style={{width:size,height:size,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:size*.52,color:'#252530',lineHeight:1}}>·</span>
+    </div>
+  );
+  const d=v-par, s=size;
+  const col = d==null?'#3a3a42':d<=-2?'#FBBF24':d===-1?'#60A5FA':d===0?'#CAFF4D':d===1?'#d0d0d0':d===2?'#EF4444':'#9f1414';
+  const num = <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:s*.62,color:col,lineHeight:1,position:'relative',zIndex:2}}>{v}</span>;
+  if (v===1) return (
+    <div style={{width:s,height:s,position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{position:'absolute',inset:0,borderRadius:'50%',border:'2px solid #FBBF24',opacity:.4}}/>
+      <div style={{position:'absolute',inset:3,borderRadius:'50%',border:'2px solid #FBBF24'}}/>
+      <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:s*.62,color:'#FBBF24',lineHeight:1,position:'relative',zIndex:2}}>{v}</span>
+    </div>
+  );
+  if (d<=-2) return (
+    <div style={{width:s,height:s,position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{position:'absolute',inset:0,borderRadius:'50%',border:`1.5px solid ${col}`,opacity:.35}}/>
+      <div style={{position:'absolute',inset:3,borderRadius:'50%',border:`1.5px solid ${col}`}}/>
+      {num}
+    </div>
+  );
+  if (d===-1) return (
+    <div style={{width:s,height:s,position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{position:'absolute',inset:0,borderRadius:'50%',border:`1.5px solid ${col}`}}/>
+      {num}
+    </div>
+  );
+  if (d===0) return <div style={{width:s,height:s,display:'flex',alignItems:'center',justifyContent:'center'}}>{num}</div>;
+  if (d===1) return (
+    <div style={{width:s,height:s,position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{position:'absolute',inset:1,borderRadius:Math.round(s*.14),border:`1.5px solid ${col}`,opacity:.45}}/>
+      {num}
+    </div>
+  );
+  if (d===2) return (
+    <div style={{width:s,height:s,position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{position:'absolute',inset:0,borderRadius:Math.round(s*.14),border:`1.5px solid ${col}`,opacity:.35}}/>
+      <div style={{position:'absolute',inset:3,borderRadius:Math.round(s*.1),border:`1.5px solid ${col}`}}/>
+      {num}
+    </div>
+  );
+  return (
+    <div style={{width:s,height:s,position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{position:'absolute',inset:0,borderRadius:Math.round(s*.14),background:'rgba(127,29,29,.5)',border:`1.5px solid ${col}`}}/>
+      {num}
+    </div>
+  );
+}
+
+/* ── AnimPts: animated P&C counter ── */
+function AnimPts({ value, prev }) {
+  const [disp, setDisp] = useState(value);
+  const [dir,  setDir]  = useState(null);
+  const [delta,setDelta]= useState(0);
+  const init = useRef(true);
+  useEffect(() => {
+    if (init.current) { init.current=false; setDisp(value); return; }
+    if (value===prev) return;
+    const diff=value-prev;
+    setDir(diff>0?'up':'dn'); setDelta(diff);
+    const steps=Math.min(Math.abs(diff),12), step=diff/steps;
+    let cur=prev, i=0;
+    const iv=setInterval(()=>{
+      i++; cur+=step; setDisp(Math.round(cur));
+      if(i>=steps){clearInterval(iv);setDisp(value);setTimeout(()=>setDir(null),900);}
+    },40);
+    return ()=>clearInterval(iv);
+  },[value]);
+  const arrowCol = dir==='up'?'#CAFF4D':dir==='dn'?'#EF4444':'transparent';
+  return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1}}>
+      <div style={{height:13,overflow:'hidden',opacity:dir?1:0,transition:'opacity .2s'}}>
+        <div style={{fontSize:8,fontWeight:700,color:arrowCol,whiteSpace:'nowrap'}}>
+          {dir==='up'?`▲ +${delta}`:`▼ ${delta}`} pts
+        </div>
+      </div>
+      <div style={{display:'flex',alignItems:'baseline',gap:2}}>
+        <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#CAFF4D',lineHeight:1}}>{disp}</span>
+        <span style={{fontSize:8,color:'#555',fontWeight:700,letterSpacing:'.07em',marginBottom:1}}>PTS</span>
+      </div>
+    </div>
+  );
+}
+
+function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, liveGameId, onLiveUpdate }) {
   const tl = (k,v={}) => t(lang,k,v);
-  const { course, date, gameMode, players, liveShare } = gameData;
+  const { course, players } = gameData;
   const pph = Math.round(course.par / course.holes);
+
+  /* ── helpers ── */
+  const scDiffColor = d => d==null?'#3a3a42':d<=-2?'#FBBF24':d===-1?'#60A5FA':d===0?'#CAFF4D':d===1?'#d0d0d0':d===2?'#EF4444':'#9f1414';
+  const scFmtTotal  = d => d==null?'—':d>0?`+${d}`:d===0?'E':`${d}`;
+  const scHolePts   = d => d==null?0:d<=-2?25:d===-1?12:d===0?6:d===1?2:0;
+  const scCalcPts   = (sc,pid) => sc.reduce((s,h)=>{ const v=h.playerScores[pid]; return s+(v!=null?scHolePts(v-h.par):0); },0);
+  const scPlayerTot = (sc,pid) => { let t=0,c=0; sc.forEach(h=>{const v=h.playerScores[pid];if(v!=null){t+=v-h.par;c++;}}); return c?t:null; };
+  const scDiffLabel = d => d==null?'—':d<=-2?(d===-2?'Eagle':'Hole in One'):d===-1?'Birdie':d===0?'Par':d===1?'Bogey':d===2?'Doble':'+'+d;
+  const scRowLabel  = (n,par) => { const d=n-par; const lbl=d<=-2?(d===-2?'Eagle':'HiO'):d===-1?'Birdie':d===0?'Par':d===1?'Bogey':d===2?'Doble':'Triple'; const sign=d===0?'':d>0?`+${d}`:`${d}`; return sign?`${sign} ${lbl}`:lbl; };
+  const scDiffBg    = d => d==null?'transparent':d<=-2?'rgba(251,191,36,.14)':d===-1?'rgba(96,165,250,.13)':d===0?'rgba(202,255,77,.10)':d===1?'rgba(255,255,255,.05)':d===2?'rgba(239,68,68,.13)':'rgba(127,29,29,.32)';
 
   /* ── State ── */
   const [scores, setScores] = useState(() => {
-    try {
-      const saved = localStorage.getItem('pc_scores');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return Array.from({length:course.holes}, (_,i) => ({
-      hole: i+1, par: pph,
-      playerScores: Object.fromEntries(players.map(p => [p.id, null])),
+    try { const s=localStorage.getItem('pc_scores'); if(s) return JSON.parse(s); } catch {}
+    return Array.from({length:course.holes},(_,i)=>({
+      hole:i+1, par:pph,
+      playerScores:Object.fromEntries(players.map(p=>[p.id,null])),
     }));
   });
-  const [curHole, setCurHole] = useState(() => {
-    const saved = localStorage.getItem('pc_curHole');
-    return saved ? parseInt(saved) : 0;
-  });
-  const [activePlayerId, setActivePlayerId] = useState(players[0].id);
-  const [panel, setPanel]                   = useState('dial'); // 'dial' | 'global'
-  const [confirmed, setConfirmed]           = useState(new Set()); // holes explicitly confirmed
+  const [curHole,    setCurHole]    = useState(() => { const s=localStorage.getItem('pc_curHole'); return s?parseInt(s):0; });
+  const [activePid,  setActivePid]  = useState(players[0].id);
+  const [showFull,   setShowFull]   = useState(false);
+  const [prevPts,    setPrevPts]    = useState(() => Object.fromEntries(players.map(p=>[p.id,0])));
+  const [flashInfo,  setFlashInfo]  = useState(null);
+  const stripRef = useRef(null);
 
-  const confirmHole = (holeIdx, pid) => {
-    setConfirmed(prev => new Set([...prev, holeIdx]));
+  const hole = scores[curHole];
+  const par  = hole.par;
+
+  useEffect(()=>{
+    stripRef.current?.querySelector(`[data-hole="${curHole}"]`)
+      ?.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+  },[curHole]);
+
+  /* ── Score setters ── */
+  const applyScore = (pid, v) => {
+    const pp   = scCalcPts(scores, pid);
+    const next = scores.map((h,i)=>i===curHole?{...h,playerScores:{...h.playerScores,[pid]:v}}:h);
+    setScores(next);
+    localStorage.setItem('pc_scores', JSON.stringify(next));
+    const np=scCalcPts(next,pid);
+    if(np!==pp) setPrevPts(p=>({...p,[pid]:pp}));
+    setFlashInfo({pid,label:scDiffLabel(v-par),d:v-par});
+    setTimeout(()=>setFlashInfo(null),1500);
+    // Push live update
+    if (onLiveUpdate) onLiveUpdate(next, curHole);
   };
 
-  /* ── Derived ── */
-  const hole    = scores[curHole];
-  const par     = hole.par;
-  const myScore = hole.playerScores[activePlayerId];
+  const nudge = (pid,delta) => applyScore(pid, Math.max(1,(hole.playerScores[pid]??par)+delta));
 
-  const filledHoles  = confirmed.size;
-  const allDone      = confirmed.size >= course.holes;
-  const allThisHole  = confirmed.has(curHole);
-
-  const playerAccum = (pid, upTo) => {
-    let tot=0, cnt=0;
-    for(let i=0; i<upTo; i++) {
-      const v=scores[i].playerScores[pid];
-      if(v!==null){ tot+=v; cnt++; }
-    }
-    return cnt ? tot - pph*cnt : null;
+  const commitParAndGo = (nextHole) => {
+    const ni=Math.max(0,Math.min(course.holes-1,nextHole));
+    setCurHole(ni);
+    localStorage.setItem('pc_curHole', ni);
+    setActivePid(players[0].id);
+    if (onLiveUpdate) onLiveUpdate(scores, ni);
   };
 
-  const fmtDiff = (d) => {
-    if(d===null) return '—';
-    if(d>0)  return `+${d}`;
-    if(d===0) return 'E';
-    return `${d}`;
-  };
+  const allDone = players.every(p=>hole.playerScores[p.id]!=null);
+  const allHolesDone = scores.every(h=>players.every(p=>h.playerScores[p.id]!=null));
 
-  const dialBg = (v) => {
-    const d=v-par;
-    if(d<=-2) return '#FBBF24';
-    if(d===-1) return '#60A5FA';
-    if(d===0)  return '#CAFF4D';
-    if(d===1)  return '#EF4444';
-    return '#7F1D1D';
-  };
-
-  const diffColor = (d) =>
-    d===null?'#555761':d<0?'#CAFF4D':d===0?'#fff':'#EF4444';
-
-  /* ── Score setter ── */
-  const setHoleScore = (pid, val) => {
-    setScores(prev => {
-      const next = prev.map((h,i) =>
-        i===curHole ? {...h, playerScores:{...h.playerScores,[pid]:val}} : h
-      );
-      localStorage.setItem('pc_scores', JSON.stringify(next));
-      return next;
-    });
-    if (val !== null) {
-      confirmHole(curHole, pid);
-    } else {
-      setConfirmed(prev => { const n = new Set(prev); n.delete(curHole); return n; });
-    }
-  };
-
-  const changeDial = (delta) => {
-    const cur = myScore ?? par;
-    const newVal = Math.max(1, cur + delta);
-    setHoleScore(activePlayerId, newVal);
-    // Auto-advance to next player
-    const pidx = players.findIndex(p=>p.id===activePlayerId);
-    if (pidx < players.length - 1) {
-      setTimeout(() => setActivePlayerId(players[pidx+1].id), 300);
-    }
-  };
-
-  const goToHole = (idx) => {
-    setCurHole(idx);
-    localStorage.setItem('pc_curHole', idx);
-    setActivePlayerId(players[0].id);
-    setPanel('dial');
-  };
-
-  /* Auto-advance to next player after registering */
-  const advancePlayer = () => {
-    const pidx = players.findIndex(p=>p.id===activePlayerId);
-    if(pidx < players.length-1) setActivePlayerId(players[pidx+1].id);
-  };
-
-  /* ── Badge style for global table ── */
-  const badgeStyle = (v, p) => {
-    const d=v-p;
-    if(d<=-2) return {background:'rgba(251,191,36,.12)',border:'1px solid rgba(251,191,36,.35)',color:'#FBBF24'};
-    if(d===-1) return {background:'rgba(96,165,250,.12)',border:'1px solid rgba(96,165,250,.35)',color:'#60A5FA'};
-    if(d===0)  return {background:'rgba(202,255,77,.1)', border:'1px solid rgba(202,255,77,.3)', color:'#CAFF4D'};
-    if(d===1)  return {background:'rgba(239,68,68,.08)', border:'1px solid rgba(239,68,68,.2)',  color:'#EF4444'};
-    return     {background:'rgba(127,29,29,.4)',  border:'1px solid rgba(239,68,68,.4)',  color:'#EF4444'};
-  };
-
-  const curVal    = myScore ?? par;
-  const curSI     = scoreInfo(curVal, par);
-  const curBg     = dialBg(curVal);
-  const labelText = curSI?.label.replace(/ [🎯🦅🐦✓😬]/u,'') ?? '';
-
-  /* ─────────────────────────────────────────────
-     RENDER
-  ───────────────────────────────────────────── */
-  return (
-    <div style={{
-      position:'fixed', inset:0, background:'#0A0A0B',
-      display:'flex', flexDirection:'column', overflow:'hidden',
-      paddingBottom:'env(safe-area-inset-bottom)',
-    }}>
-
-      {/* ══ TOP BAR ══ */}
-      <div style={{
-        display:'flex', alignItems:'center', justifyContent:'space-between',
-        padding:'10px 16px 8px', borderBottom:'1px solid #1A1B1E', flexShrink:0,
-      }}>
-        <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
-          {/* Exit button — saves to localStorage */}
-          <button onClick={()=>onFinish(scores, true)} style={{
-            display:'flex',alignItems:'center',gap:5,
-            padding:'6px 10px',borderRadius:100,cursor:'pointer',
-            border:'1px solid #222327',background:'#1A1B1E',
-            color:'#555761',fontSize:11,fontWeight:700,fontFamily:'Inter',
-          }}>
-            ← {lang==='en'?'Save & exit':lang==='es'?'Guardar y salir':'Guardar i sortir'}
-          </button>
-          {/* Cancel button */}
-          <button onClick={onDelete} style={{
-            display:'flex',alignItems:'center',gap:4,
-            padding:'6px 10px',borderRadius:100,cursor:'pointer',
-            border:'1px solid #222327',background:'#1A1B1E',
-            color:'#555761',fontSize:11,fontWeight:700,fontFamily:'Inter',
-          }}>
-            <X size={13}/>{lang==='en'?'Cancel':lang==='es'?'Cancelar':'Cancel·lar'}
-          </button>
-        </div>
-        <div style={{minWidth:0,flex:1,marginRight:8,textAlign:'center'}}>
-          <div style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>
-        </div>
-        {/* Global button */}
-        <button onClick={()=>setPanel(p=>p==='global'?'dial':'global')} style={{
-          display:'flex',alignItems:'center',gap:5,flexShrink:0,
-          padding:'6px 12px',borderRadius:100,cursor:'pointer',
-          border: panel==='global'?'1px solid rgba(202,255,77,.5)':'1px solid #222327',
-          background: panel==='global'?'rgba(202,255,77,.1)':'#1A1B1E',
-          color: panel==='global'?'#CAFF4D':'#555761',
-          fontSize:11,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',fontFamily:'Inter',
-          transition:'all .15s',
-        }}>
-          <span style={{fontSize:13}}>📋</span>
-          <span>{panel==='global'?(lang==='en'?'← Score':lang==='es'?'← Jugar':'← Reg.'):'Global'}</span>
-        </button>
-      </div>
-
-      {/* ══ PROGRESS ══ */}
-      <div style={{display:'flex',gap:2,padding:'6px 16px 0',flexShrink:0}}>
-        {Array.from({length:course.holes},(_,i)=>(
-          <div key={i} style={{
-            flex:1, height:3, borderRadius:2,
-            background: i<curHole?'#CAFF4D':i===curHole?'rgba(202,255,77,.45)':'#1A1B1E',
-            transition:'background .3s',
-          }}/>
-        ))}
-      </div>
-
-      {/* ══ HOLE HEADER ══ */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',padding:'6px 16px 4px',flexShrink:0}}>
+  /* ── Targeta completa (full scorecard) ── */
+  if (showFull) return (
+    <div style={{position:'fixed',inset:0,background:'#0A0A0B',display:'flex',flexDirection:'column',overflow:'hidden',fontFamily:'Inter,sans-serif'}}>
+      <div style={{padding:'12px 14px',borderBottom:'1px solid #1a1a1f',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
         <div>
-          <div style={{fontSize:9,fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',color:'#555761'}}>
-            {lang==='en'?'Hole':lang==='es'?'Hoyo':'Forat'}
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:'.06em',color:'#CAFF4D'}}>{lang==='en'?'Full Scorecard':lang==='es'?'Tarjeta completa':'Targeta Completa'}</div>
+          <div style={{fontSize:9,color:'#555',fontWeight:600}}>{course.name} · Par {course.par}</div>
+        </div>
+        <button onClick={()=>setShowFull(false)} style={{padding:'6px 13px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#CAFF4D',fontSize:11,fontWeight:700,cursor:'pointer'}}>← {lang==='en'?'Back':lang==='es'?'Volver':'Tornar'}</button>
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:'0 14px 24px'}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{borderBottom:'2px solid #1a1a1f'}}>
+              <th style={{fontSize:8,color:'#555',fontWeight:700,padding:'8px 4px',textAlign:'left',letterSpacing:'.1em',textTransform:'uppercase'}}>{lang==='en'?'H':lang==='es'?'H':'F'}</th>
+              <th style={{fontSize:8,color:'#555',fontWeight:700,padding:'8px 4px',textAlign:'center'}}>Par</th>
+              {players.map((p,i)=><th key={p.id} style={{fontSize:8,color:PLAYER_COLORS[i],fontWeight:700,padding:'8px 4px',textAlign:'center'}}>{p.name.split(' ')[0].slice(0,4).toUpperCase()}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {[0,1].map(hi=>(
+              <React.Fragment key={hi}>
+                {scores.slice(hi*9,hi*9+9).map((h,i)=>{
+                  const idx=hi*9+i;
+                  return (
+                    <tr key={idx} onClick={()=>{commitParAndGo(idx);setShowFull(false);}} style={{cursor:'pointer',background:idx===curHole?'rgba(202,255,77,.04)':'transparent',borderBottom:'1px solid #111'}}>
+                      <td style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:idx===curHole?'#CAFF4D':'#555',padding:'5px 4px'}}>{String(h.hole).padStart(2,'0')}{idx===curHole?' ▶':''}</td>
+                      <td style={{fontSize:9,color:'#444',padding:'5px 4px',textAlign:'center'}}>{h.par}</td>
+                      {players.map(p=>(
+                        <td key={p.id} style={{padding:'3px',textAlign:'center'}}>
+                          <div style={{display:'flex',justifyContent:'center'}}><ScoreSymbol v={h.playerScores[p.id]} par={h.par} size={28}/></div>
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+                <tr style={{background:'#111',borderTop:'1px solid #222',borderBottom:'1px solid #222'}}>
+                  <td colSpan={2} style={{fontSize:8,fontWeight:700,color:'#555',padding:'6px 4px',textTransform:'uppercase',letterSpacing:'.08em'}}>{hi===0?'OUT':'IN'}</td>
+                  {players.map((p,i)=>{
+                    let tt=0,cc=0; scores.slice(hi*9,hi*9+9).forEach(h=>{const v=h.playerScores[p.id];if(v!=null){tt+=v-h.par;cc++;}});
+                    const d=cc?tt:null;
+                    return <td key={p.id} style={{padding:'6px 4px',textAlign:'center'}}><span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:scDiffColor(d)}}>{scFmtTotal(d)}</span></td>;
+                  })}
+                </tr>
+              </React.Fragment>
+            ))}
+            <tr style={{background:'#0f0f14',borderTop:'2px solid #222'}}>
+              <td colSpan={2} style={{fontSize:9,fontWeight:700,color:'#555',padding:'9px 4px',textTransform:'uppercase',letterSpacing:'.08em'}}>TOTAL</td>
+              {players.map(p=>{
+                const d=scPlayerTot(scores,p.id);
+                return <td key={p.id} style={{padding:'9px 4px',textAlign:'center'}}><span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:scDiffColor(d)}}>{scFmtTotal(d)}</span></td>;
+              })}
+            </tr>
+          </tbody>
+        </table>
+        <div style={{marginTop:16,display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+          {players.map((p,i)=>{
+            const pts=scCalcPts(scores,p.id),tot=scPlayerTot(scores,p.id);
+            return (
+              <div key={p.id} style={{background:'#111',borderRadius:10,padding:'10px 12px',border:`1px solid ${PLAYER_COLORS[i]}22`}}>
+                <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:6}}>
+                  <div style={{width:22,height:22,borderRadius:'50%',background:PLAYER_COLORS[i],display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700,color:'#0A0A0B'}}>{p.name[0]}</div>
+                  <span style={{fontSize:11,fontWeight:700,color:'#fff'}}>{p.name.split(' ')[0]}</span>
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+                  <div><div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:scDiffColor(tot),lineHeight:1}}>{scFmtTotal(tot)}</div><div style={{fontSize:8,color:'#555',marginTop:1}}>{lang==='en'?'result':lang==='es'?'resultado':'resultat'}</div></div>
+                  <div style={{textAlign:'right'}}><div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:'#CAFF4D',lineHeight:1}}>{pts}</div><div style={{fontSize:8,color:'#555',marginTop:1}}>pts P&C</div></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {allHolesDone && (
+          <button onClick={()=>onFinish(scores)} style={{width:'100%',marginTop:16,padding:'14px',borderRadius:12,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontWeight:700,fontSize:14,cursor:'pointer',letterSpacing:'.06em',textTransform:'uppercase'}}>
+            {tl('finish')}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  /* ══ MAIN SCORING VIEW ══ */
+  return (
+    <div style={{position:'fixed',inset:0,background:'#0A0A0B',display:'flex',flexDirection:'column',overflow:'hidden',fontFamily:'Inter,sans-serif',paddingBottom:'env(safe-area-inset-bottom)'}}>
+
+      {/* TOP BAR */}
+      <div style={{padding:'10px 14px 8px',borderBottom:'1px solid #1a1a1f',flexShrink:0}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:9}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:1}}>
+            {/* Save & exit */}
+            <button onClick={()=>onFinish(scores,true)} style={{padding:'5px 10px',borderRadius:100,border:'1px solid #222327',background:'#1A1B1E',color:'#555761',fontSize:10,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
+              ← {lang==='en'?'Save':lang==='es'?'Guardar':'Guardar'}
+            </button>
+            <div style={{minWidth:0}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:'.06em',color:'#CAFF4D',lineHeight:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>
+              <div style={{fontSize:11,color:'#787C8A',fontWeight:600,marginTop:2,letterSpacing:'.02em'}}>
+                {lang==='en'?'Hole':lang==='es'?'Hoyo':'Forat'} <span style={{color:'#CAFF4D'}}>{curHole+1}</span>/{course.holes}
+                <span style={{color:'#333',margin:'0 4px'}}>·</span>Par {par}
+              </div>
+            </div>
           </div>
-          <div style={{fontFamily:"'Bebas Neue'",fontSize:52,color:'#CAFF4D',lineHeight:1}}>
-            {String(curHole+1).padStart(2,'0')}
+          <div style={{display:'flex',gap:6,flexShrink:0}}>
+            <button onClick={()=>setShowFull(true)} style={{padding:'6px 11px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#787C8A',fontSize:10,fontWeight:700,cursor:'pointer',letterSpacing:'.06em',textTransform:'uppercase'}}>
+              {lang==='en'?'Card':lang==='es'?'Tarjeta':'Targeta'}
+            </button>
+            <button onClick={onDelete} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',fontSize:10,fontWeight:700,cursor:'pointer'}}>
+              <X size={12}/>
+            </button>
           </div>
         </div>
-        <div style={{textAlign:'right'}}>
-          <div style={{fontSize:9,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#555761'}}>Par</div>
-          <div style={{fontFamily:"'Bebas Neue'",fontSize:28,lineHeight:1}}>{par}</div>
-          <div style={{fontSize:9,color:'#2A2B30',marginTop:1}}>{filledHoles}/{course.holes} {lang==='en'?'done':lang==='es'?'hechos':'fets'}</div>
+
+        {/* Hole strip */}
+        <div ref={stripRef} style={{display:'flex',gap:3,overflowX:'auto'}} className="noscroll">
+          {scores.map((h,i)=>{
+            const done=players.every(p=>h.playerScores[p.id]!=null);
+            const any =players.some(p=>h.playerScores[p.id]!=null);
+            const isCur=i===curHole;
+            return (
+              <div key={i} data-hole={i} onClick={()=>commitParAndGo(i)}
+                style={{flexShrink:0,width:isCur?28:20,height:22,borderRadius:5,cursor:'pointer',transition:'all .2s',
+                  background:isCur?'#CAFF4D':done?'rgba(202,255,77,.28)':any?'rgba(202,255,77,.1)':'#1a1a1f',
+                  display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:isCur?11:10,color:isCur?'#0A0A0B':done?'#CAFF4D':'#444'}}>{h.hole}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* ══ ACUM PILLS ══ */}
-      <div style={{display:'flex',gap:5,padding:'0 16px 6px',flexWrap:'wrap',flexShrink:0}}>
-        {players.map((p,i)=>{
-          const d = playerAccum(p.id, curHole);
+      {/* PLAYER CARDS */}
+      <div style={{flex:1,overflowY:'auto',padding:'10px 14px',display:'flex',flexDirection:'column',gap:8}}>
+        {players.map((p,pi)=>{
+          const pcolor  = PLAYER_COLORS[pi];
+          const v       = hole.playerScores[p.id];
+          const d       = v!=null?v-par:null;
+          const tot     = scPlayerTot(scores,p.id);
+          const pts     = scCalcPts(scores,p.id);
+          const pp      = prevPts[p.id]??pts;
+          const isAct   = activePid===p.id;
+          const flash   = flashInfo?.pid===p.id;
+          const played  = scores.filter(h=>h.playerScores[p.id]!=null).length;
+
           return (
-            <div key={p.id} style={{
-              display:'flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:100,
-              border:'1px solid #1A1B1E',background:'#0D0D0F',fontSize:10,fontWeight:700,
-            }}>
-              <div style={{width:5,height:5,borderRadius:'50%',background:PLAYER_COLORS[i]}}/>
-              <span style={{color:'#555761'}}>{p.name.split(' ')[0]}</span>
-              <span style={{fontFamily:"'Bebas Neue'",fontSize:14,lineHeight:1,color:diffColor(d)}}>{fmtDiff(d)}</span>
+            <div key={p.id} onClick={()=>setActivePid(p.id)}
+              style={{borderRadius:14,transition:'all .2s',cursor:'pointer',position:'relative',
+                background:isAct?'#15151c':'#0f0f13',
+                border:isAct?`1.5px solid ${pcolor}60`:'1px solid #1a1a1f',
+                boxShadow:isAct?`0 0 28px ${pcolor}14,inset 0 0 40px ${pcolor}05`:'none',
+                padding:'12px 13px'}}>
+
+              {flash&&(
+                <div style={{position:'absolute',top:10,left:'50%',transform:'translateX(-50%)',fontFamily:"'Bebas Neue',sans-serif",fontSize:17,color:scDiffColor(flashInfo.d),letterSpacing:'.1em',animation:'flashUp .9s ease forwards',pointerEvents:'none',zIndex:10,whiteSpace:'nowrap'}}>
+                  {flashInfo.label}
+                </div>
+              )}
+
+              {/* Card header */}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:9}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1,marginRight:12}}>
+                  <div style={{width:34,height:34,borderRadius:'50%',background:isAct?pcolor:pcolor+'66',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#0A0A0B',flexShrink:0,transition:'background .2s'}}>
+                    {p.name[0]}
+                  </div>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:700,color:isAct?'#fff':'#555',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',transition:'color .2s'}}>{p.name}</div>
+                    <div style={{fontSize:8,color:'#444',marginTop:2}}>HCP {p.handicap??'–'}</div>
+                  </div>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:12,flexShrink:0}}>
+                  <AnimPts value={pts} prev={pp}/>
+                  <div style={{textAlign:'center'}}>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:52,color:scDiffColor(tot),lineHeight:1,transition:'color .3s',minWidth:50,textShadow:tot!=null&&isAct?`0 0 30px ${scDiffColor(tot)}25`:'none'}}>
+                      {scFmtTotal(tot)}
+                    </div>
+                    <div style={{fontSize:8,color:'#555',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',marginTop:1}}>{played}/{course.holes}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hole grid — 2 rows of 9 */}
+              <div style={{marginBottom:isAct?12:0}}>
+                {[0,1].map(row=>(
+                  <div key={row}>
+                    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3,marginTop:row===1?6:0}}>
+                      <span style={{fontSize:7,fontWeight:700,color:'#2a2a35',letterSpacing:'.1em',flexShrink:0}}>{row===0?`${lang==='en'?'H':lang==='es'?'H':'F'}1–9`:`${lang==='en'?'H':lang==='es'?'H':'F'}10–18`}</span>
+                      <div style={{flex:1,height:1,background:'#1e1e28'}}/>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(9,1fr)',gap:3}}>
+                      {scores.slice(row*9,row*9+9).map((h,ci)=>{
+                        const i=row*9+ci;
+                        const hv=h.playerScores[p.id];
+                        const isCur=i===curHole;
+                        return (
+                          <div key={i} onClick={e=>{e.stopPropagation();commitParAndGo(i);setActivePid(p.id);}}
+                            style={{cursor:'pointer',borderRadius:6,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:34,gap:1,transition:'all .15s',
+                              border:isCur?`1.5px solid ${pcolor}70`:'1px solid #1e1e28',
+                              background:isCur?`${pcolor}0d`:'#0c0c12'}}>
+                            <span style={{fontSize:6,color:isCur?pcolor:'#2a2a38',fontWeight:700,lineHeight:1}}>{h.hole}</span>
+                            <ScoreSymbol v={isCur&&hv==null?h.par:hv} par={h.par} size={22}/>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Scoring controls (active player only) */}
+              {isAct&&(
+                <div style={{display:'flex',alignItems:'center',gap:10,marginTop:2}}>
+                  <button onClick={e=>{e.stopPropagation();nudge(p.id,-1);}}
+                    style={{width:56,height:56,borderRadius:14,border:'1px solid #2a2a35',background:'#1c1c26',color:'#9a9aaa',fontSize:30,fontWeight:300,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,lineHeight:1}}>
+                    −
+                  </button>
+                  <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                    <ScoreSymbol v={v??par} par={par} size={64}/>
+                    <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:scDiffColor(d),letterSpacing:'.1em',lineHeight:1,transition:'color .2s'}}>
+                      {v==null?'Par (default)':scRowLabel(v,par)}
+                    </span>
+                  </div>
+                  <button onClick={e=>{e.stopPropagation();nudge(p.id,1);}}
+                    style={{width:56,height:56,borderRadius:14,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontSize:30,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,lineHeight:1}}>
+                    +
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
-      <div style={{height:1,background:'#1A1B1E',margin:'0 16px',flexShrink:0}}/>
-
-      {/* ══════════════════════════════════════════
-          PANEL: DIAL (registrar)
-      ══════════════════════════════════════════ */}
-      {panel==='dial' && (
-        <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'10px 16px',gap:10,overflow:'hidden'}}>
-
-          {/* Player tabs with arrows */}
-          {players.length > 1 && (
-            <div style={{display:'flex',alignItems:'center',gap:6,width:'100%',justifyContent:'center'}}>
-              {/* Left arrow */}
-              <button onClick={()=>{
-                const idx = players.findIndex(p=>p.id===activePlayerId);
-                if(idx > 0) setActivePlayerId(players[idx-1].id);
-              }} style={{
-                width:32,height:32,borderRadius:'50%',border:'1px solid #222327',
-                background: players.findIndex(p=>p.id===activePlayerId)>0?'#1A1B1E':'transparent',
-                color: players.findIndex(p=>p.id===activePlayerId)>0?'#CAFF4D':'#2A2B30',
-                cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
-              }}>‹</button>
-
-              {/* Active player tab */}
-              {players.map((p,i)=>{
-                const scored = hole.playerScores[p.id] !== null;
-                const active = p.id === activePlayerId;
-                const sv     = hole.playerScores[p.id];
-                if (!active) return null;
-                return (
-                  <div key={p.id} style={{
-                    display:'flex',alignItems:'center',gap:6,padding:'8px 20px',borderRadius:100,
-                    border:`1px solid ${PLAYER_COLORS[i]}55`,
-                    background:`${PLAYER_COLORS[i]}10`,
-                    position:'relative',flex:1,justifyContent:'center',maxWidth:200,
-                  }}>
-                    <div style={{
-                      width:24,height:24,borderRadius:'50%',background:PLAYER_COLORS[i],
-                      display:'flex',alignItems:'center',justifyContent:'center',
-                      fontSize:10,fontWeight:700,color:'#0A0A0B',flexShrink:0,
-                    }}>{p.name[0]}</div>
-                    <span style={{fontSize:14,fontWeight:700,color:PLAYER_COLORS[i]}}>{p.name.split(' ')[0]}</span>
-                    <span style={{fontFamily:"'Bebas Neue'",fontSize:18,color:PLAYER_COLORS[i],lineHeight:1}}>
-                      {sv ?? '?'}
-                    </span>
-                    {scored && (
-                      <div style={{
-                        position:'absolute',top:-4,right:-4,width:16,height:16,
-                        borderRadius:'50%',background:'#34D399',border:'2px solid #111214',
-                        display:'flex',alignItems:'center',justifyContent:'center',
-                        fontSize:9,color:'#fff',fontWeight:700,
-                      }}>✓</div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* Right arrow */}
-              <button onClick={()=>{
-                const idx = players.findIndex(p=>p.id===activePlayerId);
-                if(idx < players.length-1) setActivePlayerId(players[idx+1].id);
-              }} style={{
-                width:32,height:32,borderRadius:'50%',border:'1px solid #222327',
-                background: players.findIndex(p=>p.id===activePlayerId)<players.length-1?'#1A1B1E':'transparent',
-                color: players.findIndex(p=>p.id===activePlayerId)<players.length-1?'#CAFF4D':'#2A2B30',
-                cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
-              }}>›</button>
-            </div>
-          )}
-
-          {/* Result label */}
-          <div style={{
-            fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:'.06em',
-            color: curVal===par ? '#CAFF4D' : curSI?.color ?? '#fff',
-            transition:'color .2s',
-          }}>
-            {labelText || 'Par'}
-          </div>
-
-          {/* ── NUMBER PICKER ── */}
-          <NumberPicker value={myScore} par={par} onChange={(v) => {
-            setHoleScore(activePlayerId, v);
-            if (v !== null) {
-              const pidx = players.findIndex(p=>p.id===activePlayerId);
-              if (pidx < players.length - 1) {
-                setTimeout(() => setActivePlayerId(players[pidx+1].id), 400);
-              }
-            }
-          }} lang={lang} />
-
-          {/* Score legend */}
-          <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'center',marginTop:2}}>
-            {[['HiO 🎯','#FBBF24'],['Birdie','#60A5FA'],['Par','#CAFF4D'],['Bogey','#fff'],['D.Bogey','#EF4444']].map(([l,c])=>(
-              <div key={l} style={{display:'flex',alignItems:'center',gap:3}}>
-                <div style={{width:5,height:5,borderRadius:'50%',background:c,flexShrink:0}}/>
-                <span style={{fontSize:9,color:'#555761',fontWeight:600}}>{l}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════
-          PANEL: GLOBAL TABLE
-      ══════════════════════════════════════════ */}
-      {panel==='global' && (
-        <div style={{flex:1,overflowY:'auto',padding:'10px 14px'}}>
-          <table style={{width:'100%',borderCollapse:'collapse'}}>
-            <thead>
-              <tr>
-                <th style={{fontSize:8,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#555761',padding:'5px 4px 6px',textAlign:'left',borderBottom:'1px solid #1A1B1E'}}>
-                  {lang==='en'?'H.':lang==='es'?'H.':'F.'}
-                </th>
-                <th style={{fontSize:8,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#555761',padding:'5px 4px 6px',textAlign:'center',borderBottom:'1px solid #1A1B1E'}}>Par</th>
-                {players.map((p,i)=>(
-                  <th key={p.id} style={{fontSize:8,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:PLAYER_COLORS[i],padding:'5px 4px 6px',textAlign:'center',borderBottom:'1px solid #1A1B1E'}}>
-                    {p.name.split(' ')[0].slice(0,5).toUpperCase()}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {scores.map((h,idx)=>{
-                const isCur  = idx===curHole;
-                const isPast = idx<curHole;
-                return (
-                  <tr key={idx}
-                    onClick={()=>goToHole(idx)}
-                    style={{cursor:'pointer',background:isCur?'rgba(202,255,77,.04)':'transparent'}}>
-                    <td style={{
-                      fontFamily:"'Bebas Neue'",fontSize:13,padding:'5px 4px',
-                      borderBottom:'1px solid #111214',textAlign:'left',
-                      color:isCur?'#fff':isPast?'#CAFF4D':'#2A2B30',
-                    }}>
-                      {String(h.hole).padStart(2,'0')}{isCur?' ▶':''}
-                    </td>
-                    <td style={{fontSize:10,color:'#555761',padding:'5px 4px',borderBottom:'1px solid #111214',textAlign:'center'}}>{h.par}</td>
-                    {players.map((p)=>{
-                      const v=h.playerScores[p.id];
-                      if(v===null){
-                        return (
-                          <td key={p.id} style={{padding:'5px 4px',borderBottom:'1px solid #111214',textAlign:'center'}}>
-                            <div style={{
-                              width:26,height:26,borderRadius:6,margin:'0 auto',
-                              border:isCur?'1.5px dashed rgba(202,255,77,.5)':'1px solid #1A1B1E',
-                              display:'flex',alignItems:'center',justifyContent:'center',
-                              fontFamily:"'Bebas Neue'",fontSize:11,
-                              color:isCur?'rgba(202,255,77,.6)':'transparent',
-                            }}>?</div>
-                          </td>
-                        );
-                      }
-                      const bs=badgeStyle(v,h.par);
-                      return (
-                        <td key={p.id} style={{padding:'5px 4px',borderBottom:'1px solid #111214',textAlign:'center'}}>
-                          <div style={{
-                            width:26,height:26,borderRadius:6,margin:'0 auto',
-                            ...bs,
-                            display:'flex',alignItems:'center',justifyContent:'center',
-                            fontFamily:"'Bebas Neue'",fontSize:16,
-                          }}>{v}</div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={2} style={{
-                  fontSize:9,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',
-                  color:'#555761',padding:'7px 4px',borderTop:'1px solid #222327',
-                }}>TOTAL</td>
-                {players.map((p,i)=>{
-                  let tot=0,cnt=0;
-                  scores.forEach(h=>{const v=h.playerScores[p.id];if(v!==null){tot+=v;cnt++;}});
-                  const d=cnt?tot-pph*cnt:null;
-                  return (
-                    <td key={p.id} style={{padding:'7px 4px',borderTop:'1px solid #222327',textAlign:'center'}}>
-                      <span style={{fontFamily:"'Bebas Neue'",fontSize:16,color:diffColor(d)}}>
-                        {fmtDiff(d)}
-                      </span>
-                    </td>
-                  );
-                })}
-              </tr>
-            </tfoot>
-          </table>
-          <div style={{fontSize:10,color:'#555761',textAlign:'center',marginTop:10,fontWeight:500,lineHeight:1.5}}>
-            {lang==='en'?'Tap any hole to jump back to scoring':lang==='es'?'Toca un hoyo para volver':'Toca un forat per tornar al dial'}
-          </div>
-        </div>
-      )}
-
-      {/* ══ BOTTOM NAV ══ */}
-      <div style={{display:'flex',gap:8,padding:'8px 16px',borderTop:'1px solid #1A1B1E',flexShrink:0}}>
-
-        {panel==='global' ? (
-          /* ── Global view nav: back button + hole jump info ── */
-          <>
-            <button onClick={()=>setPanel('dial')} style={{
-              flex:1,padding:'13px 8px',borderRadius:10,border:'none',
-              background:'#CAFF4D',color:'#0A0A0B',
-              fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.04em',textTransform:'uppercase',
-              display:'flex',alignItems:'center',justifyContent:'center',gap:6,
-            }}>
-              ⛳ {lang==='en'?'Back to scoring':lang==='es'?'Volver a jugar':'Tornar a registrar'}
-            </button>
-            {allDone && (
-              <button onClick={()=>onFinish(scores)} style={{
-                flex:1,padding:'13px 8px',borderRadius:10,border:'none',
-                background:'#FBBF24',color:'#0A0A0B',
-                fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.04em',textTransform:'uppercase',
-              }}>
-                {tl('finish')}
-              </button>
-            )}
-          </>
+      {/* BOTTOM NAV */}
+      <div style={{display:'flex',gap:8,padding:'10px 14px 14px',borderTop:'1px solid #1e1e28',flexShrink:0}}>
+        <button onClick={()=>curHole>0&&commitParAndGo(curHole-1)} disabled={curHole===0}
+          style={{flex:1,padding:'13px',borderRadius:12,border:'1px solid #2e2e3a',background:curHole>0?'#1c1c26':'#111118',color:curHole>0?'#9a9aaa':'#2e2e3a',fontWeight:700,fontSize:12,cursor:curHole>0?'pointer':'default',letterSpacing:'.06em',textTransform:'uppercase',transition:'all .2s'}}>
+          ← {lang==='en'?'H':lang==='es'?'H':'F'}{String(curHole).padStart(2,'0')}
+        </button>
+        {allHolesDone ? (
+          <button onClick={()=>onFinish(scores)}
+            style={{flex:2,padding:'13px',borderRadius:12,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontWeight:700,fontSize:13,cursor:'pointer',letterSpacing:'.06em',textTransform:'uppercase'}}>
+            {tl('finish')}
+          </button>
         ) : (
-          /* ── Dial view nav: prev / next ── */
-          <>
-            <button
-              onClick={()=>{if(curHole>0)goToHole(curHole-1);}}
-              disabled={curHole===0}
-              style={{
-                flex:1,padding:'13px 8px',borderRadius:10,border:'1px solid #222327',
-                background:'#1A1B1E',color:curHole===0?'#2A2B30':'#787C8A',
-                fontSize:11,fontWeight:700,cursor:curHole===0?'default':'pointer',
-                letterSpacing:'.04em',textTransform:'uppercase',
-              }}>
-              ← {lang==='en'?'H':lang==='es'?'H':'F'}{String(curHole).padStart(2,'0')}
-            </button>
-
-            {allDone ? (
-              <button onClick={()=>onFinish(scores)} style={{
-                flex:2,padding:'13px 8px',borderRadius:10,border:'none',
-                background:'#FBBF24',color:'#0A0A0B',
-                fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:'.04em',textTransform:'uppercase',
-              }}>
-                {tl('finish')}
-              </button>
-            ) : (
-              <button onClick={()=>{
-                if(!allThisHole){ confirmHole(curHole); }
-                if(curHole<course.holes-1){ goToHole(curHole+1); }
-              }} style={{
-                flex:2,padding:'13px 8px',borderRadius:10,border:'none',
-                background:'#CAFF4D',color:'#0A0A0B',
-                fontSize:11,fontWeight:700,cursor:'pointer',letterSpacing:'.04em',textTransform:'uppercase',
-              }}>
-                {lang==='en'?'H':lang==='es'?'H':'F'}{String(curHole+2).padStart(2,'0')} →
-              </button>
-            )}
-          </>
+          <button onClick={()=>{if(curHole<course.holes-1)commitParAndGo(curHole+1);}}
+            style={{flex:2,padding:'13px',borderRadius:12,border:allDone?'none':'1px solid #2e2e3a',background:allDone?'#CAFF4D':'#1c1c26',color:allDone?'#0A0A0B':'#CAFF4D',fontWeight:700,fontSize:13,cursor:'pointer',letterSpacing:'.06em',textTransform:'uppercase',transition:'all .2s'}}>
+            {curHole<course.holes-1?`${lang==='en'?'H':lang==='es'?'H':'F'}${String(curHole+2).padStart(2,'0')} →`:tl('finish')}
+          </button>
         )}
       </div>
 
-      {!user && (
+      {!user&&(
         <div style={{textAlign:'center',fontSize:10,color:'#555761',padding:'4px 16px 6px',flexShrink:0}}>
           {lang==='en'?'Guest mode ·':lang==='es'?'Modo visitante ·':'Mode visitant ·'}{' '}
           <span style={{color:'#CAFF4D',cursor:'pointer',fontWeight:600}} onClick={openAuth}>
@@ -1773,6 +1800,12 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang })
           </span>
         </div>
       )}
+
+      <style>{`
+        .noscroll::-webkit-scrollbar{display:none;}
+        @keyframes flashUp{0%{opacity:1;transform:translateX(-50%) translateY(0);}55%{opacity:1;transform:translateX(-50%) translateY(-10px);}100%{opacity:0;transform:translateX(-50%) translateY(-20px);}}
+        @keyframes ptsPop{0%{transform:scale(1);opacity:.6;}50%{transform:scale(1.22);opacity:1;}100%{transform:scale(1);opacity:1;}}
+      `}</style>
     </div>
   );
 }
@@ -1912,13 +1945,98 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
 function RankingScreen({ user, openAuth, setScreen, lang }) {
   const tl = (k,v={}) => t(lang,k,v);
   const [filter, setFilter] = useState("global");
+  const [liveRanking, setLiveRanking] = useState(null);
+  const [liveWeek, setLiveWeek]       = useState(null);
+  const [loading, setLoading]         = useState(true);
   const tabs = [["global",tl("ranking_global")],["setmana",tl("ranking_week")]];
   const goProfile = () => setScreen("profile");
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        // Global: aggregate points per user from games table
+        const { data: gamesData } = await supabase
+          .from("games")
+          .select("user_id, players, scores, created_at");
+
+        if (gamesData && !cancelled) {
+          // Build global leaderboard from games
+          const userMap = {};
+          gamesData.forEach(g => {
+            const me = (g.players||[]).find(p => p.isMe);
+            if (!me || !g.user_id) return;
+            if (!userMap[g.user_id]) {
+              userMap[g.user_id] = { name: me.name, pts: 0, scores: [], club: me.club||"" };
+            }
+            userMap[g.user_id].pts += (me.points || 0);
+            userMap[g.user_id].scores.push(me.diff ?? 0);
+          });
+          const global = Object.entries(userMap)
+            .map(([uid, v], i) => ({
+              rank: i+1, name: v.name, club: v.club,
+              pts: v.pts,
+              best: v.scores.length ? Math.min(...v.scores) : 0,
+              avatar: v.name.split(" ").map(w=>w[0]).slice(0,2).join(""),
+              color: ["#CAFF4D","#60A5FA","#A78BFA","#F472B6","#34D399","#FBBF24"][i%6],
+            }))
+            .sort((a,b) => b.pts - a.pts)
+            .map((p,i) => ({...p, rank:i+1}));
+          if (global.length) setLiveRanking(global);
+
+          // Weekly: filter to last 7 days
+          const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString();
+          const weekMap = {};
+          gamesData
+            .filter(g => g.created_at >= weekAgo)
+            .forEach(g => {
+              const me = (g.players||[]).find(p => p.isMe);
+              if (!me || !g.user_id) return;
+              if (!weekMap[g.user_id]) weekMap[g.user_id] = { name: me.name, pts: 0, scores: [], club: me.club||"" };
+              weekMap[g.user_id].pts += (me.points || 0);
+              weekMap[g.user_id].scores.push(me.diff ?? 0);
+            });
+          const week = Object.entries(weekMap)
+            .map(([uid, v], i) => ({
+              rank: i+1, name: v.name, club: v.club,
+              pts: v.pts,
+              best: v.scores.length ? Math.min(...v.scores) : 0,
+              avatar: v.name.split(" ").map(w=>w[0]).slice(0,2).join(""),
+              color: ["#60A5FA","#CAFF4D","#A78BFA","#F472B6","#34D399","#FBBF24"][i%6],
+            }))
+            .sort((a,b) => b.pts - a.pts)
+            .map((p,i) => ({...p, rank:i+1}));
+          if (week.length) setLiveWeek(week);
+        }
+      } catch(e) {
+        console.warn("P&C: Could not load ranking from Supabase:", e.message);
+      }
+      if (!cancelled) setLoading(false);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const globalData = liveRanking || LEADERBOARD;
+  const weekData   = liveWeek   || LEADERBOARD_WEEK;
+  const isLive     = !!liveRanking;
+
   return (
     <div className="page-scroll">
       <div style={{marginBottom:14}}>
         <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:5}}>{tl("classification")}</div>
-        <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(30px,9vw,46px)",letterSpacing:".04em",lineHeight:1}}>RÀNQUING <span className="lime">P&C</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(30px,9vw,46px)",letterSpacing:".04em",lineHeight:1}}>RÀNQUING <span className="lime">P&C</span></div>
+          <div style={{fontSize:9,fontWeight:700,letterSpacing:".06em",display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
+            {loading
+              ? <span style={{color:"#555761"}}>↻ Carregant...</span>
+              : isLive
+                ? <><span style={{width:5,height:5,borderRadius:"50%",background:"#34D399",display:"inline-block"}}/><span style={{color:"#34D399"}}>LIVE</span></>
+                : <span style={{color:"#555761"}}>DEMO</span>
+            }
+          </div>
+        </div>
       </div>
       {/* Tabs */}
       <div style={{display:"flex",borderBottom:"1px solid #1A1B1E",marginBottom:18,gap:0}}>
@@ -1930,7 +2048,7 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
       {/* ── GLOBAL */}
       {filter==="global" && <>
         <div style={{display:"flex",gap:8,marginBottom:16}}>
-          {[LEADERBOARD[1],LEADERBOARD[0],LEADERBOARD[2]].map((p,col) => {
+          {[globalData[1]||globalData[0],globalData[0],globalData[2]||globalData[0]].filter(Boolean).slice(0,3).map((p,col) => {
             const tier = getTier(p.pts); const isF = col===1;
             return (
               <div key={p.rank} className="card" style={{flex:isF?1.2:1,minWidth:0,padding:"14px 10px",textAlign:"center",borderColor:isF?"#CAFF4D":"#222327",background:isF?"rgba(202,255,77,.04)":"#1A1B1E",cursor:"pointer"}} onClick={goProfile}>
@@ -1947,16 +2065,16 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
           <div style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 58px",padding:"7px 13px",borderBottom:"1px solid #1A1B1E",fontSize:9,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761"}}>
             <span>#</span><span>Jugador</span><span style={{textAlign:"center"}}>Millor</span><span style={{textAlign:"right"}}>Pts</span>
           </div>
-          {LEADERBOARD.map((p,i) => {
+          {globalData.map((p,i) => {
             const tier = getTier(p.pts);
             return (
               <div key={p.rank} style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 58px",alignItems:"center",padding:"10px 13px",borderBottom:"1px solid #111214",cursor:"pointer"}} onClick={goProfile}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:i<3?17:13,color:i<3?"#CAFF4D":"#2A2B30"}}>0{p.rank}</div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:i<3?17:13,color:i<3?"#CAFF4D":"#2A2B30"}}>{String(p.rank).padStart(2,"0")}</div>
                 <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                   <div style={{width:26,height:26,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{p.avatar}</div>
                   <div style={{minWidth:0}}>
                     <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
-                    <div style={{fontSize:9,color:"#555761",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tier.emoji} {tier.name} · {tier.club||p.club}</div>
+                    <div style={{fontSize:9,color:"#555761",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tier.emoji} {tier.name} · {p.club}</div>
                   </div>
                 </div>
                 <div style={{fontFamily:"'Bebas Neue'",fontSize:16,textAlign:"center",color:p.best<0?"#CAFF4D":p.best===0?"#fff":"#555761"}}>{p.best>0?`+${p.best}`:p.best}</div>
@@ -1974,15 +2092,15 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
       {/* ── SETMANA */}
       {filter==="setmana" && <>
         <div className="card" style={{padding:"10px 13px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
-          <Activity size={12} color="#EF4444"/><span style={{fontSize:11,fontWeight:600,color:"#787C8A"}}>{tl("ranking_week_note")} actual · es reinicia cada dilluns</span>
+          <Activity size={12} color="#EF4444"/><span style={{fontSize:11,fontWeight:600,color:"#787C8A"}}>{tl("ranking_week_note")} · es reinicia cada dilluns</span>
         </div>
         <div className="card" style={{overflow:"hidden",padding:0,marginBottom:16}}>
           <div style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 58px",padding:"7px 13px",borderBottom:"1px solid #1A1B1E",fontSize:9,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761"}}>
             <span>#</span><span>Jugador</span><span style={{textAlign:"center"}}>Millor</span><span style={{textAlign:"right"}}>Pts 7d</span>
           </div>
-          {LEADERBOARD_WEEK.map((p,i) => (
+          {weekData.map((p,i) => (
             <div key={p.rank} style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 58px",alignItems:"center",padding:"10px 13px",borderBottom:"1px solid #111214"}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:i<3?17:13,color:i<3?"#CAFF4D":"#2A2B30"}}>0{p.rank}</div>
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:i<3?17:13,color:i<3?"#CAFF4D":"#2A2B30"}}>{String(p.rank).padStart(2,"0")}</div>
               <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                 <div style={{width:26,height:26,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{p.avatar}</div>
                 <div style={{minWidth:0}}>
@@ -1994,6 +2112,11 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
               <div style={{textAlign:"right",fontWeight:700,fontSize:12,color:"#CAFF4D"}}>{p.pts}</div>
             </div>
           ))}
+          {weekData.length === 0 && (
+            <div style={{padding:"24px",textAlign:"center",fontSize:12,color:"#555761"}}>
+              {lang==="en"?"No games this week":lang==="es"?"Sin partidas esta semana":"Sense partides aquesta setmana"}
+            </div>
+          )}
         </div>
       </>}
 
@@ -2111,6 +2234,237 @@ function TournamentsScreen({ openAuth, user, lang }) {
         <div className="card" style={{padding:"32px",textAlign:"center"}}>
           <div style={{fontSize:32,marginBottom:10}}>🏆</div>
           <div style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:".04em"}}>Aviat hi haurà tornejos d'aquesta categoria</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LIVE SCREEN
+═══════════════════════════════════════════════════════════════ */
+const SPAIN_PINS = [
+  { id:"bcn", label:"BCN",  x:76, y:30, games:8,  color:"#CAFF4D" },
+  { id:"mad", label:"MAD",  x:42, y:42, games:5,  color:"#60A5FA" },
+  { id:"vlc", label:"VLC",  x:62, y:55, games:3,  color:"#A78BFA" },
+  { id:"bil", label:"BIL",  x:50, y:16, games:2,  color:"#F472B6" },
+  { id:"mlg", label:"MLG",  x:38, y:78, games:4,  color:"#FBBF24" },
+  { id:"zgz", label:"ZGZ",  x:58, y:28, games:1,  color:"#34D399" },
+  { id:"svq", label:"SVQ",  x:28, y:72, games:2,  color:"#F87171" },
+  { id:"pmi", label:"PMI",  x:88, y:50, games:6,  color:"#818CF8" },
+];
+
+const MOCK_LIVE_GAMES = [
+  { id:1, player_name:"Marc Puig",     course_name:"Vallromanes",      current_hole:12, holes:18, score_total:-3, par_total:0, is_live:true,  avatar:"MP", color:"#CAFF4D", created_at: new Date(Date.now()-1200000).toISOString() },
+  { id:2, player_name:"Sònia Ros",     course_name:"Canal Olímpic",    current_hole:7,  holes:18, score_total:-1, par_total:0, is_live:true,  avatar:"SR", color:"#60A5FA", created_at: new Date(Date.now()-2400000).toISOString() },
+  { id:3, player_name:"Jordi Mas",     course_name:"HCP1",             current_hole:9,  holes:9,  score_total:0,  par_total:0, is_live:false, avatar:"JM", color:"#A78BFA", created_at: new Date(Date.now()-3600000).toISOString() },
+  { id:4, player_name:"Laura Fernández",course_name:"Áccura Teià",    current_hole:15, holes:18, score_total:2,  par_total:0, is_live:true,  avatar:"LF", color:"#F472B6", created_at: new Date(Date.now()-4800000).toISOString() },
+  { id:5, player_name:"Pau Serra",     course_name:"P&P Badalona",     current_hole:5,  holes:9,  score_total:-1, par_total:0, is_live:true,  avatar:"PS", color:"#34D399", created_at: new Date(Date.now()-600000).toISOString() },
+];
+
+function LiveGameCard({ game, compact }) {
+  const diff = game.score_total ?? 0;
+  const scoreColor = diff < -1 ? "#FBBF24" : diff === -1 ? "#60A5FA" : diff === 0 ? "#CAFF4D" : "#EF4444";
+  const pct = Math.round(((game.current_hole||1) / (game.holes||18)) * 100);
+
+  if (compact) {
+    return (
+      <div className={`live-card${game.is_live?" is-live":""}`}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:34,height:34,borderRadius:"50%",background:game.color||"#CAFF4D",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
+            {game.avatar_url ? <img src={game.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : (game.avatar||"?")}
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+              {game.is_live && <span style={{width:5,height:5,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block",flexShrink:0}}/>}
+              <div style={{fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{game.player_name}</div>
+            </div>
+            <div style={{fontSize:10,color:"#555761",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{game.course_name}</div>
+            <div style={{height:3,background:"#111214",borderRadius:2,overflow:"hidden",marginTop:5}}>
+              <div style={{height:"100%",width:`${pct}%`,background:game.is_live?"#EF4444":"#555761",borderRadius:2,transition:"width .5s"}}/>
+            </div>
+          </div>
+          <div style={{textAlign:"right",flexShrink:0}}>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:scoreColor,lineHeight:1}}>{diff>0?`+${diff}`:diff===0?"E":diff}</div>
+            <div style={{fontSize:9,color:"#555761"}}>F{game.current_hole||"-"}/{game.holes||18}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`live-card${game.is_live?" is-live":""}`}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:40,height:40,borderRadius:"50%",background:game.color||"#CAFF4D",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
+            {game.avatar_url ? <img src={game.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : (game.avatar||"?")}
+          </div>
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+              {game.is_live && (
+                <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(239,68,68,.15)",color:"#EF4444",border:"1px solid rgba(239,68,68,.3)",borderRadius:3,padding:"1px 6px",display:"flex",alignItems:"center",gap:3}}>
+                  <span style={{width:4,height:4,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/> LIVE
+                </span>
+              )}
+            </div>
+            <div style={{fontWeight:700,fontSize:14}}>{game.player_name}</div>
+            <div style={{fontSize:11,color:"#787C8A",marginTop:1}}>{game.course_name}</div>
+          </div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:28,color:scoreColor,lineHeight:1}}>{diff>0?`+${diff}`:diff===0?"E":diff}</div>
+          <div style={{fontSize:10,color:"#555761"}}>Forat {game.current_hole||"-"}/{game.holes||18}</div>
+        </div>
+      </div>
+      <div style={{height:4,background:"#111214",borderRadius:2,overflow:"hidden"}}>
+        <div style={{height:"100%",width:`${pct}%`,background:game.is_live?"#EF4444":"#555761",borderRadius:2,transition:"width .5s"}}/>
+      </div>
+    </div>
+  );
+}
+
+function LiveScreen({ user, openAuth, lang, liveGames }) {
+  const [tab, setTab] = useState("feed");
+  const [liked, setLiked] = useState({});
+  const [activePin, setActivePin] = useState(null);
+  const games = (liveGames && liveGames.length) ? liveGames : MOCK_LIVE_GAMES;
+  const liveNow = games.filter(g => g.is_live);
+  const recent = games.filter(g => !g.is_live);
+
+  return (
+    <div className="page-scroll ani-up">
+      {/* Header */}
+      <div style={{marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+          <div className="live-dot"/>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761"}}>
+            {liveNow.length} {lang==="en"?"live now":lang==="es"?"en directo ahora":"en directe ara"}
+          </div>
+        </div>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(28px,8vw,44px)",letterSpacing:".04em",lineHeight:1}}>
+          EN DIRECTE <span style={{color:"#EF4444"}}>P&C</span>
+        </div>
+      </div>
+
+      {/* Tab bar */}
+      <div className="live-tab-bar">
+        {[["feed","🔴 En Joc"],["community","📸 Comunitat"],["map","🗺 Mapa"]].map(([k,l])=>(
+          <button key={k} className={`live-tab${tab===k?" active":""}`} onClick={()=>setTab(k)}>{l}</button>
+        ))}
+      </div>
+
+      {/* ── TAB: FEED ── */}
+      {tab==="feed" && <>
+        {/* Stories row */}
+        {liveNow.length > 0 && (
+          <div className="story-row">
+            {liveNow.map(g=>(
+              <div key={g.id} className="story-avatar">
+                <div className="story-ring">
+                  <div className="story-inner" style={{background:g.color||"#CAFF4D",color:"#0A0A0B"}}>
+                    {g.avatar_url ? <img src={g.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : (g.avatar||"?")}
+                  </div>
+                </div>
+                <span style={{fontSize:9,fontWeight:600,color:"#787C8A",maxWidth:50,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"center"}}>{g.player_name.split(" ")[0]}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Live games */}
+        {liveNow.length > 0 && (
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#EF4444",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+              <span style={{width:5,height:5,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/> LIVE ARA
+            </div>
+            {liveNow.map(g=><LiveGameCard key={g.id} game={g}/>)}
+          </div>
+        )}
+
+        {/* Recent games */}
+        {recent.length > 0 && (
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:8}}>PARTIDES RECENTS</div>
+            {recent.map(g=><LiveGameCard key={g.id} game={g}/>)}
+          </div>
+        )}
+
+        {games.length === 0 && (
+          <div className="card" style={{textAlign:"center",padding:"32px 16px"}}>
+            <div style={{fontSize:32,marginBottom:10}}>⛳</div>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:".04em",marginBottom:6}}>Sense partides ara mateix</div>
+            <div style={{fontSize:12,color:"#555761"}}>Activa la retransmissió en directe quan juguis</div>
+          </div>
+        )}
+
+        {!user && (
+          <div style={{background:"rgba(202,255,77,.06)",border:"1px solid rgba(202,255,77,.2)",borderRadius:10,padding:"13px 14px",marginTop:8,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+            <div style={{fontSize:12,color:"#787C8A"}}>Crea un compte per retransmetre les teves partides</div>
+            <button className="btn btn-primary btn-sm" style={{borderRadius:100,padding:"7px 14px",fontSize:11,width:"auto",flexShrink:0}} onClick={openAuth}>Uneix-te →</button>
+          </div>
+        )}
+      </>}
+
+      {/* ── TAB: COMMUNITY ── */}
+      {tab==="community" && (
+        <div className="ugc-grid">
+          {UGC_FEED.map(post=>(
+            <div key={post.id} className="ugc-card" onClick={()=>setLiked(l=>({...l,[post.id]:!l[post.id]}))}>
+              <div style={{position:"relative",aspectRatio:"1",overflow:"hidden"}}>
+                <img src={post.img} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
+                <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.7))"}}/>
+                <div style={{position:"absolute",top:7,left:7}}>
+                  <span style={{fontSize:8,fontWeight:700,letterSpacing:".06em",padding:"2px 7px",borderRadius:3,background:post.lc+"22",color:post.lc,border:`1px solid ${post.lc}44`}}>{post.label}</span>
+                </div>
+                <div style={{position:"absolute",bottom:7,left:8,right:8}}>
+                  <div style={{fontSize:10,fontWeight:700,color:"#fff",marginBottom:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{post.caption}</div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{fontSize:9,color:"rgba(255,255,255,.6)"}}>{post.user}</div>
+                    <div style={{fontSize:9,color:liked[post.id]?"#EF4444":"rgba(255,255,255,.6)",display:"flex",alignItems:"center",gap:3}}>
+                      <Heart size={9} fill={liked[post.id]?"#EF4444":"none"} color={liked[post.id]?"#EF4444":"rgba(255,255,255,.6)"}/>{liked[post.id]?post.likes+1:post.likes}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── TAB: MAP ── */}
+      {tab==="map" && (
+        <div>
+          <div className="map-container">
+            {/* Spain SVG outline */}
+            <svg viewBox="0 0 100 87" style={{width:"100%",height:"100%",opacity:.15}} fill="none">
+              <path d="M10,20 L15,10 L22,8 L30,5 L42,4 L55,6 L65,4 L78,8 L88,12 L92,20 L95,30 L93,40 L90,50 L88,60 L82,70 L72,78 L60,82 L48,84 L36,82 L25,78 L16,70 L10,60 L7,50 L6,38 L10,20Z" stroke="#CAFF4D" strokeWidth=".5" fill="rgba(202,255,77,.04)"/>
+            </svg>
+            {/* Map pins */}
+            {SPAIN_PINS.map(pin=>(
+              <div key={pin.id} className="map-dot" style={{left:`${pin.x}%`,top:`${pin.y}%`}} onClick={()=>setActivePin(activePin===pin.id?null:pin.id)}>
+                <div className="map-pin" style={{background:pin.color,boxShadow:activePin===pin.id?`0 0 0 3px ${pin.color}44,0 2px 8px rgba(0,0,0,.4)`:"0 2px 8px rgba(0,0,0,.4)"}}>
+                  {pin.games}
+                </div>
+                <span style={{fontSize:8,fontWeight:700,color:pin.color,letterSpacing:".06em"}}>{pin.label}</span>
+                {activePin===pin.id && (
+                  <div style={{position:"absolute",bottom:"calc(100% + 6px)",left:"50%",transform:"translateX(-50%)",background:"#1A1B1E",border:`1px solid ${pin.color}44`,borderRadius:8,padding:"7px 10px",whiteSpace:"nowrap",zIndex:10}}>
+                    <div style={{fontSize:10,fontWeight:700,color:pin.color}}>{pin.label}</div>
+                    <div style={{fontSize:9,color:"#787C8A"}}>{pin.games} partida{pin.games!==1?"s":""} activa{pin.games!==1?"s":""}</div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:14,display:"flex",flexWrap:"wrap",gap:6}}>
+            {SPAIN_PINS.map(pin=>(
+              <div key={pin.id} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"#1A1B1E",borderRadius:100,border:"1px solid #222327"}}>
+                <span style={{width:7,height:7,borderRadius:"50%",background:pin.color,display:"inline-block"}}/>
+                <span style={{fontSize:10,fontWeight:600,color:"#787C8A"}}>{pin.label}</span>
+                <span style={{fontSize:10,fontWeight:700,color:pin.color}}>{pin.games}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -2523,17 +2877,40 @@ export default function App() {
   });
   const [lastGame, setLastGame] = useState(null);
   const [prevPts, setPrevPts] = useState(0);
+  const [liveGameId, setLiveGameId] = useState(null); // Supabase row id for live game
   const [activityFeed, setActivityFeed] = useState([]);
+  const [liveGames, setLiveGames]       = useState([]);
   const leads = useRef([]);
+  const liveDebounce = useRef(null);
 
   useEffect(() => {
-    supabase.from("games").select("*").order("created_at", { ascending: false }).limit(10)
-      .then(({ data }) => { if (data) setActivityFeed(data.map(mapGameToFeedItem)); });
+    // Fetch activity feed (all recent games for the public feed)
+    supabase.from("games").select("*").order("created_at", { ascending: false }).limit(20)
+      .then(({ data }) => {
+        if (data) setActivityFeed(data.map(mapGameToFeedItem));
+      });
 
+    // Fetch live games
+    supabase.from("games").select("*").eq("is_live", true).order("created_at", { ascending: false }).limit(10)
+      .then(({ data }) => {
+        if (data && data.length) setLiveGames(data);
+      });
+
+    // Real-time subscription for new games
     const channel = supabase
       .channel("games-feed")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "games" }, (payload) => {
         setActivityFeed(prev => [mapGameToFeedItem(payload.new), ...prev].slice(0, 20));
+        if (payload.new?.is_live) {
+          setLiveGames(prev => [payload.new, ...prev].slice(0, 10));
+        }
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games" }, (payload) => {
+        if (payload.new?.is_live) {
+          setLiveGames(prev => prev.map(g => g.id === payload.new.id ? payload.new : g));
+        } else {
+          setLiveGames(prev => prev.filter(g => g.id !== payload.new.id));
+        }
       })
       .subscribe();
 
@@ -2545,11 +2922,12 @@ export default function App() {
       if (session?.user) {
         const u = session.user;
         setUser({ name: u.user_metadata?.name || u.email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", avatarUrl: u.user_metadata?.avatar_url || null });
-        supabase.from("games").select("*").order("created_at", { ascending: false })
+        // Scope games query to this user's games only
+        supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false })
           .then(({ data }) => {
             if (data) {
               setHistory(data.map(g => ({ id: g.id, course: g.course, date: g.date, mode: g.mode, players: g.players, scores: g.scores })));
-              setUserPts(data.reduce((sum, g) => { const me = g.players.find(p => p.isMe); return sum + (me?.points || 0); }, 0));
+              setUserPts(data.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
             }
           });
       } else {
@@ -2575,7 +2953,11 @@ export default function App() {
     setUser(prev => ({ ...prev, avatarUrl: publicUrl }));
   };
 
-  const handleGameDelete = () => {
+  const handleGameDelete = async () => {
+    if (liveGameId) {
+      await supabase.from("games").update({ is_live: false }).eq("id", liveGameId);
+      setLiveGameId(null);
+    }
     localStorage.removeItem('pc_gameData');
     localStorage.removeItem('pc_scores');
     localStorage.removeItem('pc_curHole');
@@ -2601,11 +2983,36 @@ export default function App() {
     showToast(greet);
   };
 
-  const handleGameStart = (data) => {
+  const handleGameStart = async (data) => {
     localStorage.setItem('pc_gameData', JSON.stringify(data));
     localStorage.setItem('pc_screen', 'scorecard');
     setGameData(data);
     setScreen("scorecard");
+
+    // If live share enabled and user is logged in, insert a live row immediately
+    if (data.liveShare && user) {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user) {
+        const me = data.players.find(p => p.isMe) || data.players[0];
+        const { data: row } = await supabase.from("games").insert({
+          user_id: authData.user.id,
+          course_name: data.course.name,
+          player_name: me.name,
+          players: data.players,
+          scores: Array.from({length: data.course.holes}, (_,i) => ({
+            hole: i+1, par: Math.round(data.course.par / data.course.holes),
+            playerScores: Object.fromEntries(data.players.map(p => [p.id, null])),
+          })),
+          is_live: true,
+          current_hole: 1,
+          holes: data.course.holes,
+          par: data.course.par,
+          date: data.date,
+          mode: data.gameMode,
+        }).select().single();
+        if (row) setLiveGameId(row.id);
+      }
+    }
   };
 
   const handleGameFinish = async (scores, saveAndExit=false) => {
@@ -2631,14 +3038,24 @@ export default function App() {
     if (user) {
       const { data: authData } = await supabase.auth.getUser();
       if (authData?.user) {
-        await supabase.from("games").insert({
-          user_id: authData.user.id,
-          course: game.course,
-          date: game.date,
-          mode: game.mode,
-          players: game.players,
-          scores: game.scores,
-        });
+        if (liveGameId) {
+          await supabase.from("games").update({
+            players: game.players,
+            scores: game.scores,
+            is_live: false,
+            current_hole: game.scores.length,
+          }).eq("id", liveGameId);
+          setLiveGameId(null);
+        } else {
+          await supabase.from("games").insert({
+            user_id: authData.user.id,
+            course: game.course,
+            date: game.date,
+            mode: game.mode,
+            players: game.players,
+            scores: game.scores,
+          });
+        }
       }
     }
 
@@ -2664,11 +3081,21 @@ export default function App() {
       <div className="app">
         {screen!=="scorecard" && <AppHeader screen={screen} setScreen={setScreenSafe} user={user} openAuth={openAuth} onSignOut={handleSignOut} userPts={userPts} lang={lang} setLang={setLang}/>}
 
-        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")}/>}
+        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")} activityFeed={activityFeed} liveGames={liveGames}/>}
         {screen==="game-setup" && <GameSetupScreen   user={user} openAuth={openAuth} onStart={handleGameStart} lang={lang}/>}
-        {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang}/>}
+        {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang} liveGameId={liveGameId} onLiveUpdate={(scores, curHole) => {
+          if (!liveGameId) return;
+          clearTimeout(liveDebounce.current);
+          liveDebounce.current = setTimeout(async () => {
+            await supabase.from("games").update({
+              scores,
+              current_hole: curHole + 1,
+            }).eq("id", liveGameId);
+          }, 1500);
+        }}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang}/>}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang}/>}
+        {screen==="live"       && <LiveScreen        user={user} openAuth={openAuth} lang={lang} liveGames={liveGames}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="shop"       && <ShopScreen       user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history}/>}

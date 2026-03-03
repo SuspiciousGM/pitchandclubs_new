@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Home, BarChart2, ShoppingBag, Trophy, User, Plus, ChevronRight, ChevronLeft,
   Check, X, Search, MapPin, Calendar, Users, Zap, Star, TrendingUp,
   Award, Flag, Target, Activity, Heart, Globe, Flame, Crown, ArrowRight,
-  Play, Share2, Bell, AlertCircle, CheckCircle, Minus, Menu
+  Play, Share2, Bell, AlertCircle, CheckCircle, Minus, Menu, LogOut
 } from "lucide-react";
+import { supabase } from "./supabaseClient";
 
 /* ─── i18n ───────────────────────────────────────────────────── */
 const T = {
@@ -295,16 +296,17 @@ const G = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;width:100%;overflow-x:hidden;}
+html{height:100%;background:#0A0A0B;width:100%;overflow-x:hidden;}
 body{
+  min-height:100%;
+  width:100%;
+  max-width:100vw;
   background:#0A0A0B;
   color:#FFFFFF;
   font-family:'Inter',sans-serif;
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
   overscroll-behavior:none;
-  display:flex;
-  justify-content:center;
 }
 ::-webkit-scrollbar{display:none;}
 input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
@@ -332,8 +334,7 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
   border-bottom:1px solid #1A1B1E;
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   display:flex;align-items:center;justify-content:space-between;
-  padding:0 18px;
-  padding-top:env(safe-area-inset-top);
+  padding:env(safe-area-inset-top) 18px 0;
   height:calc(52px + env(safe-area-inset-top));
 }
 .header-logo{font-family:'Bebas Neue';font-size:22px;letter-spacing:.06em;cursor:pointer;user-select:none;}
@@ -342,12 +343,12 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 /* ── BOTTOM NAV */
 .bottom-nav{
   position:fixed;bottom:0;left:50%;transform:translateX(-50%);
-  width:100%;max-width:430px;
+  width:100%;max-width:430px;z-index:200;
   background:rgba(10,10,11,.97);
   border-top:1px solid #1A1B1E;
   display:flex;
   padding:8px 0 calc(8px + env(safe-area-inset-bottom));
-  backdrop-filter:blur(16px);z-index:200;
+  backdrop-filter:blur(16px);
 }
 .nav-item{
   flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
@@ -369,7 +370,7 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .nav-game-btn{color:#CAFF4D!important;}
 
 /* ── PAGE SCROLL */
-.page-scroll{padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;height:calc(100svh - 52px - env(safe-area-inset-top));}
+.page-scroll{padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
 
 /* ── CARDS */
 .card{background:#1A1B1E;border:1px solid #222327;border-radius:10px;padding:16px;}
@@ -563,7 +564,7 @@ function BottomNav({ screen, setScreen, lang }) {
 /* ─── APP HEADER ─────────────────────────────────────────────── */
 const LANGS = [{id:"ca",label:"CAT"},{id:"es",label:"ESP"},{id:"en",label:"ENG"}];
 
-function AppHeader({ screen, setScreen, user, openAuth, userPts, lang, setLang }) {
+function AppHeader({ screen, setScreen, user, openAuth, onSignOut, userPts, lang, setLang }) {
   const [showLang, setShowLang] = useState(false);
   const tl = (k) => t(lang, k);
   const tier = getTier(userPts);
@@ -591,25 +592,45 @@ function AppHeader({ screen, setScreen, user, openAuth, userPts, lang, setLang }
         </div>
 
         {isGameFlow && (
-          <button className="btn btn-sm btn-ghost" style={{width:"auto",display:"flex",alignItems:"center",gap:5}} onClick={()=>setScreen("home")}>
+          <button className="btn btn-sm btn-ghost" style={{width:"auto",display:"flex",alignItems:"center",gap:5}} onClick={()=>{
+            localStorage.removeItem('pc_gameData');
+            localStorage.removeItem('pc_scores');
+            localStorage.removeItem('pc_curHole');
+            localStorage.removeItem('pc_screen');
+            setScreen("home");
+          }}>
             <X size={14}/>{tl("exit")}
           </button>
         )}
         {user && !isGameFlow && (
-          <div style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",padding:"4px 8px",borderRadius:8}} onClick={()=>setScreen("profile")}>
-            <div style={{width:30,height:30,borderRadius:"50%",background:tier.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>
-              {user.name.split(" ").map(w=>w[0]).slice(0,2).join("")}
+          <div style={{display:"flex",alignItems:"center",gap:4}}>
+            <div style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",padding:"4px 8px",borderRadius:8}} onClick={()=>setScreen("profile")}>
+              <div style={{width:30,height:30,borderRadius:"50%",background:tier.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
+                {user.avatarUrl
+                  ? <img src={user.avatarUrl} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+                  : user.name.split(" ").map(w=>w[0]).slice(0,2).join("")
+                }
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:10,fontWeight:700,color:tier.color,letterSpacing:".06em",textTransform:"uppercase",lineHeight:1}}>{tier.emoji} {tier.name}</div>
+                <div style={{fontSize:9,color:"#555761",lineHeight:1.4}}>{userPts} pts</div>
+              </div>
             </div>
-            <div style={{textAlign:"right"}}>
-              <div style={{fontSize:10,fontWeight:700,color:tier.color,letterSpacing:".06em",textTransform:"uppercase",lineHeight:1}}>{tier.emoji} {tier.name}</div>
-              <div style={{fontSize:9,color:"#555761",lineHeight:1.4}}>{userPts} pts</div>
-            </div>
+            <button onClick={onSignOut} style={{background:"none",border:"none",cursor:"pointer",color:"#555761",padding:"4px",display:"flex",alignItems:"center"}} title="Sign out">
+              <LogOut size={14}/>
+            </button>
           </div>
         )}
         {!user && !isGameFlow && (
-          <button className="btn btn-sm" style={{background:"#CAFF4D",color:"#0A0A0B",border:"none",borderRadius:100,padding:"6px 14px",fontSize:11,fontWeight:700,textTransform:"uppercase"}} onClick={openAuth}>
-            {tl("cta_join")}
-          </button>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <button onClick={()=>openAuth("login")}
+              style={{background:"transparent",border:"1px solid #2A2B30",borderRadius:100,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#FFFFFF",cursor:"pointer",letterSpacing:".04em",textTransform:"uppercase",fontFamily:"Inter"}}>
+              {lang==="en"?"Login":lang==="es"?"Entrar":"Entra"}
+            </button>
+            <button className="btn btn-sm" style={{background:"#CAFF4D",color:"#0A0A0B",border:"none",borderRadius:100,padding:"6px 14px",fontSize:11,fontWeight:700,textTransform:"uppercase"}} onClick={()=>openAuth("register")}>
+              {tl("cta_join")}
+            </button>
+          </div>
         )}
       </div>
     </header>
@@ -629,6 +650,23 @@ function SectionHeader({ sub, title, limeWord }) {
 }
 
 /* ─── MOCK DATA ──────────────────────────────────────────────── */
+const mapGameToFeedItem = (g) => {
+  const me = g.players?.find(p => p.isMe);
+  const diff = me?.diff ?? 0;
+  const label = diff <= -3 ? "Eagle+" : diff === -2 ? "Eagle" : diff === -1 ? "Birdie" : diff === 0 ? "Par" : diff === 1 ? "Bogey" : `+${diff}`;
+  const lc = diff < -1 ? "#FBBF24" : diff === -1 ? "#60A5FA" : diff === 0 ? "#CAFF4D" : "#9CA3AF";
+  return { id: g.id, user: me?.name || "?", course: g.course, diff, label, lc, points: me?.points ?? 0, created_at: g.created_at };
+};
+
+const timeAgo = (isoStr) => {
+  const mins = Math.floor((Date.now() - new Date(isoStr)) / 60000);
+  if (mins < 1) return "ara";
+  if (mins < 60) return `fa ${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `fa ${hrs}h`;
+  return `fa ${Math.floor(hrs / 24)}d`;
+};
+
 const UGC_FEED = [
   {id:1,user:"marc_pitchking",club:"Pink Beaks",label:"Eagle",course:"Vallromanes",hole:12,time:"fa 2h",likes:47,img:"https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600&q=75",caption:"Millor ronda de la temporada!",lc:"#FBBF24"},
   {id:2,user:"sonia_ros",club:"Canal Olímpic",label:"Birdie",course:"HCP1",hole:7,time:"fa 3h",likes:23,img:"https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600&q=75",caption:"Primera ronda a HCP1",lc:"#60A5FA"},
@@ -721,9 +759,10 @@ const LEADERBOARD_CAMP = [
 /* ═══════════════════════════════════════════════════════════════
    HOME SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang }) {
+function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, activeGame, onResumeGame }) {
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
+  const [liked, setLiked] = useState({});
   const tier = getTier(userPts);
   const nextTier = TIERS[TIERS.findIndex(x=>x.id===tier.id)+1];
   const pct = getTierPct(userPts);
@@ -735,20 +774,42 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang }
   return (
     <div className="page-scroll ani-up">
 
-      {/* ── HERO / PLAYER CARD ── */}
+      {/* ── PARTIDA EN CURS ── */}
+      {activeGame && (
+        <div onClick={onResumeGame} style={{
+          display:'flex',alignItems:'center',justifyContent:'space-between',
+          background:'rgba(202,255,77,.08)',border:'1px solid rgba(202,255,77,.3)',
+          borderRadius:10,padding:'12px 14px',marginBottom:14,cursor:'pointer',
+        }}>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',color:'#CAFF4D',marginBottom:2}}>
+              ⛳ {lang==='en'?'Game in progress':lang==='es'?'Partida en curso':'Partida en curs'}
+            </div>
+            <div style={{fontSize:13,fontWeight:600}}>{activeGame.course?.name}</div>
+          </div>
+          <div style={{
+            background:'#CAFF4D',color:'#0A0A0B',borderRadius:8,
+            padding:'7px 14px',fontSize:11,fontWeight:700,flexShrink:0,
+          }}>
+            {lang==='en'?'Resume →':lang==='es'?'Continuar →':'Continuar →'}
+          </div>
+        </div>
+      )}
+
+      {/* ── PLAYER CARD / HERO ── */}
       {user ? (
-        <div className="card card-lime" style={{marginBottom:12,background:`linear-gradient(135deg,${tier.bg} 0%,rgba(17,18,20,0) 100%)`,borderColor:tier.border}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-            <div style={{minWidth:0,flex:1}}>
-              <div style={{fontSize:11,color:"#555761",fontWeight:500,marginBottom:3}}>
+        <div className="card card-lime" style={{marginBottom:14,background:`linear-gradient(135deg,${tier.bg} 0%,rgba(17,18,20,0) 100%)`,borderColor:tier.border}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+            <div>
+              <div style={{fontSize:12,color:"#555761",fontWeight:500,marginBottom:4}}>
                 {lang==="ca"?"Hola de nou,":lang==="es"?"Hola de nuevo,":"Welcome back,"}
               </div>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:26,letterSpacing:".04em",lineHeight:1}}>{user.name}</div>
-              {user.club && <div style={{fontSize:10,color:"#787C8A",marginTop:2}}>{user.club}</div>}
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:".04em",lineHeight:1}}>{user.name}</div>
+              {user.club && <div style={{fontSize:11,color:"#787C8A",marginTop:2}}>{user.club}</div>}
             </div>
-            <div style={{fontSize:40,lineHeight:1,flexShrink:0,marginLeft:8}}>{tier.emoji}</div>
+            <div style={{fontSize:44,lineHeight:1}}>{tier.emoji}</div>
           </div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
             <TierBadge tierId={tier.id}/>
             <span className="pill" style={{color:tier.color,display:"flex",alignItems:"center",gap:4}}>
               <Zap size={11} strokeWidth={2.5}/>{userPts} pts
@@ -756,52 +817,52 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang }
           </div>
           {nextTier ? (
             <>
-              <div style={{fontSize:10,color:"#555761",marginBottom:4}}>
+              <div style={{fontSize:11,color:"#555761",marginBottom:5}}>
                 {nextTier.min-userPts} {tl("pts_to")} <span style={{color:nextTier.color,fontWeight:700}}>{nextTier.name} {nextTier.emoji}</span>
               </div>
               <div className="prog"><div className="prog-fill" style={{width:`${pct}%`,background:tier.color}}/></div>
             </>
-          ) : <div style={{fontSize:11,color:"#CAFF4D",fontWeight:700}}>{tl("tier_max")}</div>}
-          <button className="btn btn-ghost btn-sm" style={{marginTop:10,fontSize:11,width:"auto",borderRadius:100,display:"flex",alignItems:"center",gap:5}} onClick={()=>setScreen("profile")}>
+          ) : <div style={{fontSize:12,color:"#CAFF4D",fontWeight:700}}>{tl("tier_max")}</div>}
+          <button className="btn btn-ghost btn-sm" style={{marginTop:12,fontSize:11,width:"auto",borderRadius:100,display:"flex",alignItems:"center",gap:5}} onClick={()=>setScreen("profile")}>
             <TrendingUp size={12}/>{tl("cta_stats")}
           </button>
         </div>
       ) : (
-        <div style={{marginBottom:12}}>
-          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:12}}>
+        <div style={{paddingTop:8,marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:14}}>
             <div className="live-dot"/>
             <span style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761"}}>
               {tl("hero_live",{n:234+leads.current.length})}
             </span>
           </div>
-          <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(48px,13vw,90px)",lineHeight:.85,marginBottom:8,letterSpacing:"-.01em"}}>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(52px,14vw,100px)",lineHeight:.82,marginBottom:10,letterSpacing:"-.01em"}}>
             {tl("hero_title")}
           </div>
-          <div style={{fontSize:13,color:"#787C8A",fontWeight:500,marginBottom:8}}>{tl("hero_sub")}</div>
-          <p style={{fontSize:12,color:"#555761",lineHeight:1.7,marginBottom:0,fontWeight:400}}>{tl("hero_desc")}</p>
+          <div style={{fontSize:14,color:"#787C8A",fontWeight:500,marginBottom:10,letterSpacing:".01em"}}>{tl("hero_sub")}</div>
+          <p style={{fontSize:13,color:"#555761",lineHeight:1.7,marginBottom:14,fontWeight:400,maxWidth:400}}>{tl("hero_desc")}</p>
         </div>
       )}
 
       {/* ── PRIMARY CTA ── */}
-      <button className="btn btn-primary" style={{marginBottom:8,fontSize:15,letterSpacing:".04em"}}
+      <button className="btn btn-primary" style={{marginBottom:10,fontSize:14}}
         onClick={()=>setScreen("game-setup")}>
-        <Flag size={16} strokeWidth={2.5} style={{marginRight:6,verticalAlign:"middle"}}/>{tl("cta_new_game")}
+        <Flag size={18} strokeWidth={2.5}/>{tl("cta_new_game")}
       </button>
       {!user && (
-        <button className="btn btn-ghost" style={{marginBottom:14,fontSize:12}} onClick={openAuth}>
-          <User size={13} style={{marginRight:5,verticalAlign:"middle"}}/>{tl("cta_create_account")}
+        <button className="btn btn-ghost" style={{marginBottom:16,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:6}} onClick={openAuth}>
+          <User size={14}/>{tl("cta_create_account")}
         </button>
       )}
 
       {/* ── QUICK STATS ── */}
       {myGames.length > 0 && (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
-          {[{l:tl("stat_games"),v:myGames.length,icon:<Activity size={13}/>},
-            {l:tl("stat_best"),v:bestGame!==null?(bestGame>0?`+${bestGame}`:`${bestGame}`):"—",icon:<TrendingUp size={13}/>},
-            {l:tl("stat_holes"),v:myGames.reduce((a,g)=>a+g.scores.length,0),icon:<Target size={13}/>}].map(s=>(
-            <div key={s.l} className="card" style={{padding:"10px 8px",textAlign:"center"}}>
-              <div style={{display:"flex",justifyContent:"center",marginBottom:3,color:"#555761"}}>{s.icon}</div>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:"#CAFF4D",lineHeight:1}}>{s.v}</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
+          {[{l:tl("stat_games"),v:myGames.length,icon:<Activity size={14}/>},
+            {l:tl("stat_best"),v:bestGame!==null?(bestGame>0?`+${bestGame}`:`${bestGame}`):"—",icon:<TrendingUp size={14}/>},
+            {l:tl("stat_holes"),v:myGames.reduce((a,g)=>a+g.scores.length,0),icon:<Target size={14}/>}].map(s=>(
+            <div key={s.l} className="card" style={{padding:"12px 8px",textAlign:"center"}}>
+              <div style={{display:"flex",justifyContent:"center",marginBottom:4,color:"#555761"}}>{s.icon}</div>
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:24,color:"#CAFF4D",lineHeight:1}}>{s.v}</div>
               <div style={{fontSize:9,color:"#555761",fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",marginTop:2}}>{s.l}</div>
             </div>
           ))}
@@ -810,7 +871,7 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang }
 
       {/* ── ÚLTIMES PARTIDES ── */}
       {myGames.length > 0 && (
-        <div style={{marginBottom:14}}>
+        <div style={{marginBottom:16}}>
           <SectionHeader sub={tl("sec_activity")} title={tl("sec_last_games")}/>
           {myGames.slice(0,3).map(g=>{
             const me = g.players.find(p=>p.isMe);
@@ -824,7 +885,7 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang }
                     </div>
                   </div>
                   {me && <div style={{textAlign:"right",marginLeft:10,flexShrink:0}}>
-                    <div style={{fontFamily:"'Bebas Neue'",fontSize:24,lineHeight:1,color:me.diff<0?"#FBBF24":me.diff===0?"#CAFF4D":"#FFFFFF"}}>{me.diff>0?`+${me.diff}`:me.diff}</div>
+                    <div style={{fontFamily:"'Bebas Neue'",fontSize:26,lineHeight:1,color:me.diff<0?"#FBBF24":me.diff===0?"#CAFF4D":"#FFFFFF"}}>{me.diff>0?`+${me.diff}`:me.diff}</div>
                     <div style={{fontSize:10,color:"#CAFF4D",fontWeight:700,display:"flex",alignItems:"center",gap:2,justifyContent:"flex-end"}}><Zap size={9}/>+{me.points} pts</div>
                   </div>}
                 </div>
@@ -835,20 +896,101 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang }
       )}
 
       {myGames.length===0 && !user && (
-        <div className="card" style={{textAlign:"center",padding:"24px 16px",marginBottom:14}}>
-          <div style={{display:"flex",justifyContent:"center",marginBottom:8,color:"#2A2B30"}}><Flag size={36} strokeWidth={1}/></div>
-          <div style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:".04em",marginBottom:5}}>{tl("no_games")}</div>
-          <div style={{fontSize:12,color:"#555761",lineHeight:1.6,marginBottom:12}}>{tl("no_games_sub")}</div>
+        <div className="card" style={{textAlign:"center",padding:"28px 16px",marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"center",marginBottom:10,color:"#2A2B30"}}><Flag size={40} strokeWidth={1}/></div>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:".04em",marginBottom:6}}>{tl("no_games")}</div>
+          <div style={{fontSize:12,color:"#555761",lineHeight:1.6,marginBottom:14}}>{tl("no_games_sub")}</div>
           <button className="btn btn-ghost btn-sm" style={{width:"auto",margin:"0 auto"}} onClick={()=>setScreen("game-setup")}>{tl("cta_register_now")}</button>
         </div>
       )}
 
-      {/* ── MINI LEADERBOARD ── */}
-      <div style={{marginBottom:14}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:10,paddingBottom:8,borderBottom:"1px solid #1A1B1E"}}>
+      {/* ── COM FUNCIONA ── */}
+      <div style={{marginBottom:16}}>
+        <SectionHeader sub={tl("sec_how")} title={tl("sec_how_title")}/>
+        {[[<Flag size={20}/>,tl("step1_t"),tl("step1_d")],[<TrendingUp size={20}/>,tl("step2_t"),tl("step2_d")],[<ShoppingBag size={20}/>,tl("step3_t"),tl("step3_d")]].map(([icon,title,desc],i)=>(
+          <div key={i} className="card" style={{padding:"14px",display:"flex",gap:14,alignItems:"flex-start",marginBottom:8}}>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:32,color:"#1A1B1E",lineHeight:1,flexShrink:0,width:32,textAlign:"center"}}>0{i+1}</div>
+            <div>
+              <div style={{color:"#CAFF4D",marginBottom:6}}>{icon}</div>
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:".04em",marginBottom:4}}>{title}</div>
+              <div style={{fontSize:12,color:"#787C8A",lineHeight:1.6,fontWeight:400}}>{desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── SISTEMA DE NIVELLS ── */}
+      <div style={{marginBottom:16}}>
+        <SectionHeader sub={tl("sec_levels")} title={tl("sec_levels_title")}/>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:10}}>
+          {TIERS.map(tier=>{
+            const descs={ca:[tl("tier_caddie_desc"),tl("tier_player_desc"),tl("tier_pro_desc"),tl("tier_master_desc")]};
+            const descArr=[tl("tier_caddie_desc"),tl("tier_player_desc"),tl("tier_pro_desc"),tl("tier_master_desc")];
+            const di=TIERS.findIndex(x=>x.id===tier.id);
+            return (
+              <div key={tier.id} className="card card-press" style={{padding:"14px 12px",textAlign:"center",borderColor:tier.border,background:tier.bg}}>
+                <div style={{fontSize:24,marginBottom:4}}>{tier.emoji}</div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,color:tier.color,marginBottom:2}}>{tier.name}</div>
+                <div style={{fontSize:9,color:"#555761",marginBottom:8,fontWeight:600}}>{tier.min}–{tier.max===99999?"∞":tier.max} pts</div>
+                <div style={{fontSize:10,color:"#787C8A",lineHeight:1.5,fontWeight:400}}>{descArr[di]}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="card" style={{padding:"14px"}}>
+          <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:10}}>{tl("sec_points")}</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6}}>
+            {[{l:"Hole in One 🎯",p:"+25",c:"#FBBF24"},{l:"Birdie (−1)",p:"+12",c:"#60A5FA"},{l:"Par",p:"+6",c:"#CAFF4D"},{l:"Bogey (+1)",p:"+2",c:"#9CA3AF"},{l:tl("pts_tournament_win"),p:"+100",c:"#CAFF4D"},{l:tl("pts_inactivity"),p:"−15/m",c:"#EF4444"}].map((r,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:"#111214",borderRadius:7}}>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,color:r.p.startsWith("-")||r.p.startsWith("−")?"#EF4444":"#CAFF4D",width:38,textAlign:"right",flexShrink:0}}>{r.p}</div>
+                <div style={{fontSize:11,color:"#787C8A",fontWeight:500}}>{r.l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── PROPERS TORNEJOS ── */}
+      <div style={{marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
           <div>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:3}}>{tl("sec_ranking")}</div>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(18px,5vw,26px)",letterSpacing:".04em",lineHeight:1}}>{tl("sec_top_ranking")}</div>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:4}}>{tl("sec_tournaments")}</div>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(20px,5vw,30px)",letterSpacing:".04em",lineHeight:1}}>{tl("sec_next_tournaments")}</div>
+          </div>
+          <button style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#CAFF4D",cursor:"pointer",border:"none",background:"none",display:"flex",alignItems:"center",gap:4}} onClick={()=>setScreen("tournaments")}>
+            {lang==="en"?"All":tl("cat_all")} <ChevronRight size={13}/>
+          </button>
+        </div>
+        {TOURNAMENTS_DATA.filter(x=>x.status==="open").slice(0,2).map(tourn=>{
+          const mt=TIERS.find(x=>x.id===tourn.minTier);
+          return (
+            <div key={tourn.id} className="card card-press" style={{padding:"13px 15px",marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:10,marginBottom:8}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:".04em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tourn.name}</div>
+                  <div style={{fontSize:11,color:"#787C8A",marginTop:2,display:"flex",alignItems:"center",gap:4}}><MapPin size={9}/>{tourn.course} · {tourn.location}</div>
+                </div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:"#CAFF4D",flexShrink:0,lineHeight:1}}>{tourn.dateS}</div>
+              </div>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                <span className="pill" style={{fontSize:9,display:"flex",alignItems:"center",gap:3}}><Activity size={8}/>{tourn.format}</span>
+                <span className="pill" style={{fontSize:9,color:mt?.color,borderColor:mt?.border}}>{lang==="en"?"Min:":"Min:"} {mt?.emoji} {mt?.name}</span>
+                <span className="pill" style={{fontSize:9,display:"flex",alignItems:"center",gap:3}}><Award size={8}/>{tourn.fee}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+
+
+
+      {/* ── MINI LEADERBOARD ── */}
+      <div style={{marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:4}}>{tl("sec_ranking")}</div>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(20px,5vw,30px)",letterSpacing:".04em",lineHeight:1}}>{tl("sec_top_ranking")}</div>
           </div>
           <button style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#CAFF4D",cursor:"pointer",border:"none",background:"none",display:"flex",alignItems:"center",gap:4}} onClick={()=>setScreen("ranking")}>
             {lang==="en"?"All":tl("cat_all")} <ChevronRight size={13}/>
@@ -859,14 +1001,14 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang }
             const tier=getTier(p.pts);
             return (
               <div key={p.rank} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:i<4?"1px solid #111214":"none"}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:i<3?16:12,color:i<3?"#CAFF4D":"#2A2B30",width:20,textAlign:"center",flexShrink:0}}>0{p.rank}</div>
-                <div style={{width:26,height:26,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{p.avatar}</div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:i<3?17:13,color:i<3?"#CAFF4D":"#2A2B30",width:22,textAlign:"center",flexShrink:0}}>0{p.rank}</div>
+                <div style={{width:27,height:27,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{p.avatar}</div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
                   <div style={{fontSize:9,color:"#555761"}}>{tier.emoji} {tier.name} · {p.club}</div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{fontFamily:"'Bebas Neue'",fontSize:14,color:p.best<0?"#CAFF4D":p.best===0?"#fff":"#555761"}}>{p.best>0?`+${p.best}`:p.best}</div>
+                  <div style={{fontFamily:"'Bebas Neue'",fontSize:15,color:p.best<0?"#CAFF4D":p.best===0?"#fff":"#555761"}}>{p.best>0?`+${p.best}`:p.best}</div>
                   <div style={{fontSize:9,color:"#CAFF4D",fontWeight:700}}>{p.pts}</div>
                 </div>
               </div>
@@ -875,98 +1017,21 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang }
         </div>
       </div>
 
-      {/* ── COM FUNCIONA ── */}
-      <div style={{marginBottom:14}}>
-        <SectionHeader sub={tl("sec_how")} title={tl("sec_how_title")}/>
-        {[[<Flag size={18}/>,tl("step1_t"),tl("step1_d")],[<TrendingUp size={18}/>,tl("step2_t"),tl("step2_d")],[<ShoppingBag size={18}/>,tl("step3_t"),tl("step3_d")]].map(([icon,title,desc],i)=>(
-          <div key={i} className="card" style={{padding:"12px",display:"flex",gap:12,alignItems:"flex-start",marginBottom:8}}>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:28,color:"#1A1B1E",lineHeight:1,flexShrink:0,width:28,textAlign:"center"}}>0{i+1}</div>
-            <div>
-              <div style={{color:"#CAFF4D",marginBottom:5}}>{icon}</div>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:".04em",marginBottom:3}}>{title}</div>
-              <div style={{fontSize:12,color:"#787C8A",lineHeight:1.6,fontWeight:400}}>{desc}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── SISTEMA DE NIVELLS ── */}
-      <div style={{marginBottom:14}}>
-        <SectionHeader sub={tl("sec_levels")} title={tl("sec_levels_title")}/>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:8}}>
-          {TIERS.map(tier=>{
-            const descArr=[tl("tier_caddie_desc"),tl("tier_player_desc"),tl("tier_pro_desc"),tl("tier_master_desc")];
-            const di=TIERS.findIndex(x=>x.id===tier.id);
-            return (
-              <div key={tier.id} className="card card-press" style={{padding:"12px 10px",textAlign:"center",borderColor:tier.border,background:tier.bg}}>
-                <div style={{fontSize:22,marginBottom:3}}>{tier.emoji}</div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:14,color:tier.color,marginBottom:2}}>{tier.name}</div>
-                <div style={{fontSize:9,color:"#555761",marginBottom:6,fontWeight:600}}>{tier.min}–{tier.max===99999?"∞":tier.max} pts</div>
-                <div style={{fontSize:10,color:"#787C8A",lineHeight:1.5,fontWeight:400}}>{descArr[di]}</div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="card" style={{padding:"12px"}}>
-          <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:8}}>{tl("sec_points")}</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:5}}>
-            {[{l:"Hole in One 🎯",p:"+25",c:"#FBBF24"},{l:"Birdie (−1)",p:"+12",c:"#60A5FA"},{l:"Par",p:"+6",c:"#CAFF4D"},{l:"Bogey (+1)",p:"+2",c:"#9CA3AF"},{l:tl("pts_tournament_win"),p:"+100",c:"#CAFF4D"},{l:tl("pts_inactivity"),p:"−15/m",c:"#EF4444"}].map((r,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:7,padding:"6px 8px",background:"#111214",borderRadius:7}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:14,color:r.p.startsWith("-")||r.p.startsWith("−")?"#EF4444":"#CAFF4D",width:34,textAlign:"right",flexShrink:0}}>{r.p}</div>
-                <div style={{fontSize:10,color:"#787C8A",fontWeight:500}}>{r.l}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── PROPERS TORNEJOS ── */}
-      <div style={{marginBottom:14}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:10,paddingBottom:8,borderBottom:"1px solid #1A1B1E"}}>
-          <div>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:3}}>{tl("sec_tournaments")}</div>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(18px,5vw,26px)",letterSpacing:".04em",lineHeight:1}}>{tl("sec_next_tournaments")}</div>
-          </div>
-          <button style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#CAFF4D",cursor:"pointer",border:"none",background:"none",display:"flex",alignItems:"center",gap:4}} onClick={()=>setScreen("tournaments")}>
-            {lang==="en"?"All":tl("cat_all")} <ChevronRight size={13}/>
-          </button>
-        </div>
-        {TOURNAMENTS_DATA.filter(x=>x.status==="open").slice(0,2).map(tourn=>{
-          const mt=TIERS.find(x=>x.id===tourn.minTier);
-          return (
-            <div key={tourn.id} className="card card-press" style={{padding:"12px 14px",marginBottom:8}}>
-              <div style={{display:"flex",justifyContent:"space-between",gap:10,marginBottom:7}}>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:".04em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tourn.name}</div>
-                  <div style={{fontSize:11,color:"#787C8A",marginTop:2,display:"flex",alignItems:"center",gap:4}}><MapPin size={9}/>{tourn.course} · {tourn.location}</div>
-                </div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:"#CAFF4D",flexShrink:0,lineHeight:1}}>{tourn.dateS}</div>
-              </div>
-              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                <span className="pill" style={{fontSize:9,display:"flex",alignItems:"center",gap:3}}><Activity size={8}/>{tourn.format}</span>
-                <span className="pill" style={{fontSize:9,color:mt?.color,borderColor:mt?.border}}>Min: {mt?.emoji} {mt?.name}</span>
-                <span className="pill" style={{fontSize:9,display:"flex",alignItems:"center",gap:3}}><Award size={8}/>{tourn.fee}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
       {/* ── TICKER ── */}
       <Ticker lang={lang}/>
 
       {/* ── READY TO PLAY ── */}
-      <div style={{marginTop:12,background:"#CAFF4D",borderRadius:12,padding:"24px 16px",textAlign:"center"}}>
-        <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(28px,8vw,48px)",color:"#0A0A0B",letterSpacing:".04em",lineHeight:.9,marginBottom:8}}>{tl("cta_ready")}</div>
-        <p style={{fontSize:12,color:"rgba(10,10,11,.6)",marginBottom:14,fontWeight:500}}>{tl("cta_ready_sub")}</p>
+      <div style={{marginTop:14,background:"#CAFF4D",borderRadius:12,padding:"28px 18px",textAlign:"center"}}>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(30px,9vw,52px)",color:"#0A0A0B",letterSpacing:".04em",lineHeight:.9,marginBottom:10}}>{tl("cta_ready")}</div>
+        <p style={{fontSize:12,color:"rgba(10,10,11,.6)",marginBottom:16,fontWeight:500}}>{tl("cta_ready_sub")}</p>
         {!emailSent ? (
-          <div style={{display:"flex",gap:8,maxWidth:280,margin:"0 auto 10px"}}>
+          <div style={{display:"flex",gap:8,maxWidth:300,margin:"0 auto 12px"}}>
             <input className="inp" style={{flex:1,fontSize:13,background:"rgba(255,255,255,.35)",border:"1px solid rgba(0,0,0,.12)",color:"#0A0A0B"}} type="email" placeholder="email@..." value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&email.includes("@")&&(setEmailSent(true),leads.current.push(email))}/>
             <button className="btn" style={{background:"#0A0A0B",color:"#CAFF4D",borderRadius:8,padding:"0 13px",flexShrink:0}} onClick={()=>{if(email.includes("@")){setEmailSent(true);leads.current.push(email);}}}><ArrowRight size={16}/></button>
           </div>
-        ) : <div style={{fontSize:12,fontWeight:700,color:"#0A0A0B",marginBottom:10}}>{lang==="en"?"Noted! You're on the list.":lang==="es"?"¡Apuntado! Te avisamos pronto.":"Apuntat! T'avisem aviat."} {234+leads.current.length} {lang==="en"?"players":"jugadors"}.</div>}
-        <button className="btn" style={{background:"#0A0A0B",color:"#CAFF4D",borderRadius:10,fontSize:13,fontWeight:700,padding:"12px 22px",display:"inline-flex",alignItems:"center",gap:7}} onClick={()=>setScreen("game-setup")}>
-          <Flag size={15} strokeWidth={2.5}/>{tl("cta_ready_btn")}
+        ) : <div style={{fontSize:12,fontWeight:700,color:"#0A0A0B",marginBottom:12}}>{lang==="en"?"Noted! You're on the list.":lang==="es"?"¡Apuntado! Te avisamos pronto.":"Apuntat! T'avisem aviat."} {234+leads.current.length} {lang==="en"?"players":"jugadors"}.</div>}
+        <button className="btn" style={{background:"#0A0A0B",color:"#CAFF4D",borderRadius:10,fontSize:13,fontWeight:700,padding:"13px 24px",display:"inline-flex",alignItems:"center",gap:7}} onClick={()=>setScreen("game-setup")}>
+          <Flag size={16} strokeWidth={2.5}/>{tl("cta_ready_btn")}
         </button>
       </div>
     </div>
@@ -984,7 +1049,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
   const [customPar, setCustomPar] = useState(54);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [gameMode, setGameMode] = useState("stableford");
-  const [players, setPlayers] = useState([{ id:1, name:"Tu", isMe:true }]);
+  const [players, setPlayers] = useState([{ id:1, name: user?.name || "Tu", isMe:true }]);
   const [liveShare, setLiveShare] = useState(false);
 
   const activeCourse = customCourse || selCourse;
@@ -1110,10 +1175,13 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
         {players.map((p,i) => (
           <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",background:"#1A1B1E",border:"1px solid #222327",borderRadius:8,marginBottom:6}}>
             <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[i],flexShrink:0}} />
-            {p.isMe
-              ? <div style={{flex:1,fontWeight:600,fontSize:14}}>{p.name} <span style={{fontSize:11,color:"#555761",fontWeight:400}}>· Tu</span></div>
-              : <input className="inp" style={{flex:1,padding:"6px 8px",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0}} placeholder="Nom del jugador" value={p.name} onChange={e=>updateName(p.id,e.target.value)} />
-            }
+            <div style={{flex:1,position:"relative"}}>
+              <input className="inp" style={{width:"100%",padding:"6px 8px",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0}} 
+                placeholder={p.isMe ? (user?.name || "El teu nom") : "Nom del jugador"} 
+                value={p.name === "Tu" && p.isMe ? (user?.name || "") : p.name} 
+                onChange={e=>updateName(p.id,e.target.value)} />
+              {p.isMe && <span style={{position:"absolute",right:4,top:"50%",transform:"translateY(-50%)",fontSize:10,color:"#555761",fontWeight:600,pointerEvents:"none"}}>TU</span>}
+            </div>
             {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:18,padding:4,lineHeight:1}} onClick={()=>removePlayer(p.id)}>×</button>}
           </div>
         ))}
@@ -1143,19 +1211,106 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
 /* ═══════════════════════════════════════════════════════════════
    SCORECARD SCREEN — Dial C1 + Global D1 (tab intern)
 ═══════════════════════════════════════════════════════════════ */
-function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
+/* ─── NUMBER PICKER ───────────────────────────────────────── */
+function NumberPicker({ value, par, onChange, lang }) {
+  const display = value ?? par;
+  const scoreColor = (v) => {
+    const d = v - par;
+    if (d <= -2) return '#FBBF24';
+    if (d === -1) return '#60A5FA';
+    if (d === 0)  return '#CAFF4D';
+    if (d === 1)  return '#FFFFFF';
+    return '#EF4444';
+  };
+  const scoreLabel = (v) => {
+    const d = v - par;
+    if (d <= -2) return 'HiO 🎯';
+    if (d === -1) return 'Birdie';
+    if (d === 0)  return 'Par';
+    if (d === 1)  return 'Bogey';
+    if (d === 2)  return 'D.Bogey';
+    return `+${d}`;
+  };
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:12,width:'100%',maxWidth:320}}>
+      {/* Big number + label */}
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:80,lineHeight:1,
+          color:value===null?'#555761':scoreColor(display),transition:'color .15s',
+          textShadow:value===null?'none':`0 0 40px ${scoreColor(display)}30`}}>
+          {value===null ? '—' : display}
+        </div>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:'.08em',
+          color:value===null?'#555761':scoreColor(display),transition:'color .15s'}}>
+          {value===null ? (lang==='en'?'No score':lang==='es'?'Sin score':'Sense score') : scoreLabel(display)}
+        </div>
+      </div>
+
+      {/* Number grid 1–9 + "-" (5×2) */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:8,width:'100%'}}>
+        {[1,2,3,4,5,6,7,8,9].map(v => {
+          const active = value === v;
+          const col = scoreColor(v);
+          return (
+            <div key={v} onClick={()=>onChange(v)} style={{
+              height:52,borderRadius:10,
+              display:'flex',alignItems:'center',justifyContent:'center',
+              cursor:'pointer',
+              border: active ? `2px solid ${col}` : '1px solid #222327',
+              background: active ? `${col}18` : '#1A1B1E',
+              transition:'all .1s',
+            }}>
+              <span style={{fontFamily:"'Bebas Neue'",fontSize:26,
+                color: active ? col : '#555761',
+                transition:'color .1s'}}>
+                {v}
+              </span>
+            </div>
+          );
+        })}
+        {/* "-" = null score (hole skipped) */}
+        <div onClick={()=>onChange(null)} style={{
+          height:52,borderRadius:10,
+          display:'flex',alignItems:'center',justifyContent:'center',
+          cursor:'pointer',
+          border: value===null ? '2px solid #555761' : '1px solid #222327',
+          background: value===null ? 'rgba(85,87,97,.15)' : '#1A1B1E',
+          transition:'all .1s',
+        }}>
+          <span style={{fontFamily:"'Bebas Neue'",fontSize:26,
+            color: value===null ? '#fff' : '#555761',
+            transition:'color .1s'}}>—</span>
+        </div>
+      </div>
+
+      <div style={{fontSize:9,color:'#555761',fontWeight:600,letterSpacing:'.1em',textTransform:'uppercase'}}>
+        {lang==='en'?'SHOTS':lang==='es'?'GOLPES':'COPS'} · Par {par}
+      </div>
+    </div>
+  );
+}
+
+function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang }) {
   const tl = (k,v={}) => t(lang,k,v);
   const { course, date, gameMode, players, liveShare } = gameData;
   const pph = Math.round(course.par / course.holes);
 
   /* ── State ── */
-  const [scores, setScores] = useState(() =>
-    Array.from({length:course.holes}, (_,i) => ({
+  const [scores, setScores] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pc_scores');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return Array.from({length:course.holes}, (_,i) => ({
       hole: i+1, par: pph,
-      playerScores: Object.fromEntries(players.map(p => [p.id, pph])),
-    }))
-  );
-  const [curHole, setCurHole]               = useState(0);
+      playerScores: Object.fromEntries(players.map(p => [p.id, null])),
+    }));
+  });
+  const [curHole, setCurHole] = useState(() => {
+    const saved = localStorage.getItem('pc_curHole');
+    return saved ? parseInt(saved) : 0;
+  });
   const [activePlayerId, setActivePlayerId] = useState(players[0].id);
   const [panel, setPanel]                   = useState('dial'); // 'dial' | 'global'
   const [confirmed, setConfirmed]           = useState(new Set()); // holes explicitly confirmed
@@ -1203,15 +1358,36 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
 
   /* ── Score setter ── */
   const setHoleScore = (pid, val) => {
-    setScores(prev => prev.map((h,i) =>
-      i===curHole ? {...h, playerScores:{...h.playerScores,[pid]:val}} : h
-    ));
-    confirmHole(curHole, pid);
+    setScores(prev => {
+      const next = prev.map((h,i) =>
+        i===curHole ? {...h, playerScores:{...h.playerScores,[pid]:val}} : h
+      );
+      localStorage.setItem('pc_scores', JSON.stringify(next));
+      return next;
+    });
+    if (val !== null) {
+      confirmHole(curHole, pid);
+    } else {
+      setConfirmed(prev => { const n = new Set(prev); n.delete(curHole); return n; });
+    }
   };
 
   const changeDial = (delta) => {
     const cur = myScore ?? par;
-    setHoleScore(activePlayerId, Math.max(1, cur + delta));
+    const newVal = Math.max(1, cur + delta);
+    setHoleScore(activePlayerId, newVal);
+    // Auto-advance to next player
+    const pidx = players.findIndex(p=>p.id===activePlayerId);
+    if (pidx < players.length - 1) {
+      setTimeout(() => setActivePlayerId(players[pidx+1].id), 300);
+    }
+  };
+
+  const goToHole = (idx) => {
+    setCurHole(idx);
+    localStorage.setItem('pc_curHole', idx);
+    setActivePlayerId(players[0].id);
+    setPanel('dial');
   };
 
   /* Auto-advance to next player after registering */
@@ -1250,13 +1426,30 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
         display:'flex', alignItems:'center', justifyContent:'space-between',
         padding:'10px 16px 8px', borderBottom:'1px solid #1A1B1E', flexShrink:0,
       }}>
-        <div style={{minWidth:0,flex:1,marginRight:8}}>
-          <div style={{fontSize:12,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>
-          <div style={{fontSize:10,color:'#555761',marginTop:1}}>
-            {filledHoles}/{course.holes} {tl('holes_label')} · {GAME_MODES.find(m=>m.id===gameMode)?.label}
-          </div>
+        <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+          {/* Exit button — saves to localStorage */}
+          <button onClick={()=>onFinish(scores, true)} style={{
+            display:'flex',alignItems:'center',gap:5,
+            padding:'6px 10px',borderRadius:100,cursor:'pointer',
+            border:'1px solid #222327',background:'#1A1B1E',
+            color:'#555761',fontSize:11,fontWeight:700,fontFamily:'Inter',
+          }}>
+            ← {lang==='en'?'Save & exit':lang==='es'?'Guardar y salir':'Guardar i sortir'}
+          </button>
+          {/* Cancel button */}
+          <button onClick={onDelete} style={{
+            display:'flex',alignItems:'center',gap:4,
+            padding:'6px 10px',borderRadius:100,cursor:'pointer',
+            border:'1px solid #222327',background:'#1A1B1E',
+            color:'#555761',fontSize:11,fontWeight:700,fontFamily:'Inter',
+          }}>
+            <X size={13}/>{lang==='en'?'Cancel':lang==='es'?'Cancelar':'Cancel·lar'}
+          </button>
         </div>
-        {/* Global button in top bar — pill style */}
+        <div style={{minWidth:0,flex:1,marginRight:8,textAlign:'center'}}>
+          <div style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>
+        </div>
+        {/* Global button */}
         <button onClick={()=>setPanel(p=>p==='global'?'dial':'global')} style={{
           display:'flex',alignItems:'center',gap:5,flexShrink:0,
           padding:'6px 12px',borderRadius:100,cursor:'pointer',
@@ -1267,7 +1460,7 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
           transition:'all .15s',
         }}>
           <span style={{fontSize:13}}>📋</span>
-          <span>{panel==='global'?(lang==='en'?'← Score':lang==='es'?'← Jugar':'← Registrar'):'Global'}</span>
+          <span>{panel==='global'?(lang==='en'?'← Score':lang==='es'?'← Jugar':'← Reg.'):'Global'}</span>
         </button>
       </div>
 
@@ -1324,40 +1517,64 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
       {panel==='dial' && (
         <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'10px 16px',gap:10,overflow:'hidden'}}>
 
-          {/* Player tabs */}
+          {/* Player tabs with arrows */}
           {players.length > 1 && (
-            <div style={{display:'flex',gap:5,flexWrap:'wrap',justifyContent:'center'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,width:'100%',justifyContent:'center'}}>
+              {/* Left arrow */}
+              <button onClick={()=>{
+                const idx = players.findIndex(p=>p.id===activePlayerId);
+                if(idx > 0) setActivePlayerId(players[idx-1].id);
+              }} style={{
+                width:32,height:32,borderRadius:'50%',border:'1px solid #222327',
+                background: players.findIndex(p=>p.id===activePlayerId)>0?'#1A1B1E':'transparent',
+                color: players.findIndex(p=>p.id===activePlayerId)>0?'#CAFF4D':'#2A2B30',
+                cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
+              }}>‹</button>
+
+              {/* Active player tab */}
               {players.map((p,i)=>{
                 const scored = hole.playerScores[p.id] !== null;
                 const active = p.id === activePlayerId;
                 const sv     = hole.playerScores[p.id];
+                if (!active) return null;
                 return (
-                  <div key={p.id} onClick={()=>setActivePlayerId(p.id)} style={{
-                    display:'flex',alignItems:'center',gap:4,padding:'5px 11px',borderRadius:100,
-                    border: active?`1px solid ${PLAYER_COLORS[i]}55`:'1px solid #222327',
-                    background: active?`${PLAYER_COLORS[i]}10`:'#1A1B1E',
-                    cursor:'pointer',position:'relative',transition:'all .15s',
+                  <div key={p.id} style={{
+                    display:'flex',alignItems:'center',gap:6,padding:'8px 20px',borderRadius:100,
+                    border:`1px solid ${PLAYER_COLORS[i]}55`,
+                    background:`${PLAYER_COLORS[i]}10`,
+                    position:'relative',flex:1,justifyContent:'center',maxWidth:200,
                   }}>
                     <div style={{
-                      width:18,height:18,borderRadius:'50%',background:PLAYER_COLORS[i],
+                      width:24,height:24,borderRadius:'50%',background:PLAYER_COLORS[i],
                       display:'flex',alignItems:'center',justifyContent:'center',
-                      fontSize:7,fontWeight:700,color:'#0A0A0B',flexShrink:0,
+                      fontSize:10,fontWeight:700,color:'#0A0A0B',flexShrink:0,
                     }}>{p.name[0]}</div>
-                    <span style={{fontSize:10,fontWeight:700,color:active?PLAYER_COLORS[i]:'#555761'}}>{p.name.split(' ')[0]}</span>
-                    <span style={{fontFamily:"'Bebas Neue'",fontSize:14,color:active?PLAYER_COLORS[i]:'#555761',lineHeight:1}}>
+                    <span style={{fontSize:14,fontWeight:700,color:PLAYER_COLORS[i]}}>{p.name.split(' ')[0]}</span>
+                    <span style={{fontFamily:"'Bebas Neue'",fontSize:18,color:PLAYER_COLORS[i],lineHeight:1}}>
                       {sv ?? '?'}
                     </span>
                     {scored && (
                       <div style={{
-                        position:'absolute',top:-4,right:-4,width:13,height:13,
+                        position:'absolute',top:-4,right:-4,width:16,height:16,
                         borderRadius:'50%',background:'#34D399',border:'2px solid #111214',
                         display:'flex',alignItems:'center',justifyContent:'center',
-                        fontSize:7,color:'#fff',fontWeight:700,
+                        fontSize:9,color:'#fff',fontWeight:700,
                       }}>✓</div>
                     )}
                   </div>
                 );
               })}
+
+              {/* Right arrow */}
+              <button onClick={()=>{
+                const idx = players.findIndex(p=>p.id===activePlayerId);
+                if(idx < players.length-1) setActivePlayerId(players[idx+1].id);
+              }} style={{
+                width:32,height:32,borderRadius:'50%',border:'1px solid #222327',
+                background: players.findIndex(p=>p.id===activePlayerId)<players.length-1?'#1A1B1E':'transparent',
+                color: players.findIndex(p=>p.id===activePlayerId)<players.length-1?'#CAFF4D':'#2A2B30',
+                cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
+              }}>›</button>
             </div>
           )}
 
@@ -1370,66 +1587,16 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
             {labelText || 'Par'}
           </div>
 
-          {/* ── BIG DIAL CIRCLE ── */}
-          <div style={{display:'flex',alignItems:'center',gap:0}}>
-            {/* Minus */}
-            <button onClick={()=>changeDial(-1)} style={{
-              width:60,height:60,borderRadius:'50%',
-              background:'#1A1B1E',border:'2px solid #222327',
-              cursor:'pointer',fontSize:26,color:'#555761',
-              display:'flex',alignItems:'center',justifyContent:'center',
-              transition:'all .12s',flexShrink:0,fontFamily:'Inter',
-            }}>−</button>
-
-            {/* Circle — always shows curVal in color; dim ring if not yet confirmed */}
-            <div style={{
-              width:120,height:120,borderRadius:'50%',
-              background: curBg,
-              display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-              margin:'0 -10px',zIndex:2,position:'relative',
-              boxShadow: myScore===null
-                ? `0 0 0 4px #111214, 0 0 0 6px ${curBg}30, 0 8px 28px rgba(0,0,0,.5)`
-                : `0 0 0 4px #111214, 0 8px 32px ${curBg}70`,
-              transition:'background .2s,box-shadow .2s',
-              opacity: 1,
-            }}>
-              <div style={{
-                fontFamily:"'Bebas Neue'",fontSize:68,
-                color:'#0A0A0B',
-                lineHeight:1,transition:'none',
-              }}>
-                {curVal}
-              </div>
-              <div style={{
-                fontSize:9,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',
-                color:'rgba(0,0,0,.4)',
-                marginTop:-4,
-              }}>
-                {lang==='en'?'shots':lang==='es'?'golpes':'cops'}
-              </div>
-            </div>
-
-            {/* Plus */}
-            <button onClick={()=>changeDial(1)} style={{
-              width:60,height:60,borderRadius:'50%',
-              background:'#1A1B1E',border:'2px solid #222327',
-              cursor:'pointer',fontSize:26,color:'#555761',
-              display:'flex',alignItems:'center',justifyContent:'center',
-              transition:'all .12s',flexShrink:0,fontFamily:'Inter',
-            }}>+</button>
-          </div>
-
-          {/* Confirm / next player button */}
-          {players.length > 1 && myScore !== null && !allThisHole && (
-            <button onClick={advancePlayer} style={{
-              padding:'8px 22px',borderRadius:100,
-              border:'1px solid rgba(202,255,77,.3)',background:'rgba(202,255,77,.07)',
-              color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',
-              letterSpacing:'.06em',textTransform:'uppercase',
-            }}>
-              ✓ {lang==='en'?'Next player':lang==='es'?'Sig. jugador':'Seg. jugador'} →
-            </button>
-          )}
+          {/* ── NUMBER PICKER ── */}
+          <NumberPicker value={myScore} par={par} onChange={(v) => {
+            setHoleScore(activePlayerId, v);
+            if (v !== null) {
+              const pidx = players.findIndex(p=>p.id===activePlayerId);
+              if (pidx < players.length - 1) {
+                setTimeout(() => setActivePlayerId(players[pidx+1].id), 400);
+              }
+            }
+          }} lang={lang} />
 
           {/* Score legend */}
           <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'center',marginTop:2}}>
@@ -1468,7 +1635,7 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
                 const isPast = idx<curHole;
                 return (
                   <tr key={idx}
-                    onClick={()=>{setCurHole(idx);setActivePlayerId(players[0].id);setPanel('dial');}}
+                    onClick={()=>goToHole(idx)}
                     style={{cursor:'pointer',background:isCur?'rgba(202,255,77,.04)':'transparent'}}>
                     <td style={{
                       fontFamily:"'Bebas Neue'",fontSize:13,padding:'5px 4px',
@@ -1564,7 +1731,7 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
           /* ── Dial view nav: prev / next ── */
           <>
             <button
-              onClick={()=>{if(curHole>0){setCurHole(h=>h-1);setActivePlayerId(players[0].id);}}}
+              onClick={()=>{if(curHole>0)goToHole(curHole-1);}}
               disabled={curHole===0}
               style={{
                 flex:1,padding:'13px 8px',borderRadius:10,border:'1px solid #222327',
@@ -1586,10 +1753,7 @@ function ScorecardScreen({ gameData, onFinish, user, openAuth, lang }) {
             ) : (
               <button onClick={()=>{
                 if(!allThisHole){ confirmHole(curHole); }
-                if(curHole<course.holes-1){
-                  setCurHole(h=>h+1);
-                  setActivePlayerId(players[0].id);
-                }
+                if(curHole<course.holes-1){ goToHole(curHole+1); }
               }} style={{
                 flex:2,padding:'13px 8px',borderRadius:10,border:'none',
                 background:'#CAFF4D',color:'#0A0A0B',
@@ -1766,11 +1930,11 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
 
       {/* ── GLOBAL */}
       {filter==="global" && <>
-        <div style={{display:"flex",gap:8,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
+        <div style={{display:"flex",gap:8,marginBottom:16}}>
           {[LEADERBOARD[1],LEADERBOARD[0],LEADERBOARD[2]].map((p,col) => {
             const tier = getTier(p.pts); const isF = col===1;
             return (
-              <div key={p.rank} className="card" style={{flexShrink:0,width:isF?152:128,padding:"14px 10px",textAlign:"center",borderColor:isF?"#CAFF4D":"#222327",background:isF?"rgba(202,255,77,.04)":"#1A1B1E",cursor:"pointer"}} onClick={goProfile}>
+              <div key={p.rank} className="card" style={{flex:isF?1.2:1,minWidth:0,padding:"14px 10px",textAlign:"center",borderColor:isF?"#CAFF4D":"#222327",background:isF?"rgba(202,255,77,.04)":"#1A1B1E",cursor:"pointer"}} onClick={goProfile}>
                 <div style={{fontSize:isF?28:20,marginBottom:4}}>{["🥈","🥇","🥉"][col]}</div>
                 <div style={{width:34,height:34,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0A0A0B",margin:"0 auto 7px"}}>{p.avatar}</div>
                 <div style={{fontWeight:600,fontSize:11,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
@@ -1834,32 +1998,6 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
         </div>
       </>}
 
-      {/* ── PER CAMP */}
-      {filter==="camp" && <>
-        <div className="card" style={{padding:"10px 13px",marginBottom:12}}>
-          <span style={{fontSize:11,fontWeight:500,color:"#787C8A"}}>Millors scores per camp · tots els temps</span>
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-          {LEADERBOARD_CAMP.map((c,i) => (
-            <div key={c.camp} className="card" style={{padding:"12px 14px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                <div>
-                  <div style={{fontWeight:700,fontSize:13,marginBottom:2}}>{c.camp}</div>
-                  <div style={{fontSize:10,color:"#555761"}}>{c.games} partides registrades</div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:"#CAFF4D",lineHeight:1}}>{c.best>0?`+${c.best}`:c.best}</div>
-                  <div style={{fontSize:9,color:"#555761"}}>millor score</div>
-                </div>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <div style={{width:22,height:22,borderRadius:"50%",background:c.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{c.avatar}</div>
-                <div style={{fontSize:11,color:"#787C8A"}}>Líder: <span style={{color:"#fff",fontWeight:600}}>{c.leader}</span> · avg {c.avg>0?`+${c.avg}`:c.avg}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </>}
     </div>
   );
 }
@@ -2059,14 +2197,59 @@ function ShopScreen({ openAuth, user, lang }) {
 /* ═══════════════════════════════════════════════════════════════
    PROFILE / STATS SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function ProfileScreen({ user, userPts, setScreen, lang }) {
+function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history }) {
   const tl = (k,v={}) => t(lang,k,v);
   const profile = PLAYER_PROFILE;
   const tier = getTier(userPts);
   const nextTier = TIERS[TIERS.findIndex(t=>t.id===tier.id)+1];
   const pct = getTierPct(userPts);
-  const distTotal = Object.values(profile.dist).reduce((a,b)=>a+b,0);
-  const distPct = (k) => Math.round((profile.dist[k]/distTotal)*100);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const myGames = (history||[]).filter(g => g.players?.some(p => p.isMe));
+  const hasRealGames = myGames.length > 0;
+  const myDiffs = myGames.map(g => g.players.find(p => p.isMe)?.diff).filter(d => d !== undefined && d !== null);
+  const bestDiff = myDiffs.length ? Math.min(...myDiffs) : null;
+  const trendData = myGames.slice(0, 10).reverse().map(g => ({
+    date: g.date,
+    s: g.players.find(p => p.isMe)?.diff ?? 0,
+  }));
+  const courseMap = {};
+  myGames.forEach(g => {
+    const me = g.players.find(p => p.isMe);
+    if (!me) return;
+    if (!courseMap[g.course]) courseMap[g.course] = { name: g.course, diffs: [] };
+    courseMap[g.course].diffs.push(me.diff);
+  });
+  const realBestCourses = Object.values(courseMap)
+    .map(c => ({ name: c.name, played: c.diffs.length, best: Math.min(...c.diffs), avg: +(c.diffs.reduce((a,b)=>a+b,0)/c.diffs.length).toFixed(1) }))
+    .sort((a,b) => a.best - b.best)
+    .slice(0, 4);
+  const noDataMsg = lang==='en'?'Start playing to see your stats':lang==='es'?'Comienza a jugar para ver tus estadísticas':'Comença a jugar per veure les teves estadístiques';
+
+  const scoreTrend = hasRealGames ? trendData : profile.trend;
+  const bestCourses = hasRealGames ? realBestCourses : profile.bestCourses;
+  const realDist = {eagle:0,birdie:0,par:0,bogey:0,double:0,triple:0};
+  if (hasRealGames) {
+    myGames.forEach(g=>{
+      const me=g.players.find(p=>p.isMe); if(!me) return;
+      (g.scores||[]).forEach(h=>{
+        const s=h.playerScores?.[me.id]; if(s===null||s===undefined) return;
+        const d=s-h.par;
+        if(d<=-2) realDist.eagle++; else if(d===-1) realDist.birdie++; else if(d===0) realDist.par++;
+        else if(d===1) realDist.bogey++; else if(d===2) realDist.double++; else realDist.triple++;
+      });
+    });
+  }
+  const dist = hasRealGames ? realDist : profile.dist;
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    await onAvatarChange(file);
+    setUploading(false);
+  };
 
   return (
     <div className="page-scroll">
@@ -2077,7 +2260,16 @@ function ProfileScreen({ user, userPts, setScreen, lang }) {
           <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(26px,7vw,40px)",letterSpacing:".04em",lineHeight:1}}>{user?.name||profile.name}</div>
           {(user?.club||profile.club) && <div style={{fontSize:12,color:"#787C8A",marginTop:3}}>{user?.club||profile.club}</div>}
         </div>
-        <div style={{width:54,height:54,minWidth:54,borderRadius:"50%",background:tier.color,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue'",fontSize:18,color:"#0A0A0B",flexShrink:0}}>{(user?.name||profile.name).split(" ").map(w=>w[0]).slice(0,2).join("")}</div>
+        <div style={{position:"relative",flexShrink:0}} onClick={()=>fileInputRef.current?.click()}>
+          {user?.avatarUrl
+            ? <img src={user.avatarUrl} style={{width:54,height:54,borderRadius:"50%",objectFit:"cover",display:"block"}} alt="avatar"/>
+            : <div style={{width:54,height:54,borderRadius:"50%",background:tier.color,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue'",fontSize:18,color:"#0A0A0B"}}>{(user?.name||profile.name).split(" ").map(w=>w[0]).slice(0,2).join("")}</div>
+          }
+          <div style={{position:"absolute",bottom:0,right:0,width:18,height:18,borderRadius:"50%",background:"#1A1B1E",border:"1px solid #222327",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+            {uploading ? <span style={{fontSize:8,color:"#787C8A"}}>…</span> : <span style={{fontSize:10}}>📷</span>}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFileSelect}/>
+        </div>
       </div>
 
       {/* Tier card */}
@@ -2093,96 +2285,113 @@ function ProfileScreen({ user, userPts, setScreen, lang }) {
       </div>
 
       {/* Key stats */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
-        {[{l:"Partides",v:profile.games},{l:"HCP",v:profile.hcp},{l:"Ratxa",v:`${profile.streak}🔥`}].map(s=>(
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:hasRealGames?12:4}}>
+        {[
+          {l:tl("stat_games"), v:hasRealGames?myGames.length:profile.games},
+          {l:tl("stat_best"),  v:hasRealGames?(bestDiff!==null?(bestDiff>0?`+${bestDiff}`:bestDiff===0?"E":bestDiff):"—"):`${profile.hcp}`},
+          {l:tl("stat_holes"), v:hasRealGames?(myGames.reduce((a,g)=>a+(g.scores?.length||0),0)||"—"):profile.games*9},
+        ].map(s=>(
           <div key={s.l} className="card" style={{padding:"11px 8px",textAlign:"center"}}>
             <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:"#CAFF4D",lineHeight:1}}>{s.v}</div>
             <div style={{fontSize:9,color:"#555761",textTransform:"uppercase",letterSpacing:".06em",marginTop:2,fontWeight:600}}>{s.l}</div>
           </div>
         ))}
       </div>
+      {!hasRealGames && <div style={{textAlign:"center",fontSize:10,color:"#555761",marginBottom:12,fontStyle:"italic"}}>{noDataMsg}</div>}
 
       {/* Score trend */}
       <div className="card" style={{marginBottom:12,padding:"14px"}}>
-        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:12}}>Evolució de scores — últims 10 rounds</div>
-        <div style={{display:"flex",alignItems:"flex-end",gap:5,height:56,marginBottom:6}}>
-          {profile.trend.map((r,i) => {
-            const worst = Math.max(...profile.trend.map(x=>x.s));
-            const best = Math.min(...profile.trend.map(x=>x.s));
-            const range = worst - best || 1;
-            const h = Math.round(((worst-r.s)/range)*44)+8;
-            const c = r.s<=-2?"#FBBF24":r.s<0?"#60A5FA":r.s===0?"#CAFF4D":"#9CA3AF";
-            return <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:2}}>
-              <div style={{fontSize:8,color:c,fontWeight:700,letterSpacing:".04em"}}>{r.s>0?`+${r.s}`:r.s}</div>
-              <div style={{width:"100%",background:c,borderRadius:"2px 2px 0 0",height:h,opacity:.9}}/>
-            </div>;
-          })}
-        </div>
-        <div style={{display:"flex",justifyContent:"space-between"}}>
-          <div style={{fontSize:8,color:"#555761"}}>{profile.trend[0].date}</div>
-          <div style={{fontSize:8,color:"#555761"}}>{profile.trend[profile.trend.length-1].date}</div>
-        </div>
-      </div>
-
-      {/* HCP evolution */}
-      <div className="card" style={{marginBottom:12,padding:"14px"}}>
-        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:12}}>Evolució Handicap</div>
-        <div style={{display:"flex",alignItems:"flex-end",gap:6,height:48,marginBottom:6}}>
-          {profile.hcpHist.map((h,i) => {
-            const max = Math.max(...profile.hcpHist.map(x=>x.v));
-            const ht = Math.round((h.v/max)*40)+4;
-            const isLast = i===profile.hcpHist.length-1;
-            return <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:2}}>
-              <div style={{fontSize:8,color:isLast?"#CAFF4D":"#555761",fontWeight:isLast?700:400}}>{h.v}</div>
-              <div style={{width:"100%",background:isLast?"#CAFF4D":"#2A2B30",borderRadius:"2px 2px 0 0",height:ht,transition:"height .3s"}}/>
-              <div style={{fontSize:8,color:"#555761"}}>{h.m}</div>
-            </div>;
-          })}
-        </div>
-        <div style={{fontSize:11,color:"#787C8A",fontWeight:400}}>{tl("profile_hcp_current",{v:profile.hcp,d:(profile.hcpHist[0].v-profile.hcp).toFixed(1)})}</div>
-      </div>
-
-      {/* Distribution */}
-      <div className="card" style={{marginBottom:12,padding:"14px"}}>
-        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:12}}>Distribució de resultats</div>
-        {[{k:"eagle",l:"HiO",c:"#FBBF24"},{k:"birdie",l:"Birdie",c:"#60A5FA"},{k:"par",l:"Par",c:"#CAFF4D"},{k:"bogey",l:"Bogey",c:"#9CA3AF"},{k:"double",l:"D.Bogey",c:"#EF4444"},{k:"triple",l:"Triple+",c:"#7F1D1D"}].map(r=>(
-          <div key={r.k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-            <div style={{width:46,fontSize:10,fontWeight:600,color:r.c,textAlign:"right",flexShrink:0}}>{r.l}</div>
-            <div style={{flex:1,height:14,background:"#111214",borderRadius:3,overflow:"hidden",minWidth:0}}>
-              <div style={{height:"100%",width:`${distPct(r.k)}%`,background:r.c,borderRadius:3,transition:"width .4s"}}/>
-            </div>
-            <div style={{width:46,fontSize:10,color:"#555761",flexShrink:0,textAlign:"right"}}>{profile.dist[r.k]} ({distPct(r.k)}%)</div>
+        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:!hasRealGames?4:12}}>{tl("profile_score_trend")}</div>
+        {!hasRealGames && <div style={{fontSize:10,color:"#555761",fontStyle:"italic",marginBottom:8,textAlign:"center"}}>{noDataMsg}</div>}
+        {scoreTrend.length >= 2 && <>
+          <div style={{display:"flex",alignItems:"flex-end",gap:5,height:56,marginBottom:6}}>
+            {scoreTrend.map((r,i) => {
+              const worst = Math.max(...scoreTrend.map(x=>x.s));
+              const best  = Math.min(...scoreTrend.map(x=>x.s));
+              const range = worst - best || 1;
+              const h = Math.round(((worst-r.s)/range)*44)+8;
+              const c = r.s<=-2?"#FBBF24":r.s<0?"#60A5FA":r.s===0?"#CAFF4D":"#9CA3AF";
+              return <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:2}}>
+                <div style={{fontSize:8,color:c,fontWeight:700,letterSpacing:".04em"}}>{r.s>0?`+${r.s}`:r.s===0?"E":r.s}</div>
+                <div style={{width:"100%",background:c,borderRadius:"2px 2px 0 0",height:h,opacity:.9}}/>
+              </div>;
+            })}
           </div>
-        ))}
+          <div style={{display:"flex",justifyContent:"space-between"}}>
+            <div style={{fontSize:8,color:"#555761"}}>{scoreTrend[0].date}</div>
+            <div style={{fontSize:8,color:"#555761"}}>{scoreTrend[scoreTrend.length-1].date}</div>
+          </div>
+        </>}
+      </div>
+
+      {/* HCP Trend */}
+      <div className="card" style={{marginBottom:12,padding:"14px"}}>
+        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:!hasRealGames?4:12}}>{tl("profile_hcp_trend")}</div>
+        {!hasRealGames && <div style={{fontSize:10,color:"#555761",fontStyle:"italic",marginBottom:8,textAlign:"center"}}>{noDataMsg}</div>}
+        <div style={{display:"flex",alignItems:"flex-end",gap:6,height:64,marginBottom:4}}>
+          {profile.hcpHist.map((pt,i)=>{
+            const vals=profile.hcpHist.map(x=>x.v);
+            const maxV=Math.max(...vals), minV=Math.min(...vals);
+            const range=maxV-minV||1;
+            const h=Math.round(((maxV-pt.v)/range)*44)+8;
+            return (
+              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:2}}>
+                <div style={{fontSize:7,color:"#60A5FA",fontWeight:700}}>{pt.v}</div>
+                <div style={{width:"100%",background:"#60A5FA",borderRadius:"2px 2px 0 0",height:h,opacity:.7}}/>
+                <div style={{fontSize:7,color:"#555761"}}>{pt.m}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Score distribution */}
+      <div className="card" style={{marginBottom:12,padding:"14px"}}>
+        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:!hasRealGames?4:12}}>{tl("profile_dist")}</div>
+        {!hasRealGames && <div style={{fontSize:10,color:"#555761",fontStyle:"italic",marginBottom:8,textAlign:"center"}}>{noDataMsg}</div>}
+        {(()=>{
+          const total=Object.values(dist).reduce((a,b)=>a+b,0)||1;
+          return [
+            {l:"Eagle+",v:dist.eagle,c:"#FBBF24"},
+            {l:"Birdie", v:dist.birdie,c:"#60A5FA"},
+            {l:"Par",    v:dist.par,  c:"#CAFF4D"},
+            {l:"Bogey",  v:dist.bogey, c:"#9CA3AF"},
+            {l:"Double", v:dist.double,c:"#EF4444"},
+            {l:"Triple+",v:dist.triple,c:"#991B1B"},
+          ].map(r=>(
+            <div key={r.l} style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+              <div style={{width:46,fontSize:9,color:r.c,fontWeight:700,textAlign:"right",flexShrink:0}}>{r.l}</div>
+              <div style={{flex:1,background:"#111214",borderRadius:3,height:7,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${Math.round((r.v/total)*100)}%`,background:r.c,borderRadius:3}}/>
+              </div>
+              <div style={{width:22,fontSize:9,color:"#555761",textAlign:"right",flexShrink:0}}>{r.v}</div>
+            </div>
+          ));
+        })()}
       </div>
 
       {/* Best courses */}
-      <div className="card" style={{marginBottom:12,padding:"14px"}}>
-        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:10}}>Millors camps</div>
-        {profile.bestCourses.map((c,i)=>(
-          <div key={c.name} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<3?"1px solid #111214":"none"}}>
-            <div style={{fontSize:18,width:24,textAlign:"center",flexShrink:0}}>{c.f||`0${i+1}`}</div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
-              <div style={{fontSize:10,color:"#555761"}}>{c.played} partides · avg {c.avg>0?`+${c.avg}`:c.avg}</div>
-            </div>
-            <div style={{textAlign:"right",flexShrink:0}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:"#CAFF4D",lineHeight:1}}>{c.best>0?`+${c.best}`:c.best}</div>
-              <div style={{fontSize:9,color:"#555761"}}>best</div>
-            </div>
+      {bestCourses.length > 0 && (
+        <div className="card" style={{marginBottom:12,padding:"14px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase"}}>{tl("profile_best_courses")}</div>
+            {!hasRealGames && <div style={{fontSize:9,color:"#555761",fontStyle:"italic"}}>{noDataMsg}</div>}
           </div>
-        ))}
-      </div>
-
-      {/* Tournaments */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-        {[{l:tl("profile_tournaments"),v:profile.tourWon===1?tl("profile_win"):tl("profile_no_win")},{l:tl("profile_pts_month"),v:`+${profile.ptsThisMonth||240}`}].map(s=>(
-          <div key={s.l} className="card" style={{padding:"13px",textAlign:"center"}}>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:"#CAFF4D",lineHeight:1}}>{s.v}</div>
-            <div style={{fontSize:9,color:"#555761",textTransform:"uppercase",letterSpacing:".06em",marginTop:3,fontWeight:600}}>{s.l}</div>
-          </div>
-        ))}
-      </div>
+          {bestCourses.map((c,i)=>(
+            <div key={c.name} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<bestCourses.length-1?"1px solid #111214":"none"}}>
+              <div style={{fontSize:16,width:24,textAlign:"center",flexShrink:0}}>{["🏆","🥈","🥉",""][i]||`0${i+1}`}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+                <div style={{fontSize:10,color:"#555761"}}>{c.played} {tl("profile_played")} · avg {c.avg>0?`+${c.avg}`:c.avg===0?"E":c.avg}</div>
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:"#CAFF4D",lineHeight:1}}>{c.best>0?`+${c.best}`:c.best===0?"E":c.best}</div>
+                <div style={{fontSize:9,color:"#555761"}}>best</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <button className="btn btn-ghost" style={{fontSize:13}} onClick={()=>setScreen("home")}>{tl("back")}</button>
     </div>
@@ -2192,19 +2401,39 @@ function ProfileScreen({ user, userPts, setScreen, lang }) {
 /* ═══════════════════════════════════════════════════════════════
    AUTH MODAL
 ═══════════════════════════════════════════════════════════════ */
-function AuthModal({ onClose, onAuth, lang }) {
+function AuthModal({ onClose, onAuth, lang, initialMode="register" }) {
   const tl = (k,v={}) => t(lang,k,v);
-  const [mode, setMode] = useState("register");
+  const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [club, setClub] = useState("");
+  const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     setErr("");
     if (mode==="register" && !name.trim()) { setErr(tl("err_name")); return; }
-    if (!email.includes("@") || !email.includes(".")) { setErr("Email invàlid"); return; }
-    onAuth({ name: name.trim() || email.split("@")[0], email: email.trim(), club: club.trim() });
+    if (!email.includes("@") || !email.includes(".")) { setErr(tl("err_email")); return; }
+    if (!password || password.length < 6) { setErr(lang==="en"?"Password must be at least 6 characters":lang==="es"?"La contraseña debe tener al menos 6 caracteres":"La contrasenya ha de tenir almenys 6 caràcters"); return; }
+
+    setLoading(true);
+    if (mode === "register") {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { name: name.trim(), club: club.trim() } },
+      });
+      if (error) { setErr(error.message); setLoading(false); return; }
+      const u = data.user;
+      onAuth({ name: u.user_metadata?.name || email.split("@")[0], email: u.email, club: u.user_metadata?.club || "" });
+    } else {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) { setErr(error.message); setLoading(false); return; }
+      const u = data.user;
+      onAuth({ name: u.user_metadata?.name || email.split("@")[0], email: u.email, club: u.user_metadata?.club || "" });
+    }
+    setLoading(false);
   };
 
   return (
@@ -2236,10 +2465,17 @@ function AuthModal({ onClose, onAuth, lang }) {
           </>
         )}
 
-        <div style={{marginBottom:20}}>
+        <div style={{marginBottom:12}}>
           <span className="label">Email</span>
           <input className="inp" type="email" placeholder="tu@email.com" value={email}
             onChange={e=>{setEmail(e.target.value);setErr("");}}
+            onKeyDown={e=>e.key==="Enter"&&submit()}/>
+        </div>
+
+        <div style={{marginBottom:20}}>
+          <span className="label">{lang==="en"?"Password":lang==="es"?"Contraseña":"Contrasenya"}</span>
+          <input className="inp" type="password" placeholder="••••••••" value={password}
+            onChange={e=>{setPassword(e.target.value);setErr("");}}
             onKeyDown={e=>e.key==="Enter"&&submit()}/>
         </div>
 
@@ -2249,8 +2485,8 @@ function AuthModal({ onClose, onAuth, lang }) {
           </div>
         )}
 
-        <button className="btn btn-primary" style={{fontSize:14,marginBottom:14,width:"100%"}} onClick={submit}>
-          {mode==="register"?tl("auth_register_btn"):tl("auth_login_btn")}
+        <button className="btn btn-primary" style={{fontSize:14,marginBottom:14,width:"100%"}} onClick={submit} disabled={loading}>
+          {loading?(lang==="en"?"Loading...":lang==="es"?"Cargando...":"Carregant..."):(mode==="register"?tl("auth_register_btn"):tl("auth_login_btn"))}
         </button>
 
         <div style={{textAlign:"center",fontSize:12,color:"#555761"}}>
@@ -2272,20 +2508,93 @@ function AuthModal({ onClose, onAuth, lang }) {
    APP ROOT
 ═══════════════════════════════════════════════════════════════ */
 export default function App() {
-  const [screen, setScreen] = useState("home");
+  const [screen, setScreen] = useState(() => {
+    const saved = localStorage.getItem('pc_screen');
+    return saved === 'scorecard' ? 'scorecard' : 'home';
+  });
   const [lang, setLang] = useState("ca");
   const [user, setUser] = useState(null);
   const [userPts, setUserPts] = useState(0);
   const [history, setHistory] = useState([]);
   const [showAuth, setShowAuth] = useState(false);
+  const [authMode, setAuthMode] = useState("register");
   const [toast, setToast] = useState("");
-  const [gameData, setGameData] = useState(null);
+  const [gameData, setGameData] = useState(() => {
+    try { const s = localStorage.getItem('pc_gameData'); return s ? JSON.parse(s) : null; } catch { return null; }
+  });
   const [lastGame, setLastGame] = useState(null);
   const [prevPts, setPrevPts] = useState(0);
+  const [activityFeed, setActivityFeed] = useState([]);
   const leads = useRef([]);
 
+  useEffect(() => {
+    supabase.from("games").select("*").order("created_at", { ascending: false }).limit(10)
+      .then(({ data }) => { if (data) setActivityFeed(data.map(mapGameToFeedItem)); });
+
+    const channel = supabase
+      .channel("games-feed")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "games" }, (payload) => {
+        setActivityFeed(prev => [mapGameToFeedItem(payload.new), ...prev].slice(0, 20));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const u = session.user;
+        setUser({ name: u.user_metadata?.name || u.email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", avatarUrl: u.user_metadata?.avatar_url || null });
+        supabase.from("games").select("*").order("created_at", { ascending: false })
+          .then(({ data }) => {
+            if (data) {
+              setHistory(data.map(g => ({ id: g.id, course: g.course, date: g.date, mode: g.mode, players: g.players, scores: g.scores })));
+              setUserPts(data.reduce((sum, g) => { const me = g.players.find(p => p.isMe); return sum + (me?.points || 0); }, 0));
+            }
+          });
+      } else {
+        setUser(null);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),3000); };
-  const openAuth = () => setShowAuth(true);
+  const openAuth = (mode="register") => { setAuthMode(mode); setShowAuth(true); };
+
+  const handleAvatarChange = async (file) => {
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData?.user) return;
+    const userId = authData.user.id;
+    const ext = file.name.split(".").pop();
+    const path = `${userId}/avatar.${ext}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (error) { showToast("Error uploading avatar"); return; }
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+    await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
+    setUser(prev => ({ ...prev, avatarUrl: publicUrl }));
+  };
+
+  const handleGameDelete = () => {
+    localStorage.removeItem('pc_gameData');
+    localStorage.removeItem('pc_scores');
+    localStorage.removeItem('pc_curHole');
+    localStorage.removeItem('pc_screen');
+    setGameData(null);
+    setScreen("home");
+    window.scrollTo(0, 0);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setUserPts(0);
+    setHistory([]);
+    setScreen("home");
+    window.scrollTo(0, 0);
+  };
+
   const handleAuth = (u) => {
     setUser(u);
     setShowAuth(false);
@@ -2293,10 +2602,21 @@ export default function App() {
     showToast(greet);
   };
 
-  const handleGameStart = (data) => { setGameData(data); setScreen("scorecard"); };
+  const handleGameStart = (data) => {
+    localStorage.setItem('pc_gameData', JSON.stringify(data));
+    localStorage.setItem('pc_screen', 'scorecard');
+    setGameData(data);
+    setScreen("scorecard");
+  };
 
-  const handleGameFinish = (scores) => {
+  const handleGameFinish = async (scores, saveAndExit=false) => {
     if (!gameData) return;
+    if (saveAndExit) {
+      // Save scores to localStorage and go home, keeping game alive
+      localStorage.setItem('pc_scores', JSON.stringify(scores));
+      setScreen("home");
+      return;
+    }
     const totalPar = gameData.course.par;
     const players = gameData.players.map(p => {
       const pPts = scores.reduce((a,h) => { const s=h.playerScores[p.id]; return a+(s!==null?calcPCPoints(s,h.par):0); },0) + 8;
@@ -2308,6 +2628,25 @@ export default function App() {
     const me = players.find(p=>p.isMe);
     if (me) { setPrevPts(userPts); setUserPts(p=>p+me.points); }
     setLastGame(game);
+
+    if (user) {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user) {
+        await supabase.from("games").insert({
+          user_id: authData.user.id,
+          course: game.course,
+          date: game.date,
+          mode: game.mode,
+          players: game.players,
+          scores: game.scores,
+        });
+      }
+    }
+
+    localStorage.removeItem('pc_gameData');
+    localStorage.removeItem('pc_scores');
+    localStorage.removeItem('pc_curHole');
+    localStorage.removeItem('pc_screen');
     setScreen("summary");
   };
 
@@ -2317,21 +2656,27 @@ export default function App() {
   return (
     <>
       <style>{G}</style>
+      <style>{`
+        @media (min-width: 431px) {
+          body { display:flex; justify-content:center; background:#0A0A0B; }
+          .app { box-shadow: 0 0 60px rgba(0,0,0,.5); }
+        }
+      `}</style>
       <div className="app">
-        <AppHeader screen={screen} setScreen={setScreenSafe} user={user} openAuth={openAuth} userPts={userPts} lang={lang} setLang={setLang}/>
+        {screen!=="scorecard" && <AppHeader screen={screen} setScreen={setScreenSafe} user={user} openAuth={openAuth} onSignOut={handleSignOut} userPts={userPts} lang={lang} setLang={setLang}/>}
 
-        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang}/>}
+        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")}/>}
         {screen==="game-setup" && <GameSetupScreen   user={user} openAuth={openAuth} onStart={handleGameStart} lang={lang}/>}
-        {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} user={user} openAuth={openAuth} lang={lang}/>}
+        {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang}/>}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="shop"       && <ShopScreen       user={user} openAuth={openAuth} lang={lang}/>}
-        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang}/>}
+        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history}/>}
 
         {!isGameFlow && <BottomNav screen={screen} setScreen={setScreenSafe} lang={lang}/>}
 
-        {showAuth && <AuthModal onClose={()=>setShowAuth(false)} onAuth={handleAuth} lang={lang}/>}
+        {showAuth && <AuthModal onClose={()=>setShowAuth(false)} onAuth={handleAuth} lang={lang} initialMode={authMode}/>}
         {toast && <div className="toast">{toast}</div>}
       </div>
     </>

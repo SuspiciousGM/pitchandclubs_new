@@ -300,7 +300,6 @@ html{height:100%;background:#0A0A0B;width:100%;overflow-x:hidden;}
 body{
   min-height:100%;
   width:100%;
-  max-width:100vw;
   background:#0A0A0B;
   color:#FFFFFF;
   font-family:'Inter',sans-serif;
@@ -487,10 +486,11 @@ input[type="date"].inp{color-scheme:dark;}
   padding:10px 20px;border-radius:100px;
   font-size:13px;font-weight:700;letter-spacing:.04em;
   z-index:500;animation:fadeUp .3s ease;white-space:nowrap;
+  max-width:calc(100% - 32px);
 }
 
 /* ── TICKER */
-.ticker{background:#CAFF4D;height:34px;display:flex;align-items:center;overflow:hidden;margin:0 -16px;}
+.ticker{background:#CAFF4D;height:34px;display:flex;align-items:center;overflow:hidden;}
 .ticker-track{display:flex;gap:40px;white-space:nowrap;animation:tick 22s linear infinite;}
 @keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 .ticker-item{font-family:'Bebas Neue';font-size:13px;letter-spacing:.1em;color:#0A0A0B;display:flex;align-items:center;gap:10px;}
@@ -1175,7 +1175,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
         {players.map((p,i) => (
           <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",background:"#1A1B1E",border:"1px solid #222327",borderRadius:8,marginBottom:6}}>
             <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[i],flexShrink:0}} />
-            <div style={{flex:1,position:"relative"}}>
+            <div style={{flex:1,minWidth:0,position:"relative"}}>
               <input className="inp" style={{width:"100%",padding:"6px 8px",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0}} 
                 placeholder={p.isMe ? (user?.name || "El teu nom") : "Nom del jugador"} 
                 value={p.name === "Tu" && p.isMe ? (user?.name || "") : p.name} 

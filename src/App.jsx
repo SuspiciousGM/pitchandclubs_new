@@ -1018,7 +1018,6 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
       </div>
 
       {/* ── TICKER ── */}
-      <Ticker lang={lang}/>
 
       {/* ── READY TO PLAY ── */}
       <div style={{marginTop:14,background:"#CAFF4D",borderRadius:12,padding:"28px 18px",textAlign:"center"}}>

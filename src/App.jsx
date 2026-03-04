@@ -350,12 +350,14 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .app{
   background:#111214;
   color:#FFFFFF;
-  min-height:100svh;
+  height:100dvh;
   width:100%;
   max-width:430px;
   margin:0 auto;
   position:relative;
-  overflow-x:hidden;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
 }
 
 /* ── HEADER */
@@ -401,7 +403,7 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .nav-game-btn{color:#CAFF4D!important;}
 
 /* ── PAGE SCROLL */
-.page-scroll{padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+.page-scroll{flex:1;min-height:0;padding:16px 16px calc(80px + env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
 
 /* ── CARDS */
 .card{background:#1A1B1E;border:1px solid #222327;border-radius:10px;padding:16px;}
@@ -537,15 +539,13 @@ input[type="date"].inp{color-scheme:dark;}
 .live-tab{padding:9px 16px;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;font-size:12px;font-weight:700;color:#555761;cursor:pointer;white-space:nowrap;font-family:Inter;letter-spacing:.04em;text-transform:uppercase;transition:color .15s;}
 .live-tab.active{border-bottom-color:#CAFF4D;color:#CAFF4D;}
 .live-card{background:#1A1B1E;border:1px solid #222327;border-radius:10px;padding:13px 14px;margin-bottom:8px;cursor:pointer;transition:all .15s;}
-.live-card.is-live{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.04);}
 .live-card:active{transform:scale(.98);}
 .story-row{display:flex;gap:12px;overflow-x:auto;padding:0 0 10px;margin-bottom:16px;-webkit-overflow-scrolling:touch;}
 .story-row::-webkit-scrollbar{display:none;}
 .story-avatar{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;cursor:pointer;}
-.story-ring{width:50px;height:50px;border-radius:50%;border:2px solid #EF4444;padding:2px;animation:story-pulse 2s infinite;}
-@keyframes story-pulse{0%,100%{border-color:#EF4444}50%{border-color:rgba(239,68,68,.4)}}
+.story-ring{width:50px;height:50px;border-radius:50%;border:2px solid #CAFF4D;padding:2px;}
 .story-inner{width:100%;height:100%;border-radius:50%;background:#1A1B1E;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;overflow:hidden;}
-.ugc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.ugc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;grid-auto-rows:160px;}
 .ugc-card{border-radius:10px;overflow:hidden;background:#1A1B1E;cursor:pointer;transition:transform .15s;}
 .ugc-card:active{transform:scale(.97);}
 .map-container{position:relative;width:100%;aspect-ratio:1.15;background:#1A1B1E;border-radius:12px;overflow:hidden;border:1px solid #222327;}
@@ -604,11 +604,8 @@ function BottomNav({ screen, setScreen, lang }) {
         <span style={{fontSize:9,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",
           color:isGame?"#CAFF4D":"#555761"}}>{lbl("nav_game")}</span>
       </button>
-      <button className={`nav-item${screen==="live"?" active":""}`} onClick={()=>setScreen("live")} style={{position:"relative"}}>
-        <div style={{position:"relative",display:"inline-flex"}}>
-          <Activity size={21} strokeWidth={screen==="live"?2.5:1.8}/>
-          <span style={{position:"absolute",top:-2,right:-3,width:6,height:6,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",border:"1px solid #111214"}}/>
-        </div>
+      <button className={`nav-item${screen==="live"?" active":""}`} onClick={()=>setScreen("live")}>
+        <Activity size={21} strokeWidth={screen==="live"?2.5:1.8}/>
         <span>{lbl("nav_live")}</span>
       </button>
       <button className={`nav-item${screen==="profile"?" active":""}`} onClick={()=>setScreen("profile")}>
@@ -725,10 +722,18 @@ const timeAgo = (isoStr) => {
 };
 
 const UGC_FEED = [
-  {id:1,user:"marc_pitchking",club:"Pink Beaks",label:"Eagle",course:"Vallromanes",hole:12,time:"fa 2h",likes:47,img:"https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600&q=75",caption:"Millor ronda de la temporada!",lc:"#FBBF24"},
-  {id:2,user:"sonia_ros",club:"Canal Olímpic",label:"Birdie",course:"HCP1",hole:7,time:"fa 3h",likes:23,img:"https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600&q=75",caption:"Primera ronda a HCP1",lc:"#60A5FA"},
-  {id:3,user:"pink_beaks_cc",club:"Pink Beaks",label:"Par",course:"Áccura Teià",hole:15,time:"fa 5h",likes:31,img:"https://images.unsplash.com/photo-1600167957935-f21a51b0b1c2?w=600&q=75",caption:"Dia de vent perfecte",lc:"#CAFF4D"},
-  {id:4,user:"jordi_mas",club:"Áccura Teià",label:"Eagle",course:"Vallromanes",hole:3,time:"fa 6h",likes:58,img:"https://images.unsplash.com/photo-1622979135225-d2ba269cf1ac?w=600&q=75",caption:"Tres sous seguits",lc:"#FBBF24"},
+  {id:1, user:"marc_pitchking",  club:"Pink Beaks",    label:"Eagle",  course:"Vallromanes",   hole:12, time:"fa 2h",  likes:47, img:"https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600&q=75", caption:"Millor ronda de la temporada!", lc:"#FBBF24"},
+  {id:2, user:"sonia_ros",       club:"Canal Olímpic", label:"Birdie", course:"HCP1",          hole:7,  time:"fa 3h",  likes:23, img:"https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600&q=75", caption:"Primera ronda a HCP1",          lc:"#60A5FA"},
+  {id:3, user:"pink_beaks_cc",   club:"Pink Beaks",    label:"Par",    course:"Áccura Teià",   hole:15, time:"fa 5h",  likes:31, img:"https://images.unsplash.com/photo-1600167957935-f21a51b0b1c2?w=600&q=75", caption:"Dia de vent perfecte",          lc:"#CAFF4D", tall:true},
+  {id:4, user:"jordi_mas",       club:"Áccura Teià",   label:"Eagle",  course:"Vallromanes",   hole:3,  time:"fa 6h",  likes:58, img:"https://images.unsplash.com/photo-1622979135225-d2ba269cf1ac?w=600&q=75", caption:"Tres sous seguits",             lc:"#FBBF24"},
+  {id:5, user:"laura_f",         club:"P&P Badalona",  label:"Birdie", course:"P&P Badalona",  hole:9,  time:"fa 7h",  likes:19, img:"https://images.unsplash.com/photo-1592919505780-303950ba33a8?w=600&q=75", caption:"Birdie al 9!",                  lc:"#60A5FA"},
+  {id:6, user:"pau_serra",       club:"HCP1",          label:"Par",    course:"HCP1",          hole:11, time:"fa 8h",  likes:34, img:"https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=600&q=75", caption:"Ronda sòlida avui",             lc:"#CAFF4D"},
+  {id:7, user:"marta_g",         club:"Vallromanes",   label:"Eagle",  course:"Vallromanes",   hole:4,  time:"fa 9h",  likes:72, img:"https://images.unsplash.com/photo-1530028716-4b9e4ef1f8b0?w=600&q=75", caption:"Eagle al 4!",                   lc:"#FBBF24", tall:true},
+  {id:8, user:"albertpga",       club:"Canal Olímpic", label:"Birdie", course:"Canal Olímpic", hole:6,  time:"fa 10h", likes:41, img:"https://images.unsplash.com/photo-1561486246-bd47a59f06cb?w=600&q=75", caption:"Matinada de golf",              lc:"#60A5FA"},
+  {id:9, user:"nuria_p",         club:"Áccura Teià",   label:"Par",    course:"Áccura Teià",   hole:18, time:"fa 11h", likes:28, img:"https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&q=75", caption:"Última ronda de la setmana",    lc:"#CAFF4D"},
+  {id:10,user:"roger_golfcat",   club:"Pink Beaks",    label:"Birdie", course:"Vallromanes",   hole:13, time:"fa 12h", likes:15, img:"https://images.unsplash.com/photo-1571019613914-ce674fce5a4a?w=600&q=75", caption:"El 13 sempre dóna sort",        lc:"#60A5FA"},
+  {id:11,user:"xavi_fairway",    club:"P&P Badalona",  label:"Par",    course:"P&P Badalona",  hole:2,  time:"fa 13h", likes:9,  img:"https://images.unsplash.com/photo-1565073619-9eba99a53d48?w=600&q=75", caption:"Primer forat del dia",          lc:"#CAFF4D"},
+  {id:12,user:"irene_swing",     club:"HCP1",          label:"Eagle",  course:"HCP1",          hole:17, time:"fa 14h", likes:63, img:"https://images.unsplash.com/photo-1504435237997-a6f7a9a98b88?w=600&q=75", caption:"La millor de l'any!",           lc:"#FBBF24"},
 ];
 
 // ── TOURNAMENTS: fallback data (used if Google Sheets API unavailable) ──
@@ -2253,7 +2258,6 @@ function LiveGameCard({ game, compact }) {
 function LiveScreen({ user, openAuth, lang, liveGames }) {
   const [tab, setTab] = useState("feed");
   const [liked, setLiked] = useState({});
-  const [activePin, setActivePin] = useState(null);
   const games = (liveGames && liveGames.length) ? liveGames : MOCK_LIVE_GAMES;
   const liveNow = games.filter(g => g.is_live);
   const recent = games.filter(g => !g.is_live);
@@ -2275,7 +2279,7 @@ function LiveScreen({ user, openAuth, lang, liveGames }) {
 
       {/* Tab bar */}
       <div className="live-tab-bar">
-        {[[`feed`,<Activity size={12}/>,"En Joc"],[`community`,<Heart size={12}/>,"Comunitat"],[`map`,<MapPin size={12}/>,"Mapa"]].map(([k,icon,l])=>(
+        {[[`feed`,<Activity size={12}/>,"En Joc"],[`community`,<Heart size={12}/>,"Comunitat"]].map(([k,icon,l])=>(
           <button key={k} className={`live-tab${tab===k?" active":""}`} onClick={()=>setTab(k)} style={{display:"flex",alignItems:"center",gap:5}}>{icon}{l}</button>
         ))}
       </div>
@@ -2336,8 +2340,8 @@ function LiveScreen({ user, openAuth, lang, liveGames }) {
       {tab==="community" && (
         <div className="ugc-grid">
           {UGC_FEED.map(post=>(
-            <div key={post.id} className="ugc-card" onClick={()=>setLiked(l=>({...l,[post.id]:!l[post.id]}))}>
-              <div style={{position:"relative",aspectRatio:"1",overflow:"hidden"}}>
+            <div key={post.id} className="ugc-card" style={{gridRow:post.tall?"span 2":"span 1"}} onClick={()=>setLiked(l=>({...l,[post.id]:!l[post.id]}))}>
+              <div style={{position:"relative",height:"100%",overflow:"hidden"}}>
                 <img src={post.img} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
                 <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.7))"}}/>
                 <div style={{position:"absolute",top:7,left:7}}>
@@ -2358,41 +2362,6 @@ function LiveScreen({ user, openAuth, lang, liveGames }) {
         </div>
       )}
 
-      {/* ── TAB: MAP ── */}
-      {tab==="map" && (
-        <div>
-          <div className="map-container">
-            {/* Spain SVG outline */}
-            <svg viewBox="0 0 100 87" style={{width:"100%",height:"100%",opacity:.15}} fill="none">
-              <path d="M10,20 L15,10 L22,8 L30,5 L42,4 L55,6 L65,4 L78,8 L88,12 L92,20 L95,30 L93,40 L90,50 L88,60 L82,70 L72,78 L60,82 L48,84 L36,82 L25,78 L16,70 L10,60 L7,50 L6,38 L10,20Z" stroke="#CAFF4D" strokeWidth=".5" fill="rgba(202,255,77,.04)"/>
-            </svg>
-            {/* Map pins */}
-            {SPAIN_PINS.map(pin=>(
-              <div key={pin.id} className="map-dot" style={{left:`${pin.x}%`,top:`${pin.y}%`}} onClick={()=>setActivePin(activePin===pin.id?null:pin.id)}>
-                <div className="map-pin" style={{background:pin.color,boxShadow:activePin===pin.id?`0 0 0 3px ${pin.color}44,0 2px 8px rgba(0,0,0,.4)`:"0 2px 8px rgba(0,0,0,.4)"}}>
-                  {pin.games}
-                </div>
-                <span style={{fontSize:8,fontWeight:700,color:pin.color,letterSpacing:".06em"}}>{pin.label}</span>
-                {activePin===pin.id && (
-                  <div style={{position:"absolute",bottom:"calc(100% + 6px)",left:"50%",transform:"translateX(-50%)",background:"#1A1B1E",border:`1px solid ${pin.color}44`,borderRadius:8,padding:"7px 10px",whiteSpace:"nowrap",zIndex:10}}>
-                    <div style={{fontSize:10,fontWeight:700,color:pin.color}}>{pin.label}</div>
-                    <div style={{fontSize:9,color:"#787C8A"}}>{pin.games} partida{pin.games!==1?"s":""} activa{pin.games!==1?"s":""}</div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div style={{marginTop:14,display:"flex",flexWrap:"wrap",gap:6}}>
-            {SPAIN_PINS.map(pin=>(
-              <div key={pin.id} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"#1A1B1E",borderRadius:100,border:"1px solid #222327"}}>
-                <span style={{width:7,height:7,borderRadius:"50%",background:pin.color,display:"inline-block"}}/>
-                <span style={{fontSize:10,fontWeight:600,color:"#787C8A"}}>{pin.label}</span>
-                <span style={{fontSize:10,fontWeight:700,color:pin.color}}>{pin.games}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -2476,7 +2445,7 @@ function ShopScreen({ openAuth, user, lang }) {
 /* ═══════════════════════════════════════════════════════════════
    PROFILE / STATS SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history }) {
+function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history, setUser }) {
   const tl = (k,v={}) => t(lang,k,v);
   const profile = PLAYER_PROFILE;
   const tier = getTier(userPts);
@@ -2484,6 +2453,19 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
   const pct = getTierPct(userPts);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editName, setEditName] = useState(user?.name || "");
+  const [editClub, setEditClub] = useState(user?.club || "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) return;
+    setSaving(true);
+    await supabase.auth.updateUser({ data: { name: editName.trim(), club: editClub.trim() } });
+    if (setUser) setUser(prev => ({ ...prev, name: editName.trim(), club: editClub.trim() }));
+    setSaving(false);
+    setEditMode(false);
+  };
 
   const myGames = (history||[]).filter(g => g.players?.some(p => p.isMe));
   const hasRealGames = myGames.length > 0;
@@ -2538,6 +2520,12 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
           <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:5}}>Perfil</div>
           <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(26px,7vw,40px)",letterSpacing:".04em",lineHeight:1}}>{user?.name||profile.name}</div>
           {(user?.club||profile.club) && <div style={{fontSize:12,color:"#787C8A",marginTop:3}}>{user?.club||profile.club}</div>}
+          {user && !editMode && (
+            <button onClick={()=>{setEditName(user.name||"");setEditClub(user.club||"");setEditMode(true);}}
+              style={{marginTop:8,background:"none",border:"1px solid #222327",borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:700,color:"#787C8A",cursor:"pointer",letterSpacing:".06em",textTransform:"uppercase"}}>
+              Editar →
+            </button>
+          )}
         </div>
         <div style={{position:"relative",flexShrink:0}} onClick={()=>fileInputRef.current?.click()}>
           {user?.avatarUrl
@@ -2550,6 +2538,27 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
           <input ref={fileInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFileSelect}/>
         </div>
       </div>
+
+      {/* Edit form */}
+      {user && editMode && (
+        <div className="card" style={{marginBottom:16}}>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:12}}>Editar Perfil</div>
+          <div style={{marginBottom:10}}>
+            <span className="label">Nom</span>
+            <input className="inp" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="El teu nom" autoFocus/>
+          </div>
+          <div style={{marginBottom:14}}>
+            <span className="label">Club</span>
+            <input className="inp" value={editClub} onChange={e=>setEditClub(e.target.value)} placeholder="El teu club (opcional)"/>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button className="btn btn-primary" style={{fontSize:13}} onClick={handleSaveProfile} disabled={saving||!editName.trim()}>
+              {saving?"Guardant…":"Guardar"}
+            </button>
+            <button className="btn btn-ghost" style={{fontSize:13,width:"auto",padding:"15px 20px"}} onClick={()=>setEditMode(false)}>Cancel·lar</button>
+          </div>
+        </div>
+      )}
 
       {/* Tier card */}
       <div className="card card-lime" style={{marginBottom:12,borderColor:tier.border,background:tier.bg}}>
@@ -3023,7 +3032,7 @@ export default function App() {
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang}/>}
         {screen==="live"       && <LiveScreen        user={user} openAuth={openAuth} lang={lang} liveGames={liveGames}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
-        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history}/>}
+        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser}/>}
 
         {!isGameFlow && <BottomNav screen={screen} setScreen={setScreenSafe} lang={lang}/>}
 

@@ -611,8 +611,8 @@ function BottomNav({ screen, setScreen, lang }) {
         </div>
         <span>{lbl("nav_live")}</span>
       </button>
-      <button className={`nav-item${screen==="shop"?" active":""}`} onClick={()=>setScreen("shop")}>
-        <ShoppingBag size={21} strokeWidth={screen==="shop"?2.5:1.8}/><span>{lbl("nav_shop")}</span>
+      <button className={`nav-item${screen==="profile"?" active":""}`} onClick={()=>setScreen("profile")}>
+        <User size={21} strokeWidth={screen==="profile"?2.5:1.8}/><span>{lbl("nav_profile")}</span>
       </button>
     </nav>
   );
@@ -1008,14 +1008,13 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
       {/* ── COM FUNCIONA ── */}
       <div style={{marginBottom:16}}>
         <SectionHeader sub={tl("sec_how")} title={tl("sec_how_title")}/>
-        {[[<Flag size={20}/>,tl("step1_t"),tl("step1_d")],[<TrendingUp size={20}/>,tl("step2_t"),tl("step2_d")],[<ShoppingBag size={20}/>,tl("step3_t"),tl("step3_d")]].map(([icon,title,desc],i)=>(
-          <div key={i} className="card" style={{padding:"14px",display:"flex",gap:14,alignItems:"flex-start",marginBottom:8}}>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:32,color:"#1A1B1E",lineHeight:1,flexShrink:0,width:32,textAlign:"center"}}>0{i+1}</div>
-            <div style={{flex:1,textAlign:"left"}}>
-              <div style={{color:"#CAFF4D",marginBottom:6}}>{icon}</div>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:".04em",marginBottom:4}}>{title}</div>
-              <div style={{fontSize:12,color:"#787C8A",lineHeight:1.6,fontWeight:400}}>{desc}</div>
+        {[[<Flag size={16}/>,tl("step1_t"),tl("step1_d")],[<TrendingUp size={16}/>,tl("step2_t"),tl("step2_d")],[<ShoppingBag size={16}/>,tl("step3_t"),tl("step3_d")]].map(([icon,title,desc],i)=>(
+          <div key={i} className="card" style={{padding:"14px",marginBottom:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+              <div style={{color:"#CAFF4D",display:"flex",alignItems:"center",flexShrink:0}}>{icon}</div>
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:".04em"}}>{title}</div>
             </div>
+            <div style={{fontSize:12,color:"#787C8A",lineHeight:1.6,fontWeight:400}}>{desc}</div>
           </div>
         ))}
       </div>
@@ -1118,7 +1117,14 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
         </div>
       </div>
 
-      {/* ── TICKER ── */}
+      {/* ── BOTIGA AVIAT ── */}
+      <div className="card card-lime" style={{padding:"16px",marginBottom:16,display:"flex",gap:14,alignItems:"center"}}>
+        <ShoppingBag size={22} color="#CAFF4D" style={{flexShrink:0}}/>
+        <div>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:".04em",marginBottom:3}}>{lang==="en"?"P&C Shop — Coming Soon":lang==="es"?"Tienda P&C — Próximamente":"Botiga P&C — Aviat"}</div>
+          <div style={{fontSize:11,color:"#787C8A",lineHeight:1.5}}>{lang==="en"?"Official kit & gear. 10% of every purchase goes to your club.":lang==="es"?"Kit oficial y equipamiento. El 10% de cada compra va a tu club.":"Kit oficial i equipament. El 10% de cada compra va al teu club."}</div>
+        </div>
+      </div>
 
       {/* ── READY TO PLAY ── */}
       <div style={{marginTop:14,background:"#CAFF4D",borderRadius:12,padding:"28px 18px",textAlign:"center"}}>
@@ -1149,8 +1155,13 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
   const [customPar, setCustomPar] = useState(54);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [gameMode, setGameMode] = useState("stableford");
-  const [players, setPlayers] = useState([{ id:1, name: user?.name || "Tu", isMe:true }]);
+  const [players, setPlayers] = useState([{ id:1, name: user?.name || "", isMe:true }]);
   const [liveShare, setLiveShare] = useState(false);
+
+  // Sync player 1 name when user auth resolves after mount
+  useEffect(() => {
+    if (user?.name) setPlayers(p => p.map(x => x.isMe ? {...x, name: user.name} : x));
+  }, [user?.name]);
 
   const activeCourse = customCourse || selCourse;
 
@@ -1275,14 +1286,15 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
         {players.map((p,i) => (
           <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",background:"#1A1B1E",border:"1px solid #222327",borderRadius:8,marginBottom:6}}>
             <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[i],flexShrink:0}} />
-            <div style={{flex:1,minWidth:0,position:"relative"}}>
-              <input className="inp" style={{width:"100%",padding:"6px 8px",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0}} 
-                placeholder={p.isMe ? (user?.name || "El teu nom") : "Nom del jugador"} 
-                value={p.name === "Tu" && p.isMe ? (user?.name || "") : p.name} 
-                onChange={e=>updateName(p.id,e.target.value)} />
-              {p.isMe && <span style={{position:"absolute",right:4,top:"50%",transform:"translateY(-50%)",fontSize:10,color:"#555761",fontWeight:600,pointerEvents:"none"}}>TU</span>}
-            </div>
-            {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:18,padding:4,lineHeight:1}} onClick={()=>removePlayer(p.id)}>×</button>}
+            <input className="inp" style={{flex:1,minWidth:0,padding:"6px 0",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0,color:"#fff"}}
+              placeholder={p.isMe ? "El teu nom" : `Jugador ${i+1}`}
+              value={p.name}
+              onChange={e=>updateName(p.id,e.target.value)}
+              onFocus={e=>e.target.select()}
+              autoFocus={!p.isMe && i===players.length-1}
+            />
+            {p.isMe && <span style={{fontSize:10,color:"#555761",fontWeight:600,flexShrink:0}}>TU</span>}
+            {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:18,padding:4,lineHeight:1,flexShrink:0}} onClick={()=>removePlayer(p.id)}>×</button>}
           </div>
         ))}
       </div>
@@ -1504,7 +1516,6 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
   const [curHole,    setCurHole]    = useState(() => { const s=localStorage.getItem('pc_curHole'); return s?parseInt(s):0; });
   const [activePid,  setActivePid]  = useState(players[0].id);
   const [showFull,   setShowFull]   = useState(false);
-  const [prevPts,    setPrevPts]    = useState(() => Object.fromEntries(players.map(p=>[p.id,0])));
   const [flashInfo,  setFlashInfo]  = useState(null);
   const stripRef = useRef(null);
 
@@ -1518,12 +1529,9 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
 
   /* ── Score setters ── */
   const applyScore = (pid, v) => {
-    const pp   = scCalcPts(scores, pid);
     const next = scores.map((h,i)=>i===curHole?{...h,playerScores:{...h.playerScores,[pid]:v}}:h);
     setScores(next);
     localStorage.setItem('pc_scores', JSON.stringify(next));
-    const np=scCalcPts(next,pid);
-    if(np!==pp) setPrevPts(p=>({...p,[pid]:pp}));
     setFlashInfo({pid,label:scDiffLabel(v-par),d:v-par});
     setTimeout(()=>setFlashInfo(null),1500);
     // Push live update
@@ -1552,7 +1560,7 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
 
   /* ── Targeta completa (full scorecard) ── */
   if (showFull) return (
-    <div style={{position:'fixed',inset:0,background:'#0A0A0B',display:'flex',flexDirection:'column',overflow:'hidden',fontFamily:'Inter,sans-serif'}}>
+    <div style={{position:'fixed',top:0,bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:430,background:'#0A0A0B',display:'flex',flexDirection:'column',overflow:'hidden',fontFamily:'Inter,sans-serif'}}>
       <div style={{padding:'12px 14px',borderBottom:'1px solid #1a1a1f',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
         <div>
           <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:'.06em',color:'#CAFF4D'}}>{lang==='en'?'Full Scorecard':lang==='es'?'Tarjeta completa':'Targeta Completa'}</div>
@@ -1633,7 +1641,7 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
 
   /* ══ MAIN SCORING VIEW ══ */
   return (
-    <div style={{position:'fixed',inset:0,background:'#0A0A0B',display:'flex',flexDirection:'column',overflow:'hidden',fontFamily:'Inter,sans-serif',paddingBottom:'env(safe-area-inset-bottom)'}}>
+    <div style={{position:'fixed',top:0,bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:430,background:'#0A0A0B',display:'flex',flexDirection:'column',overflow:'hidden',fontFamily:'Inter,sans-serif',paddingBottom:'env(safe-area-inset-bottom)'}}>
 
       {/* TOP BAR */}
       <div style={{padding:'10px 14px 8px',borderBottom:'1px solid #1a1a1f',flexShrink:0}}>
@@ -1686,8 +1694,6 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
           const v       = hole.playerScores[p.id];
           const d       = v!=null?v-par:null;
           const tot     = scPlayerTot(scores,p.id);
-          const pts     = scCalcPts(scores,p.id);
-          const pp      = prevPts[p.id]??pts;
           const isAct   = activePid===p.id;
           const flash   = flashInfo?.pid===p.id;
           const played  = scores.filter(h=>h.playerScores[p.id]!=null).length;
@@ -1707,24 +1713,18 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
               )}
 
               {/* Card header */}
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:9}}>
-                <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1,marginRight:12}}>
-                  <div style={{width:34,height:34,borderRadius:'50%',background:isAct?pcolor:pcolor+'66',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#0A0A0B',flexShrink:0,transition:'background .2s'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:9}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1}}>
+                  <div style={{width:32,height:32,borderRadius:'50%',background:isAct?pcolor:pcolor+'66',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#0A0A0B',flexShrink:0,transition:'background .2s'}}>
                     {p.name[0]}
                   </div>
-                  <div style={{minWidth:0}}>
-                    <div style={{fontSize:13,fontWeight:700,color:isAct?'#fff':'#555',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',transition:'color .2s'}}>{p.name}</div>
-                    <div style={{fontSize:8,color:'#444',marginTop:2}}>HCP {p.handicap??'–'}</div>
-                  </div>
+                  <div style={{fontWeight:700,fontSize:13,color:isAct?'#fff':'#555',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',transition:'color .2s'}}>{p.name}</div>
                 </div>
-                <div style={{display:'flex',alignItems:'center',gap:12,flexShrink:0}}>
-                  <AnimPts value={pts} prev={pp}/>
-                  <div style={{textAlign:'center'}}>
-                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:scDiffColor(tot),lineHeight:1,transition:'color .3s',minWidth:30,textShadow:tot!=null&&isAct?`0 0 30px ${scDiffColor(tot)}25`:'none'}}>
-                      {scFmtTotal(tot)}
-                    </div>
-                    <div style={{fontSize:8,color:'#555',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',marginTop:1}}>{played}/{course.holes}</div>
+                <div style={{textAlign:'right',flexShrink:0}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:34,color:scDiffColor(tot),lineHeight:1,transition:'color .3s',textShadow:tot!=null&&isAct?`0 0 30px ${scDiffColor(tot)}25`:'none'}}>
+                    {scFmtTotal(tot)}
                   </div>
+                  <div style={{fontSize:8,color:'#555',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',marginTop:1}}>{played}/{course.holes}</div>
                 </div>
               </div>
 
@@ -1951,11 +1951,8 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
 ═══════════════════════════════════════════════════════════════ */
 function RankingScreen({ user, openAuth, setScreen, lang }) {
   const tl = (k,v={}) => t(lang,k,v);
-  const [filter, setFilter] = useState("global");
   const [liveRanking, setLiveRanking] = useState(null);
-  const [liveWeek, setLiveWeek]       = useState(null);
   const [loading, setLoading]         = useState(true);
-  const tabs = [["global",tl("ranking_global")],["setmana",tl("ranking_week")]];
   const goProfile = () => setScreen("profile");
 
   useEffect(() => {
@@ -1992,29 +1989,6 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
             .map((p,i) => ({...p, rank:i+1}));
           if (global.length) setLiveRanking(global);
 
-          // Weekly: filter to last 7 days
-          const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString();
-          const weekMap = {};
-          gamesData
-            .filter(g => g.created_at >= weekAgo)
-            .forEach(g => {
-              const me = (g.players||[]).find(p => p.isMe);
-              if (!me || !g.user_id) return;
-              if (!weekMap[g.user_id]) weekMap[g.user_id] = { name: me.name, pts: 0, scores: [], club: me.club||"" };
-              weekMap[g.user_id].pts += (me.points || 0);
-              weekMap[g.user_id].scores.push(me.diff ?? 0);
-            });
-          const week = Object.entries(weekMap)
-            .map(([uid, v], i) => ({
-              rank: i+1, name: v.name, club: v.club,
-              pts: v.pts,
-              best: v.scores.length ? Math.min(...v.scores) : 0,
-              avatar: v.name.split(" ").map(w=>w[0]).slice(0,2).join(""),
-              color: ["#60A5FA","#CAFF4D","#A78BFA","#F472B6","#34D399","#FBBF24"][i%6],
-            }))
-            .sort((a,b) => b.pts - a.pts)
-            .map((p,i) => ({...p, rank:i+1}));
-          if (week.length) setLiveWeek(week);
         }
       } catch(e) {
         console.warn("P&C: Could not load ranking from Supabase:", e.message);
@@ -2025,8 +1999,7 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
     return () => { cancelled = true; };
   }, []);
 
-  const globalData = liveRanking || LEADERBOARD;
-  const weekData   = liveWeek   || LEADERBOARD_WEEK;
+  const globalData = (liveRanking || LEADERBOARD).slice(0, 10);
   const isLive     = !!liveRanking;
 
   return (
@@ -2045,87 +2018,33 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
           </div>
         </div>
       </div>
-      {/* Tabs */}
-      <div style={{display:"flex",borderBottom:"1px solid #1A1B1E",marginBottom:18,gap:0}}>
-        {tabs.map(([k,l]) => (
-          <button key={k} style={{padding:"8px 16px",border:"none",borderBottom:filter===k?"2px solid #CAFF4D":"2px solid transparent",marginBottom:-1,background:"none",fontSize:12,fontWeight:700,color:filter===k?"#CAFF4D":"#555761",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"Inter",letterSpacing:".04em",textTransform:"uppercase"}} onClick={()=>setFilter(k)}>{l}</button>
-        ))}
-      </div>
-
-      {/* ── GLOBAL */}
-      {filter==="global" && <>
-        <div style={{display:"flex",gap:8,marginBottom:16}}>
-          {[globalData[1]||globalData[0],globalData[0],globalData[2]||globalData[0]].filter(Boolean).slice(0,3).map((p,col) => {
-            const tier = getTier(p.pts); const isF = col===1;
-            return (
-              <div key={p.rank} className="card" style={{flex:isF?1.2:1,minWidth:0,padding:"14px 10px",textAlign:"center",borderColor:isF?"#CAFF4D":"#222327",background:isF?"rgba(202,255,77,.04)":"#1A1B1E",cursor:"pointer"}} onClick={goProfile}>
-                <div style={{fontSize:isF?28:20,marginBottom:4}}>{["🥈","🥇","🥉"][col]}</div>
-                <div style={{width:34,height:34,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0A0A0B",margin:"0 auto 7px"}}>{p.avatar}</div>
-                <div style={{fontWeight:600,fontSize:11,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
-                <TierBadge tierId={tier.id} />
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:isF?30:24,color:"#CAFF4D",lineHeight:1.2,marginTop:4}}>{p.pts}</div>
-              </div>
-            );
-          })}
+      {/* ── LEADERBOARD */}
+      <div className="card" style={{overflow:"hidden",padding:0,marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 58px",padding:"7px 13px",borderBottom:"1px solid #1A1B1E",fontSize:9,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761"}}>
+          <span>#</span><span>{lang==="en"?"Player":lang==="es"?"Jugador":"Jugador"}</span><span style={{textAlign:"center"}}>{lang==="en"?"Best":lang==="es"?"Mejor":"Millor"}</span><span style={{textAlign:"right"}}>Pts</span>
         </div>
-        <div className="card" style={{overflow:"hidden",padding:0,marginBottom:16}}>
-          <div style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 58px",padding:"7px 13px",borderBottom:"1px solid #1A1B1E",fontSize:9,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761"}}>
-            <span>#</span><span>Jugador</span><span style={{textAlign:"center"}}>Millor</span><span style={{textAlign:"right"}}>Pts</span>
-          </div>
-          {globalData.map((p,i) => {
-            const tier = getTier(p.pts);
-            return (
-              <div key={p.rank} style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 58px",alignItems:"center",padding:"10px 13px",borderBottom:"1px solid #111214",cursor:"pointer"}} onClick={goProfile}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:i<3?17:13,color:i<3?"#CAFF4D":"#2A2B30"}}>{String(p.rank).padStart(2,"0")}</div>
-                <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-                  <div style={{width:26,height:26,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{p.avatar}</div>
-                  <div style={{minWidth:0}}>
-                    <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
-                    <div style={{fontSize:9,color:"#555761",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tier.emoji} {tier.name} · {p.club}</div>
-                  </div>
-                </div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:16,textAlign:"center",color:p.best<0?"#CAFF4D":p.best===0?"#fff":"#555761"}}>{p.best>0?`+${p.best}`:p.best}</div>
-                <div style={{textAlign:"right",fontWeight:700,fontSize:12,color:"#CAFF4D"}}>{p.pts}</div>
-              </div>
-            );
-          })}
-          {!user && <div style={{padding:"11px 13px",background:"rgba(202,255,77,.04)",borderTop:"1px solid #1A1B1E",display:"flex",alignItems:"center",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
-            <span style={{fontSize:12,color:"#787C8A"}}>Crea un compte per aparèixer al rànquing</span>
-            <button className="btn btn-primary btn-sm" style={{borderRadius:100,padding:"7px 14px",fontSize:11,width:"auto"}} onClick={openAuth}>Uneix-te →</button>
-          </div>}
-        </div>
-      </>}
-
-      {/* ── SETMANA */}
-      {filter==="setmana" && <>
-        <div className="card" style={{padding:"10px 13px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
-          <Activity size={12} color="#EF4444"/><span style={{fontSize:11,fontWeight:600,color:"#787C8A"}}>{tl("ranking_week_note")} · es reinicia cada dilluns</span>
-        </div>
-        <div className="card" style={{overflow:"hidden",padding:0,marginBottom:16}}>
-          <div style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 58px",padding:"7px 13px",borderBottom:"1px solid #1A1B1E",fontSize:9,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761"}}>
-            <span>#</span><span>Jugador</span><span style={{textAlign:"center"}}>Millor</span><span style={{textAlign:"right"}}>Pts 7d</span>
-          </div>
-          {weekData.map((p,i) => (
-            <div key={p.rank} style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 58px",alignItems:"center",padding:"10px 13px",borderBottom:"1px solid #111214"}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:i<3?17:13,color:i<3?"#CAFF4D":"#2A2B30"}}>{String(p.rank).padStart(2,"0")}</div>
+        {globalData.map((p,i) => {
+          const tier = getTier(p.pts);
+          return (
+            <div key={p.rank} style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 58px",alignItems:"center",padding:"10px 13px",borderBottom:"1px solid #111214",cursor:"pointer"}} onClick={goProfile}>
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:14,color:i===0?"#FBBF24":i===1?"#9CA3AF":i===2?"#CD7F32":"#2A2B30"}}>{String(p.rank).padStart(2,"0")}</div>
               <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                 <div style={{width:26,height:26,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{p.avatar}</div>
                 <div style={{minWidth:0}}>
                   <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
-                  <div style={{fontSize:9,color:"#555761"}}>{p.club}</div>
+                  <div style={{fontSize:9,color:"#555761",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tier.emoji} {tier.name}{p.club?` · ${p.club}`:""}</div>
                 </div>
               </div>
               <div style={{fontFamily:"'Bebas Neue'",fontSize:16,textAlign:"center",color:p.best<0?"#CAFF4D":p.best===0?"#fff":"#555761"}}>{p.best>0?`+${p.best}`:p.best}</div>
               <div style={{textAlign:"right",fontWeight:700,fontSize:12,color:"#CAFF4D"}}>{p.pts}</div>
             </div>
-          ))}
-          {weekData.length === 0 && (
-            <div style={{padding:"24px",textAlign:"center",fontSize:12,color:"#555761"}}>
-              {lang==="en"?"No games this week":lang==="es"?"Sin partidas esta semana":"Sense partides aquesta setmana"}
-            </div>
-          )}
-        </div>
-      </>}
+          );
+        })}
+        {!user && <div style={{padding:"11px 13px",background:"rgba(202,255,77,.04)",borderTop:"1px solid #1A1B1E",display:"flex",alignItems:"center",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
+          <span style={{fontSize:12,color:"#787C8A"}}>{lang==="en"?"Create an account to appear in the ranking":lang==="es"?"Crea una cuenta para aparecer en el ranking":"Crea un compte per aparèixer al rànquing"}</span>
+          <button className="btn btn-primary btn-sm" style={{borderRadius:100,padding:"7px 14px",fontSize:11,width:"auto"}} onClick={openAuth}>{lang==="en"?"Join →":lang==="es"?"Únete →":"Uneix-te →"}</button>
+        </div>}
+      </div>
 
     </div>
   );
@@ -2356,8 +2275,8 @@ function LiveScreen({ user, openAuth, lang, liveGames }) {
 
       {/* Tab bar */}
       <div className="live-tab-bar">
-        {[["feed","🔴 En Joc"],["community","📸 Comunitat"],["map","🗺 Mapa"]].map(([k,l])=>(
-          <button key={k} className={`live-tab${tab===k?" active":""}`} onClick={()=>setTab(k)}>{l}</button>
+        {[[`feed`,<Activity size={12}/>,"En Joc"],[`community`,<Heart size={12}/>,"Comunitat"],[`map`,<MapPin size={12}/>,"Mapa"]].map(([k,icon,l])=>(
+          <button key={k} className={`live-tab${tab===k?" active":""}`} onClick={()=>setTab(k)} style={{display:"flex",alignItems:"center",gap:5}}>{icon}{l}</button>
         ))}
       </div>
 
@@ -2399,7 +2318,7 @@ function LiveScreen({ user, openAuth, lang, liveGames }) {
 
         {games.length === 0 && (
           <div className="card" style={{textAlign:"center",padding:"32px 16px"}}>
-            <div style={{fontSize:32,marginBottom:10}}>⛳</div>
+            <div style={{display:"flex",justifyContent:"center",marginBottom:10,color:"#555761"}}><Flag size={32}/></div>
             <div style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:".04em",marginBottom:6}}>Sense partides ara mateix</div>
             <div style={{fontSize:12,color:"#555761"}}>Activa la retransmissió en directe quan juguis</div>
           </div>
@@ -3104,7 +3023,6 @@ export default function App() {
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang}/>}
         {screen==="live"       && <LiveScreen        user={user} openAuth={openAuth} lang={lang} liveGames={liveGames}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
-        {screen==="shop"       && <ShopScreen       user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history}/>}
 
         {!isGameFlow && <BottomNav screen={screen} setScreen={setScreenSafe} lang={lang}/>}

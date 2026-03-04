@@ -5,39 +5,7 @@ import {
   Award, Flag, Target, Activity, Heart, Globe, Flame, Crown, ArrowRight,
   Play, Share2, Bell, AlertCircle, CheckCircle, Minus, Menu, LogOut
 } from "lucide-react";
-// ─── SUPABASE CLIENT ──────────────────────────────────────────
-// In your local Vite project, replace this block with:
-//   import { supabase } from "./supabaseClient";
-//
-// This inline mock lets the preview render without a real connection.
-const _mockQuery = () => {
-  const q = { _filters: [], _order: null, _limit: null };
-  const chain = {
-    select: () => chain,
-    eq: () => chain,
-    order: () => chain,
-    limit: () => chain,
-    then: (resolve) => { resolve({ data: [], error: null }); return Promise.resolve({ data: [], error: null }); },
-  };
-  return chain;
-};
-const _mockAuth = {
-  signUp: async () => ({ data: { user: { id: "mock", email: "mock@test.com", user_metadata: { name: "Mock User" } } }, error: null }),
-  signInWithPassword: async () => ({ data: { user: { id: "mock", email: "mock@test.com", user_metadata: { name: "Mock User" } } }, error: null }),
-  signOut: async () => ({}),
-  getUser: async () => ({ data: { user: null } }),
-  updateUser: async () => ({}),
-  onAuthStateChange: (cb) => { return { data: { subscription: { unsubscribe: () => {} } } }; },
-};
-const _mockStorage = { from: () => ({ upload: async () => ({}), getPublicUrl: () => ({ data: { publicUrl: "" } }) }) };
-const _mockChannel = { on: function() { return this; }, subscribe: function() { return this; } };
-const supabase = {
-  from: () => _mockQuery(),
-  auth: _mockAuth,
-  storage: _mockStorage,
-  channel: () => _mockChannel,
-  removeChannel: () => {},
-};
+import { supabase } from "./supabaseClient";
 
 /* ─── i18n ───────────────────────────────────────────────────── */
 const T = {
@@ -747,43 +715,6 @@ const TOURNAMENTS_FALLBACK = [
 // ── Keep alias for HomeScreen previews ──
 const TOURNAMENTS_DATA = TOURNAMENTS_FALLBACK;
 
-// ── Google Sheets config ──────────────────────────────────────
-// 1. Crea un Google Sheet públic (veure instruccions a README)
-// 2. Publica'l com a CSV: Arxiu → Compartir → Publicar al web → CSV
-// 3. Copia la URL i pega-la aquí:
-const SHEETS_CSV_URL = ""; // <-- posa aquí la URL del teu Google Sheet publicat
-
-// Converteix una fila CSV a objecte torneig
-function parseSheetRow(row) {
-  const [id,name,dateS,course,location,format,minTier,spots,left,prize,status,fee,category] = row;
-  if (!name || !name.trim()) return null;
-  return {
-    id: parseInt(id)||0, name:name.trim(), dateS:dateS.trim(),
-    course:course.trim(), location:location.trim(), format:format.trim(),
-    minTier:(minTier||'caddie').trim().toLowerCase(),
-    spots:parseInt(spots)||0, left:parseInt(left)||0,
-    prize:prize.trim(), status:(status||'soon').trim().toLowerCase(),
-    fee:fee.trim(), category:(category||'open').trim().toLowerCase(),
-  };
-}
-
-async function fetchTournamentsFromSheet() {
-  if (!SHEETS_CSV_URL) return null;
-  try {
-    const res  = await fetch(SHEETS_CSV_URL);
-    const text = await res.text();
-    const rows = text.trim().split('\n').slice(1); // skip header row
-    const parsed = rows.map(r => {
-      // Basic CSV parse (handles simple cases; no embedded commas in fields)
-      const cols = r.split(',').map(c => c.replace(/^"|"$/g,'').trim());
-      return parseSheetRow(cols);
-    }).filter(Boolean);
-    return parsed.length ? parsed : null;
-  } catch(e) {
-    console.warn('P&C: Could not load tournaments from Google Sheet:', e.message);
-    return null;
-  }
-}
 
 const PRODUCTS_DATA = [
   {id:1,name:"Kit Oficial Pink Beaks 24/25",club:"Pink Beaks",price:"€49",emoji:"👕",tag:"Kit Oficial"},
@@ -1822,13 +1753,27 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
   );
 }
 
-function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang }) {
+function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang, onPhotoUpload }) {
   const tl = (k,v={}) => t(lang,k,v);
   const me = game.players.find(p => p.isMe);
   const diff = me?.diff ?? 0;
   const tierNow = getTier(userPts);
   const tierPrev = getTier(prevPts);
   const levelUp = tierNow.id !== tierPrev.id;
+  const [showPhotoCard, setShowPhotoCard] = useState(!!user);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoCaption, setPhotoCaption] = useState("");
+  const [photoLabel, setPhotoLabel] = useState("Par");
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoShared, setPhotoShared] = useState(false);
+  const handleSharePhoto = async () => {
+    if (!photoFile || !onPhotoUpload) return;
+    setPhotoUploading(true);
+    await onPhotoUpload(photoFile, photoCaption, photoLabel, game.supabaseId);
+    setPhotoUploading(false);
+    setPhotoShared(true);
+    setShowPhotoCard(false);
+  };
 
   return (
     <div className="page-scroll ani-up">
@@ -1902,6 +1847,26 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
           <div style={{fontSize:13,fontWeight:700,marginBottom:5}}>💾 Vols guardar aquesta partida?</div>
           <div style={{fontSize:12,color:"#787C8A",lineHeight:1.6,marginBottom:12,fontWeight:400}}>Crea un compte gratuït per guardar l'historial i acumular <strong style={{color:"#CAFF4D"}}>{me?.points||0} punts</strong> al rànquing.</div>
           <button className="btn btn-primary" style={{fontSize:13}} onClick={openAuth}>Crea un compte — és gratis →</button>
+        </div>
+      )}
+
+      {/* Compartir foto */}
+      {user && onPhotoUpload && showPhotoCard && !photoShared && (
+        <div className="card" style={{marginBottom:14,padding:"15px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontWeight:700,fontSize:13}}>📸 Compartir foto de la partida</div>
+            <button onClick={()=>setShowPhotoCard(false)} style={{background:"none",border:"none",color:"#555761",cursor:"pointer",fontSize:18,padding:0,lineHeight:1}}>×</button>
+          </div>
+          <input type="file" accept="image/*" style={{width:"100%",marginBottom:8,fontSize:12,color:"#fff",background:"#111214",border:"1px solid #222327",borderRadius:6,padding:"6px 8px"}}
+            onChange={e=>setPhotoFile(e.target.files[0])}/>
+          <input type="text" placeholder="Descripció (ex: Eagle al 12!)" maxLength={80} value={photoCaption} onChange={e=>setPhotoCaption(e.target.value)}
+            style={{width:"100%",background:"#111214",border:"1px solid #222327",borderRadius:6,padding:"7px 10px",color:"#fff",fontSize:12,marginBottom:8,boxSizing:"border-box"}}/>
+          <div style={{display:"flex",gap:6,marginBottom:10}}>
+            {["Eagle","Birdie","Par","Bogey"].map(l=>(
+              <button key={l} onClick={()=>setPhotoLabel(l)} style={{flex:1,padding:"5px 0",borderRadius:6,border:`1px solid ${photoLabel===l?"#CAFF4D":"#222327"}`,background:photoLabel===l?"rgba(202,255,77,.1)":"transparent",color:photoLabel===l?"#CAFF4D":"#555761",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"Inter"}}>{l}</button>
+            ))}
+          </div>
+          <button className="btn btn-primary" style={{fontSize:12}} onClick={handleSharePhoto} disabled={!photoFile||photoUploading}>{photoUploading?"Pujant...":"Compartir a la comunitat →"}</button>
         </div>
       )}
 
@@ -2061,26 +2026,17 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
 function TournamentsScreen({ openAuth, user, lang }) {
   const tl = (k,v={}) => t(lang,k,v);
   const [cat, setCat]         = useState("all");
-  const [liveData, setLiveData] = useState(null);   // null = not loaded yet
-  const [loading, setLoading]   = useState(!!SHEETS_CSV_URL);
+  const [liveData, setLiveData] = useState(null);
+  const [loading, setLoading]   = useState(true);
   const [lastSync, setLastSync] = useState(null);
 
-  // Fetch live data on mount (and every 5 min if visible)
   useEffect(() => {
-    if (!SHEETS_CSV_URL) return;
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      const data = await fetchTournamentsFromSheet();
-      if (!cancelled) {
-        setLiveData(data);
-        setLastSync(new Date());
+    supabase.from("tournaments").select("*").order("id")
+      .then(({ data }) => {
+        if (data?.length) setLiveData(data.map(row => ({...row, dateS: row.date_s, minTier: row.min_tier})));
         setLoading(false);
-      }
-    };
-    load();
-    const interval = setInterval(load, 5 * 60 * 1000); // refresh every 5 min
-    return () => { cancelled = true; clearInterval(interval); };
+        setLastSync(new Date());
+      });
   }, []);
 
   const allTournaments = liveData ?? TOURNAMENTS_FALLBACK;
@@ -2094,8 +2050,7 @@ function TournamentsScreen({ openAuth, user, lang }) {
             <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:5}}>Competicions 2025</div>
             <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(28px,8vw,44px)",letterSpacing:".04em",lineHeight:1}}>TORNEJOS <span className="lime">P&C</span></div>
           </div>
-          {SHEETS_CSV_URL && (
-            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:6}}>
+          <div style={{display:"flex",alignItems:"center",gap:5,marginTop:6}}>
               {loading
                 ? <span style={{fontSize:9,color:"#555761",fontWeight:700,letterSpacing:".06em"}}>↻ Sincronitzant...</span>
                 : liveData
@@ -2106,7 +2061,6 @@ function TournamentsScreen({ openAuth, user, lang }) {
                   : <span style={{fontSize:9,color:"#EF4444",fontWeight:700,letterSpacing:".06em"}}>⚠ Fallback</span>
               }
             </div>
-          )}
         </div>
       </div>
       {/* Category filter */}
@@ -2194,7 +2148,7 @@ const MOCK_LIVE_GAMES = [
 ];
 
 function LiveGameCard({ game, compact }) {
-  const diff = game.score_total ?? 0;
+  const diff = game.score_total ?? game.players?.find(p=>p.isMe)?.diff ?? 0;
   const scoreColor = diff < -1 ? "#FBBF24" : diff === -1 ? "#60A5FA" : diff === 0 ? "#CAFF4D" : "#EF4444";
   const pct = Math.round(((game.current_hole||1) / (game.holes||18)) * 100);
 
@@ -2256,8 +2210,6 @@ function LiveGameCard({ game, compact }) {
 }
 
 function LiveScreen({ user, openAuth, lang, liveGames }) {
-  const [tab, setTab] = useState("feed");
-  const [liked, setLiked] = useState({});
   const games = (liveGames && liveGames.length) ? liveGames : MOCK_LIVE_GAMES;
   const liveNow = games.filter(g => g.is_live);
   const recent = games.filter(g => !g.is_live);
@@ -2277,91 +2229,54 @@ function LiveScreen({ user, openAuth, lang, liveGames }) {
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="live-tab-bar">
-        {[[`feed`,<Activity size={12}/>,"En Joc"],[`community`,<Heart size={12}/>,"Comunitat"]].map(([k,icon,l])=>(
-          <button key={k} className={`live-tab${tab===k?" active":""}`} onClick={()=>setTab(k)} style={{display:"flex",alignItems:"center",gap:5}}>{icon}{l}</button>
-        ))}
-      </div>
-
-      {/* ── TAB: FEED ── */}
-      {tab==="feed" && <>
-        {/* Stories row */}
-        {liveNow.length > 0 && (
-          <div className="story-row">
-            {liveNow.map(g=>(
-              <div key={g.id} className="story-avatar">
-                <div className="story-ring">
-                  <div className="story-inner" style={{background:g.color||"#CAFF4D",color:"#0A0A0B"}}>
-                    {g.avatar_url ? <img src={g.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : (g.avatar||"?")}
-                  </div>
-                </div>
-                <span style={{fontSize:9,fontWeight:600,color:"#787C8A",maxWidth:50,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"center"}}>{g.player_name.split(" ")[0]}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Live games */}
-        {liveNow.length > 0 && (
-          <div style={{marginBottom:16}}>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#EF4444",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
-              <span style={{width:5,height:5,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/> LIVE ARA
-            </div>
-            {liveNow.map(g=><LiveGameCard key={g.id} game={g}/>)}
-          </div>
-        )}
-
-        {/* Recent games */}
-        {recent.length > 0 && (
-          <div style={{marginBottom:16}}>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:8}}>PARTIDES RECENTS</div>
-            {recent.map(g=><LiveGameCard key={g.id} game={g}/>)}
-          </div>
-        )}
-
-        {games.length === 0 && (
-          <div className="card" style={{textAlign:"center",padding:"32px 16px"}}>
-            <div style={{display:"flex",justifyContent:"center",marginBottom:10,color:"#555761"}}><Flag size={32}/></div>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:".04em",marginBottom:6}}>Sense partides ara mateix</div>
-            <div style={{fontSize:12,color:"#555761"}}>Activa la retransmissió en directe quan juguis</div>
-          </div>
-        )}
-
-        {!user && (
-          <div style={{background:"rgba(202,255,77,.06)",border:"1px solid rgba(202,255,77,.2)",borderRadius:10,padding:"13px 14px",marginTop:8,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
-            <div style={{fontSize:12,color:"#787C8A"}}>Crea un compte per retransmetre les teves partides</div>
-            <button className="btn btn-primary btn-sm" style={{borderRadius:100,padding:"7px 14px",fontSize:11,width:"auto",flexShrink:0}} onClick={openAuth}>Uneix-te →</button>
-          </div>
-        )}
-      </>}
-
-      {/* ── TAB: COMMUNITY ── */}
-      {tab==="community" && (
-        <div className="ugc-grid">
-          {UGC_FEED.map(post=>(
-            <div key={post.id} className="ugc-card" style={{gridRow:post.tall?"span 2":"span 1"}} onClick={()=>setLiked(l=>({...l,[post.id]:!l[post.id]}))}>
-              <div style={{position:"relative",height:"100%",overflow:"hidden"}}>
-                <img src={post.img} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-                <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.7))"}}/>
-                <div style={{position:"absolute",top:7,left:7}}>
-                  <span style={{fontSize:8,fontWeight:700,letterSpacing:".06em",padding:"2px 7px",borderRadius:3,background:post.lc+"22",color:post.lc,border:`1px solid ${post.lc}44`}}>{post.label}</span>
-                </div>
-                <div style={{position:"absolute",bottom:7,left:8,right:8}}>
-                  <div style={{fontSize:10,fontWeight:700,color:"#fff",marginBottom:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{post.caption}</div>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div style={{fontSize:9,color:"rgba(255,255,255,.6)"}}>{post.user}</div>
-                    <div style={{fontSize:9,color:liked[post.id]?"#EF4444":"rgba(255,255,255,.6)",display:"flex",alignItems:"center",gap:3}}>
-                      <Heart size={9} fill={liked[post.id]?"#EF4444":"none"} color={liked[post.id]?"#EF4444":"rgba(255,255,255,.6)"}/>{liked[post.id]?post.likes+1:post.likes}
-                    </div>
-                  </div>
+      {/* Stories row */}
+      {liveNow.length > 0 && (
+        <div className="story-row">
+          {liveNow.map(g=>(
+            <div key={g.id} className="story-avatar">
+              <div className="story-ring">
+                <div className="story-inner" style={{background:g.color||"#CAFF4D",color:"#0A0A0B"}}>
+                  {g.avatar_url ? <img src={g.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : (g.player_name||"?").split(" ").map(w=>w[0]).slice(0,2).join("")}
                 </div>
               </div>
+              <span style={{fontSize:9,fontWeight:600,color:"#787C8A",maxWidth:50,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"center"}}>{(g.player_name||"?").split(" ")[0]}</span>
             </div>
           ))}
         </div>
       )}
 
+      {/* Live games */}
+      {liveNow.length > 0 && (
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#EF4444",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+            <span style={{width:5,height:5,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/> LIVE ARA
+          </div>
+          {liveNow.map(g=><LiveGameCard key={g.id} game={g}/>)}
+        </div>
+      )}
+
+      {/* Recent games */}
+      {recent.length > 0 && (
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:8}}>PARTIDES RECENTS</div>
+          {recent.map(g=><LiveGameCard key={g.id} game={g}/>)}
+        </div>
+      )}
+
+      {liveNow.length === 0 && recent.length === 0 && (
+        <div className="card" style={{textAlign:"center",padding:"32px 16px"}}>
+          <div style={{display:"flex",justifyContent:"center",marginBottom:10,color:"#555761"}}><Flag size={32}/></div>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:".04em",marginBottom:6}}>Sense partides ara mateix</div>
+          <div style={{fontSize:12,color:"#555761"}}>Activa la retransmissió en directe quan juguis</div>
+        </div>
+      )}
+
+      {!user && (
+        <div style={{background:"rgba(202,255,77,.06)",border:"1px solid rgba(202,255,77,.2)",borderRadius:10,padding:"13px 14px",marginTop:8,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+          <div style={{fontSize:12,color:"#787C8A"}}>Crea un compte per retransmetre les teves partides</div>
+          <button className="btn btn-primary btn-sm" style={{borderRadius:100,padding:"7px 14px",fontSize:11,width:"auto",flexShrink:0}} onClick={openAuth}>Uneix-te →</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -2825,10 +2740,10 @@ export default function App() {
         if (data) setActivityFeed(data.map(mapGameToFeedItem));
       });
 
-    // Fetch live games
-    supabase.from("games").select("*").eq("is_live", true).order("created_at", { ascending: false }).limit(10)
+    // Fetch recent games (live + finished) for Live screen
+    supabase.from("games").select("*").order("created_at", { ascending: false }).limit(20)
       .then(({ data }) => {
-        if (data && data.length) setLiveGames(data);
+        if (data?.length) setLiveGames(data);
       });
 
     // Real-time subscription for new games
@@ -2836,16 +2751,10 @@ export default function App() {
       .channel("games-feed")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "games" }, (payload) => {
         setActivityFeed(prev => [mapGameToFeedItem(payload.new), ...prev].slice(0, 20));
-        if (payload.new?.is_live) {
-          setLiveGames(prev => [payload.new, ...prev].slice(0, 10));
-        }
+        setLiveGames(prev => [payload.new, ...prev].slice(0, 20));
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games" }, (payload) => {
-        if (payload.new?.is_live) {
-          setLiveGames(prev => prev.map(g => g.id === payload.new.id ? payload.new : g));
-        } else {
-          setLiveGames(prev => prev.filter(g => g.id !== payload.new.id));
-        }
+        setLiveGames(prev => prev.map(g => g.id === payload.new.id ? payload.new : g));
       })
       .subscribe();
 
@@ -2859,9 +2768,10 @@ export default function App() {
         setUser({ name: u.user_metadata?.name || u.email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", avatarUrl: u.user_metadata?.avatar_url || null });
         // Scope games query to this user's games only
         supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false })
-          .then(({ data }) => {
+          .then(({ data, error }) => {
+            if (error) { console.error("P&C: Error loading history:", error); return; }
             if (data) {
-              setHistory(data.map(g => ({ id: g.id, course: g.course, date: g.date, mode: g.mode, players: g.players, scores: g.scores })));
+              setHistory(data.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
               setUserPts(data.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
             }
           });
@@ -2878,14 +2788,45 @@ export default function App() {
   const handleAvatarChange = async (file) => {
     const { data: authData } = await supabase.auth.getUser();
     if (!authData?.user) return;
-    const userId = authData.user.id;
+    // Compress to 200x200 JPEG and store as base64 in user_metadata (no storage bucket needed)
+    const dataUrl = await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 200; canvas.height = 200;
+        const ctx = canvas.getContext("2d");
+        const s = Math.min(img.width, img.height);
+        const ox = (img.width - s) / 2, oy = (img.height - s) / 2;
+        ctx.drawImage(img, ox, oy, s, s, 0, 0, 200, 200);
+        resolve(canvas.toDataURL("image/jpeg", 0.75));
+      };
+      img.src = URL.createObjectURL(file);
+    });
+    const { error } = await supabase.auth.updateUser({ data: { avatar_url: dataUrl } });
+    if (error) { showToast("Error: " + error.message); return; }
+    setUser(prev => ({ ...prev, avatarUrl: dataUrl }));
+    showToast("Foto de perfil actualitzada! ✓");
+  };
+
+  const handlePhotoUpload = async (file, caption, label, gameId) => {
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData?.user) return;
+    const uid = authData.user.id;
     const ext = file.name.split(".").pop();
-    const path = `${userId}/avatar.${ext}`;
-    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-    if (error) { showToast("Error uploading avatar"); return; }
-    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
-    await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
-    setUser(prev => ({ ...prev, avatarUrl: publicUrl }));
+    const path = `${uid}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("game-images").upload(path, file);
+    if (error) { console.error("P&C: photo upload error:", error); showToast("Error: " + error.message); return; }
+    const { data: { publicUrl } } = supabase.storage.from("game-images").getPublicUrl(path);
+    await supabase.from("game_images").insert({
+      user_id: uid,
+      game_id: gameId || null,
+      url: publicUrl,
+      caption,
+      label,
+      player_name: user?.name || "",
+      course_name: "",
+    });
+    showToast("Foto compartida! 📸");
   };
 
   const handleGameDelete = async () => {
@@ -2911,11 +2852,19 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const handleAuth = (u) => {
+  const handleAuth = async (u) => {
     setUser(u);
     setShowAuth(false);
     const greet = lang==="en"?`👋 Welcome, ${u.name.split(" ")[0]}!`:lang==="es"?`👋 Bienvenido/a, ${u.name.split(" ")[0]}!`:`👋 Benvingut/da, ${u.name.split(" ")[0]}!`;
     showToast(greet);
+    const { data: authData } = await supabase.auth.getUser();
+    if (authData?.user) {
+      const { data: games } = await supabase.from("games").select("*").eq("user_id", authData.user.id).order("created_at", { ascending: false });
+      if (games?.length) {
+        setHistory(games.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
+        setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
+      }
+    }
   };
 
   const handleGameStart = async (data) => {
@@ -2929,8 +2878,9 @@ export default function App() {
       const { data: authData } = await supabase.auth.getUser();
       if (authData?.user) {
         const me = data.players.find(p => p.isMe) || data.players[0];
-        const { data: row } = await supabase.from("games").insert({
+        const { data: row, error: liveErr } = await supabase.from("games").insert({
           user_id: authData.user.id,
+          course: data.course.name,
           course_name: data.course.name,
           player_name: me.name,
           players: data.players,
@@ -2942,10 +2892,15 @@ export default function App() {
           current_hole: 1,
           holes: data.course.holes,
           par: data.course.par,
+          score_total: 0,
           date: data.date,
-          mode: data.gameMode,
+          game_mode: data.gameMode,
         }).select().single();
-        if (row) setLiveGameId(row.id);
+        if (liveErr) { console.error("P&C: live game insert error:", liveErr); }
+        else if (row) {
+          setLiveGameId(row.id);
+          setLiveGames(prev => [row, ...prev].slice(0, 10));
+        }
       }
     }
   };
@@ -2968,31 +2923,64 @@ export default function App() {
     setHistory(prev=>[game,...prev]);
     const me = players.find(p=>p.isMe);
     if (me) { setPrevPts(userPts); setUserPts(p=>p+me.points); }
-    setLastGame(game);
 
+    let dbGameId = null;
     if (user) {
-      const { data: authData } = await supabase.auth.getUser();
-      if (authData?.user) {
-        if (liveGameId) {
-          await supabase.from("games").update({
-            players: game.players,
-            scores: game.scores,
-            is_live: false,
-            current_hole: game.scores.length,
-          }).eq("id", liveGameId);
-          setLiveGameId(null);
-        } else {
-          await supabase.from("games").insert({
-            user_id: authData.user.id,
-            course: game.course,
-            date: game.date,
-            mode: game.mode,
-            players: game.players,
-            scores: game.scores,
-          });
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user) {
+          if (liveGameId) {
+            const { error } = await supabase.from("games").update({
+              players: game.players,
+              scores: game.scores,
+              is_live: false,
+              current_hole: game.scores.length,
+            }).eq("id", liveGameId);
+            if (error) throw error;
+            dbGameId = liveGameId;
+            setLiveGames(prev => prev.map(g => g.id === liveGameId ? {...g, is_live: false, players: game.players, scores: game.scores} : g));
+            setLiveGameId(null);
+          } else {
+            const { data: rows, error } = await supabase.from("games").insert({
+              user_id: authData.user.id,
+              course_name: game.course,
+              date: game.date,
+              game_mode: game.mode,
+              players: game.players,
+              scores: game.scores,
+            }).select();
+            if (error) throw error;
+            dbGameId = rows?.[0]?.id || null;
+          }
+          // Reload history from DB so it survives refresh
+          const { data: games, error: loadErr } = await supabase.from("games").select("*").eq("user_id", authData.user.id).order("created_at", { ascending: false });
+          if (loadErr) console.error("P&C: reload history error:", loadErr);
+          if (games) {
+            setHistory(games.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
+            setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
+          }
+          showToast("Partida guardada! ✓");
         }
+      } catch(e) {
+        console.error("P&C: Error saving game:", e);
+        alert("Error guardant la partida:\n" + (e.message || JSON.stringify(e)));
       }
     }
+    setLastGame({...game, supabaseId: dbGameId});
+    // Add finished game to live feed immediately (for "recent" section)
+    const me2 = game.players.find(p => p.isMe);
+    setLiveGames(prev => [{
+      id: dbGameId || game.id,
+      player_name: me2?.name || "",
+      course_name: game.course,
+      holes: game.scores.length,
+      par: gameData.course.par,
+      score_total: me2?.diff ?? 0,
+      is_live: false,
+      players: game.players,
+      current_hole: game.scores.length,
+      created_at: new Date().toISOString(),
+    }, ...prev].slice(0, 20));
 
     localStorage.removeItem('pc_gameData');
     localStorage.removeItem('pc_scores');
@@ -3022,13 +3010,16 @@ export default function App() {
           if (!liveGameId) return;
           clearTimeout(liveDebounce.current);
           liveDebounce.current = setTimeout(async () => {
+            const mePlayer = gameData.players.find(p => p.isMe);
+            const scoreTot = mePlayer ? scores.reduce((a,h) => { const s=h.playerScores[mePlayer.id]; return s!=null?a+(s-h.par):a; }, 0) : 0;
             await supabase.from("games").update({
               scores,
               current_hole: curHole + 1,
+              score_total: scoreTot,
             }).eq("id", liveGameId);
           }, 1500);
         }}/>}
-        {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang}/>}
+        {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} onPhotoUpload={handlePhotoUpload}/>}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang}/>}
         {screen==="live"       && <LiveScreen        user={user} openAuth={openAuth} lang={lang} liveGames={liveGames}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}

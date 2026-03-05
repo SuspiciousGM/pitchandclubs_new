@@ -1599,7 +1599,7 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
             <button onClick={()=>setShowFull(true)} style={{padding:'6px 11px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#787C8A',fontSize:10,fontWeight:700,cursor:'pointer',letterSpacing:'.06em',textTransform:'uppercase'}}>
               {lang==='en'?'Card':lang==='es'?'Tarjeta':'Targeta'}
             </button>
-            <button onClick={onDelete} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',fontSize:10,fontWeight:700,cursor:'pointer'}}>
+            <button onClick={()=>{ if(window.confirm(lang==='en'?'Abandon this round? Progress will be lost.':lang==='es'?'¿Abandonar la ronda? Se perderá el progreso.':'Abandonar la ronda? Es perdran els progressos.')) onDelete(); }} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',fontSize:10,fontWeight:700,cursor:'pointer'}}>
               <X size={12}/>
             </button>
           </div>
@@ -2629,12 +2629,12 @@ function AuthModal({ onClose, onAuth, lang, initialMode="register" }) {
       });
       if (error) { setErr(error.message); setLoading(false); return; }
       const u = data.user;
-      onAuth({ name: u.user_metadata?.name || email.split("@")[0], email: u.email, club: u.user_metadata?.club || "" });
+      onAuth({ id: u.id, name: u.user_metadata?.name || email.split("@")[0], email: u.email, club: u.user_metadata?.club || "" });
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) { setErr(error.message); setLoading(false); return; }
       const u = data.user;
-      onAuth({ name: u.user_metadata?.name || email.split("@")[0], email: u.email, club: u.user_metadata?.club || "" });
+      onAuth({ id: u.id, name: u.user_metadata?.name || email.split("@")[0], email: u.email, club: u.user_metadata?.club || "" });
     }
     setLoading(false);
   };
@@ -2765,7 +2765,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const u = session.user;
-        setUser({ name: u.user_metadata?.name || u.email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", avatarUrl: u.user_metadata?.avatar_url || null });
+        setUser({ id: u.id, name: u.user_metadata?.name || u.email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", avatarUrl: u.user_metadata?.avatar_url || null });
         // Scope games query to this user's games only
         supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false })
           .then(({ data, error }) => {
@@ -2925,42 +2925,39 @@ export default function App() {
     if (me) { setPrevPts(userPts); setUserPts(p=>p+me.points); }
 
     let dbGameId = null;
-    if (user) {
+    if (user?.id) {
       try {
-        const { data: authData } = await supabase.auth.getUser();
-        if (authData?.user) {
-          if (liveGameId) {
-            const { error } = await supabase.from("games").update({
-              players: game.players,
-              scores: game.scores,
-              is_live: false,
-              current_hole: game.scores.length,
-            }).eq("id", liveGameId);
-            if (error) throw error;
-            dbGameId = liveGameId;
-            setLiveGames(prev => prev.map(g => g.id === liveGameId ? {...g, is_live: false, players: game.players, scores: game.scores} : g));
-            setLiveGameId(null);
-          } else {
-            const { data: rows, error } = await supabase.from("games").insert({
-              user_id: authData.user.id,
-              course_name: game.course,
-              date: game.date,
-              game_mode: game.mode,
-              players: game.players,
-              scores: game.scores,
-            }).select();
-            if (error) throw error;
-            dbGameId = rows?.[0]?.id || null;
-          }
-          // Reload history from DB so it survives refresh
-          const { data: games, error: loadErr } = await supabase.from("games").select("*").eq("user_id", authData.user.id).order("created_at", { ascending: false });
-          if (loadErr) console.error("P&C: reload history error:", loadErr);
-          if (games) {
-            setHistory(games.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
-            setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
-          }
-          showToast("Partida guardada! ✓");
+        if (liveGameId) {
+          const { error } = await supabase.from("games").update({
+            players: game.players,
+            scores: game.scores,
+            is_live: false,
+            current_hole: game.scores.length,
+          }).eq("id", liveGameId);
+          if (error) throw error;
+          dbGameId = liveGameId;
+          setLiveGames(prev => prev.map(g => g.id === liveGameId ? {...g, is_live: false, players: game.players, scores: game.scores} : g));
+          setLiveGameId(null);
+        } else {
+          const { data: rows, error } = await supabase.from("games").insert({
+            user_id: user.id,
+            course_name: game.course,
+            date: game.date,
+            game_mode: game.mode,
+            players: game.players,
+            scores: game.scores,
+          }).select();
+          if (error) throw error;
+          dbGameId = rows?.[0]?.id || null;
         }
+        // Reload history from DB so it survives refresh
+        const { data: games, error: loadErr } = await supabase.from("games").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+        if (loadErr) console.error("P&C: reload history error:", loadErr);
+        if (games) {
+          setHistory(games.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
+          setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
+        }
+        showToast("Partida guardada! ✓");
       } catch(e) {
         console.error("P&C: Error saving game:", e);
         alert("Error guardant la partida:\n" + (e.message || JSON.stringify(e)));

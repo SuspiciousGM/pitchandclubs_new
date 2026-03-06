@@ -5,8 +5,8 @@ import {
   Award, Flag, Target, Activity, Heart, Globe, Flame, Crown, ArrowRight,
   Play, Share2, Bell, AlertCircle, CheckCircle, Minus, Menu, LogOut, Camera, Download
 } from "lucide-react";
-import { supabase } from "./supabaseClient";
 import html2canvas from "html2canvas";
+import { supabase } from "./supabaseClient";
 
 /* ─── i18n ───────────────────────────────────────────────────── */
 const T = {
@@ -766,7 +766,10 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
   const nextTier = TIERS[TIERS.findIndex(x=>x.id===tier.id)+1];
   const pct = getTierPct(userPts);
   const myGames = history.filter(g=>g.players.some(p=>p.isMe));
-  const myScores = myGames.flatMap(g=>g.players.filter(p=>p.isMe).map(p=>p.diff));
+  // A complete game has a valid numeric diff (not NaN/null) for the "me" player
+  const isComplete = g => { const d = g.players.find(p=>p.isMe)?.diff; return typeof d === "number" && !isNaN(d); };
+  const completedGames = myGames.filter(isComplete);
+  const myScores = completedGames.map(g=>g.players.find(p=>p.isMe).diff);
   const bestGame = myScores.length ? Math.min(...myScores) : null;
   const tl = (k,v={}) => t(lang,k,v);
 
@@ -856,9 +859,9 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
       {/* ── QUICK STATS ── */}
       {myGames.length > 0 && (
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
-          {[{l:tl("stat_games"),v:myGames.length,icon:<Activity size={14}/>},
-            {l:tl("stat_best"),v:bestGame!==null?(bestGame>0?`+${bestGame}`:`${bestGame}`):"—",icon:<TrendingUp size={14}/>},
-            {l:tl("stat_holes"),v:myGames.reduce((a,g)=>a+g.scores.length,0),icon:<Target size={14}/>}].map(s=>(
+          {[{l:tl("stat_games"),v:completedGames.length,icon:<Activity size={14}/>},
+            {l:tl("stat_best"),v:bestGame!==null&&!isNaN(bestGame)?(bestGame>0?`+${bestGame}`:`${bestGame}`):"—",icon:<TrendingUp size={14}/>},
+            {l:tl("stat_holes"),v:completedGames.reduce((a,g)=>a+g.scores.length,0),icon:<Target size={14}/>}].map(s=>(
             <div key={s.l} className="card" style={{padding:"12px 8px",textAlign:"center"}}>
               <div style={{display:"flex",justifyContent:"center",marginBottom:4,color:"#555761"}}>{s.icon}</div>
               <div style={{fontFamily:"'Bebas Neue'",fontSize:24,color:"#CAFF4D",lineHeight:1}}>{s.v}</div>
@@ -869,10 +872,10 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
       )}
 
       {/* ── ÚLTIMES PARTIDES ── */}
-      {myGames.length > 0 && (
+      {completedGames.length > 0 && (
         <div style={{marginBottom:16}}>
           <SectionHeader sub={tl("sec_activity")} title={tl("sec_last_games")}/>
-          {myGames.slice(0,3).map(g=>{
+          {completedGames.slice(0,3).map(g=>{
             const me = g.players.find(p=>p.isMe);
             return (
               <div key={g.id} className="card card-press" style={{padding:"12px 14px",marginBottom:8}}>
@@ -1668,10 +1671,11 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
             <button onClick={()=>setShowFull(true)} style={{padding:'6px 11px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#787C8A',fontSize:10,fontWeight:700,cursor:'pointer',letterSpacing:'.06em',textTransform:'uppercase'}}>
               {lang==='en'?'Card':lang==='es'?'Tarjeta':'Targeta'}
             </button>
-            <label htmlFor="cam-capture" style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center'}}>
+            {/* Camera capture for Stories card */}
+            <label htmlFor="cam-capture" style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
               <Camera size={12}/>
             </label>
-            <input id="cam-capture" type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e=>{ const f=e.target.files?.[0]; if(f&&onPhotoCapture) onPhotoCapture(f); e.target.value=''; }}/>
+            <input id="cam-capture" type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f&&onPhotoCapture)onPhotoCapture(f);}}/>
             <button onClick={()=>{ if(window.confirm(lang==='en'?'Abandon this round? Progress will be lost.':lang==='es'?'¿Abandonar la ronda? Se perderá el progreso.':'Abandonar la ronda? Es perdran els progressos.')) onDelete(); }} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',fontSize:10,fontWeight:700,cursor:'pointer'}}>
               <X size={12}/>
             </button>
@@ -1852,177 +1856,113 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   SHARE CARD — hidden 1080×1920 PNG for Instagram Stories
-═══════════════════════════════════════════════════════════════ */
-function ShareCard({ game, user, roundPhoto }) {
-  if (!game) return null;
-  const me = game.players.find(p => p.isMe) || game.players[0];
+/* ─── ShareCard (off-screen, 1080×1920 for Instagram Stories) ─── */
+function ShareCard({ game, cardRef, photo }) {
+  const me = game?.players.find(p => p.isMe);
   const diff = me?.diff ?? 0;
-  const scoreColor = diff <= -2 ? "#FBBF24" : diff === -1 ? "#60A5FA" : diff === 0 ? "#CAFF4D" : "#EF4444";
-  const scoreFmt = diff > 0 ? `+${diff}` : diff === 0 ? "E" : `${diff}`;
-  const initials = (me?.name || "PC").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
-
-  // Compute per-hole stats for the "me" player
-  const holes = game.scores || [];
-  const stats = { eagle:0, birdie:0, par:0, bogey:0, double:0 };
-  holes.forEach(h => {
-    const s = h.playerScores?.[me?.id]; if (s == null) return;
-    const d = s - h.par;
-    if (d <= -2) stats.eagle++; else if (d === -1) stats.birdie++; else if (d === 0) stats.par++; else if (d === 1) stats.bogey++; else stats.double++;
-  });
-  const pts = me?.points ?? 0;
-  const halfCount = Math.ceil(holes.length / 2);
-  const row1 = holes.slice(0, halfCount);
-  const row2 = holes.slice(halfCount);
-
+  const fmtD = d => d > 0 ? `+${d}` : d === 0 ? "E" : `${d}`;
+  const holeCount = game?.scores?.length ?? 0;
+  const par = game?.scores?.reduce((a,h)=>a+h.par,0) ?? 0;
+  const emoji = diff <= -2 ? "🔥" : diff < 0 ? "🎉" : diff === 0 ? "✅" : "👊";
   return (
-    <div style={{width:1080,height:1920,background:"#0A0A0B",fontFamily:"Inter,sans-serif",position:"relative",overflow:"hidden",display:"flex",flexDirection:"column"}}>
-      {/* Background radial gradients */}
-      <div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(ellipse at 20% 30%, rgba(34,100,34,0.12) 0%, transparent 55%), radial-gradient(ellipse at 80% 70%, rgba(20,60,20,0.09) 0%, transparent 50%)",zIndex:0}}/>
-
-      {/* Top photo zone — 55% height = 1056px */}
-      <div style={{height:1056,position:"relative",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",zIndex:1}}>
-        {roundPhoto ? (
-          <img src={roundPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
-        ) : (
-          <div style={{position:"absolute",inset:0,background:"linear-gradient(160deg,#0f1f0f 0%,#1a2e1a 40%,#0A0A0B 100%)"}}/>
-        )}
-        {/* Dark overlay for readability */}
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.55) 100%)"}}/>
-
-        {/* Initials avatar */}
-        <div style={{position:"absolute",top:80,left:"50%",transform:"translateX(-50%)",width:160,height:160,borderRadius:"50%",background:PLAYER_COLORS[0],display:"flex",alignItems:"center",justifyContent:"center",fontSize:52,fontWeight:700,color:"#0A0A0B",zIndex:2,border:"5px solid rgba(255,255,255,0.15)"}}>
-          {initials}
-        </div>
-
-        {/* Giant score */}
-        <div style={{position:"absolute",bottom:60,left:0,right:0,textAlign:"center",zIndex:2}}>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:380,color:scoreColor,lineHeight:.85,textShadow:`0 0 120px ${scoreColor}55`,letterSpacing:"-.02em"}}>
-            {scoreFmt}
-          </div>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:52,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",marginTop:-20}}>
-            {diff < -1 ? "EAGLE +" : diff === -1 ? "BIRDIE" : diff === 0 ? "PAR" : "SOBRE PAR"}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom panel — 45% = 864px */}
-      <div style={{flex:1,padding:"50px 60px 60px",display:"flex",flexDirection:"column",gap:36,zIndex:1,position:"relative"}}>
-        {/* Player + course */}
+    <div ref={cardRef} style={{
+      position:"fixed", top:"-9999px", left:"-9999px",
+      width:1080, height:1920, background:"#0A0A0B",
+      fontFamily:"Inter, sans-serif", overflow:"hidden",
+    }}>
+      {/* BG photo */}
+      {photo && <img src={photo} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:.22}}/>}
+      {/* diagonal texture */}
+      <div style={{position:"absolute",inset:0,backgroundImage:"repeating-linear-gradient(135deg,rgba(202,255,77,.018) 0px,rgba(202,255,77,.018) 1px,transparent 1px,transparent 8px)"}}/>
+      {/* gradient overlay */}
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,rgba(10,10,11,.3) 0%,rgba(10,10,11,.7) 60%,rgba(10,10,11,.95) 100%)"}}/>
+      <div style={{position:"relative",zIndex:1,padding:"120px 80px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+        {/* top */}
         <div>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:72,letterSpacing:".04em",color:"#fff",lineHeight:1}}>{me?.name || user?.name || "Jugador"}</div>
-          <div style={{fontSize:36,color:"#787C8A",fontWeight:500,marginTop:6}}>{game.course} · {game.date}</div>
+          <div style={{fontSize:48,fontWeight:900,letterSpacing:"-.02em",color:"#CAFF4D"}}>PITCH&CLUBS</div>
+          <div style={{fontSize:28,color:"#555761",marginTop:8}}>pitchandclubs.cat</div>
         </div>
-
-        {/* Hole grid — row 1 */}
+        {/* center */}
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:200}}>{emoji}</div>
+          <div style={{fontFamily:"'Bebas Neue', cursive",fontSize:220,lineHeight:.9,color:diff<0?"#FBBF24":diff===0?"#CAFF4D":"#FFFFFF"}}>{fmtD(diff)}</div>
+          <div style={{fontSize:52,color:"#787C8A",marginTop:24}}>{me?.score} cops · Par {par}</div>
+          <div style={{fontSize:42,color:"#555761",marginTop:12}}>{holeCount} forats</div>
+        </div>
+        {/* bottom */}
         <div>
-          <div style={{display:"flex",gap:8,marginBottom:8}}>
-            {row1.map((h,i) => (
-              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                <div style={{fontSize:18,color:"#555761",fontWeight:600}}>{h.hole}</div>
-                <ScoreSymbol v={h.playerScores?.[me?.id]} par={h.par} size={52}/>
-              </div>
+          <div style={{fontSize:56,fontWeight:800,color:"#fff",marginBottom:12}}>{game?.course}</div>
+          <div style={{fontSize:36,color:"#555761"}}>{game?.date}</div>
+          {/* hole grid */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(9,1fr)",gap:8,marginTop:40}}>
+            {game?.scores?.map((h,i)=>{
+              const s = me ? h.playerScores[me.id] : null;
+              const d = s != null ? s - h.par : null;
+              const bg = d == null ? "#222" : d <= -2 ? "rgba(251,191,36,.4)" : d === -1 ? "rgba(96,165,250,.35)" : d === 0 ? "rgba(202,255,77,.35)" : d === 1 ? "#2a2a32" : "rgba(239,68,68,.35)";
+              const col = d == null ? "#333" : d <= -2 ? "#FBBF24" : d === -1 ? "#60A5FA" : d === 0 ? "#CAFF4D" : "#fff";
+              return (
+                <div key={i} style={{height:72,borderRadius:10,background:bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <span style={{fontFamily:"'Bebas Neue',cursive",fontSize:40,color:col}}>{s ?? h.par}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{display:"flex",gap:16,marginTop:20,flexWrap:"wrap"}}>
+            {[["E","Eagle"],["B","Birdie"],["P","Par"],["BO","Bogey"],["D","Doble+"]].map(([k,l])=>(
+              <div key={k} style={{fontSize:24,color:"#555"}}>{l}: {game?.scores?.filter(h=>{const s=me?h.playerScores[me.id]:null;const d=s!=null?s-h.par:null;return k==="E"?d<=-2:k==="B"?d===-1:k==="P"?d===0:k==="BO"?d===1:d>=2}).length}</div>
             ))}
           </div>
-          {row2.length > 0 && (
-            <div style={{display:"flex",gap:8}}>
-              {row2.map((h,i) => (
-                <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                  <div style={{fontSize:18,color:"#555761",fontWeight:600}}>{h.hole}</div>
-                  <ScoreSymbol v={h.playerScores?.[me?.id]} par={h.par} size={52}/>
-                </div>
-              ))}
-              {/* Pad to keep alignment */}
-              {Array.from({length: row1.length - row2.length}).map((_,i) => <div key={`pad-${i}`} style={{flex:1}}/>)}
-            </div>
-          )}
-        </div>
-
-        {/* Stats row */}
-        <div style={{display:"flex",gap:0,borderTop:"1px solid #1A1B1E",paddingTop:30}}>
-          {[
-            {l:"Eagles",v:stats.eagle,c:"#FBBF24"},
-            {l:"Birdies",v:stats.birdie,c:"#60A5FA"},
-            {l:"Pars",v:stats.par,c:"#CAFF4D"},
-            {l:"Bogeys",v:stats.bogey,c:"#9CA3AF"},
-            {l:"Pts P&C",v:pts,c:"#CAFF4D"},
-          ].map((s,i) => (
-            <div key={i} style={{flex:1,textAlign:"center",borderRight:i<4?"1px solid #1A1B1E":"none",padding:"0 10px"}}>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:52,color:s.c,lineHeight:1}}>{s.v}</div>
-              <div style={{fontSize:20,color:"#555761",fontWeight:600,marginTop:6,textTransform:"uppercase",letterSpacing:".06em"}}>{s.l}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* P&C branding */}
-        <div style={{marginTop:"auto",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:48,letterSpacing:".04em",color:"#fff"}}>PITCH&CLUBS</div>
-          <div style={{fontSize:28,color:"#555761",fontWeight:500}}>pitchandclubs.cat</div>
         </div>
       </div>
     </div>
   );
 }
 
-function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang, onPhotoUpload, roundPhoto }) {
+function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang, shareCardRef, roundPhoto }) {
   const tl = (k,v={}) => t(lang,k,v);
   const me = game.players.find(p => p.isMe);
-  const diff = me?.diff ?? 0;
-  const tierNow = getTier(userPts);
-  const tierPrev = getTier(prevPts);
-  const levelUp = tierNow.id !== tierPrev.id;
-  const [showPhotoCard, setShowPhotoCard] = useState(!!user);
-  const [photoFile, setPhotoFile] = useState(null);
-  const [photoCaption, setPhotoCaption] = useState("");
-  const [photoLabel, setPhotoLabel] = useState("Par");
-  const [photoUploading, setPhotoUploading] = useState(false);
-  const [photoShared, setPhotoShared] = useState(false);
   const [sharing, setSharing] = useState(false);
 
   const captureCard = async () => {
-    const cardEl = document.getElementById('share-card');
-    if (!cardEl) return null;
-    return html2canvas(cardEl, { scale:1, useCORS:true, backgroundColor:null });
+    if (!shareCardRef?.current) return null;
+    try {
+      const canvas = await html2canvas(shareCardRef.current, { scale: 0.5, useCORS: true, backgroundColor: null });
+      return canvas;
+    } catch(e) { console.error("html2canvas:", e); return null; }
   };
 
   const handleShareStories = async () => {
     setSharing(true);
-    try {
-      const canvas = await captureCard();
-      if (!canvas) return;
-      canvas.toBlob(async (blob) => {
-        const file = new File([blob], 'partida-pc.png', { type:'image/png' });
-        if (navigator.share && navigator.canShare({ files:[file] })) {
-          await navigator.share({ files:[file], title:'La meva partida a P&C' });
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a'); a.href=url; a.download='partida-pc.png'; a.click();
-        }
-      });
-    } finally { setSharing(false); }
-  };
-
-  const handleDownloadCard = async () => {
-    setSharing(true);
-    try {
-      const canvas = await captureCard();
-      if (!canvas) return;
-      canvas.toBlob((blob) => {
+    const canvas = await captureCard();
+    if (!canvas) { setSharing(false); return; }
+    canvas.toBlob(async (blob) => {
+      if (!blob) { setSharing(false); return; }
+      const file = new File([blob], "pitchandclubs-round.png", { type: "image/png" });
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: "La meva partida a Pitch & Clubs" }); }
+        catch(e) { if (e.name !== "AbortError") console.error(e); }
+      } else {
+        // Fallback: download
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href=url; a.download='partida-pc.png'; a.click();
-      });
-    } finally { setSharing(false); }
+        const a = document.createElement("a"); a.href = url; a.download = "pitchandclubs-round.png"; a.click();
+        URL.revokeObjectURL(url);
+      }
+      setSharing(false);
+    }, "image/png");
   };
 
-  const handleSharePhoto = async () => {
-    if (!photoFile || !onPhotoUpload) return;
-    setPhotoUploading(true);
-    await onPhotoUpload(photoFile, photoCaption, photoLabel, game.supabaseId);
-    setPhotoUploading(false);
-    setPhotoShared(true);
-    setShowPhotoCard(false);
+  const handleDownload = async () => {
+    setSharing(true);
+    const canvas = await captureCard();
+    if (!canvas) { setSharing(false); return; }
+    const url = canvas.toDataURL("image/png");
+    const a = document.createElement("a"); a.href = url; a.download = "pitchandclubs-round.png"; a.click();
+    setSharing(false);
   };
+  const diff = me?.diff ?? 0;
+  const tierNow = getTier(userPts);
+  const tierPrev = getTier(prevPts);
+  const levelUp = tierNow.id !== tierPrev.id;
 
   return (
     <div className="page-scroll ani-up">
@@ -2133,25 +2073,6 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
         </div>
       )}
 
-      {/* Compartir foto */}
-      {user && onPhotoUpload && showPhotoCard && !photoShared && (
-        <div className="card" style={{marginBottom:14,padding:"15px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-            <div style={{fontWeight:700,fontSize:13}}>📸 Compartir foto de la partida</div>
-            <button onClick={()=>setShowPhotoCard(false)} style={{background:"none",border:"none",color:"#555761",cursor:"pointer",fontSize:18,padding:0,lineHeight:1}}>×</button>
-          </div>
-          <input type="file" accept="image/*" style={{width:"100%",marginBottom:8,fontSize:12,color:"#fff",background:"#111214",border:"1px solid #222327",borderRadius:6,padding:"6px 8px"}}
-            onChange={e=>setPhotoFile(e.target.files[0])}/>
-          <input type="text" placeholder="Descripció (ex: Eagle al 12!)" maxLength={80} value={photoCaption} onChange={e=>setPhotoCaption(e.target.value)}
-            style={{width:"100%",background:"#111214",border:"1px solid #222327",borderRadius:6,padding:"7px 10px",color:"#fff",fontSize:12,marginBottom:8,boxSizing:"border-box"}}/>
-          <div style={{display:"flex",gap:6,marginBottom:10}}>
-            {["Eagle","Birdie","Par","Bogey"].map(l=>(
-              <button key={l} onClick={()=>setPhotoLabel(l)} style={{flex:1,padding:"5px 0",borderRadius:6,border:`1px solid ${photoLabel===l?"#CAFF4D":"#222327"}`,background:photoLabel===l?"rgba(202,255,77,.1)":"transparent",color:photoLabel===l?"#CAFF4D":"#555761",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"Inter"}}>{l}</button>
-            ))}
-          </div>
-          <button className="btn btn-primary" style={{fontSize:12}} onClick={handleSharePhoto} disabled={!photoFile||photoUploading}>{photoUploading?"Pujant...":"Compartir a la comunitat →"}</button>
-        </div>
-      )}
 
       {/* Hole breakdown */}
       <div className="card" style={{marginBottom:14}}>
@@ -2189,13 +2110,15 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
         </div>
       </div>
 
-      {/* Share card buttons */}
-      <div style={{display:"flex",gap:8,marginBottom:8}}>
-        <button className="btn btn-primary" style={{flex:1,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:6}} onClick={handleShareStories} disabled={sharing}>
-          <Share2 size={15}/>{sharing?"Generant...":"Compartir a Stories"}
+      {/* Share to Stories */}
+      <div style={{marginBottom:16,display:"flex",gap:8}}>
+        <button onClick={handleShareStories} disabled={sharing}
+          style={{flex:1,padding:"13px",borderRadius:12,border:"1px solid rgba(202,255,77,.4)",background:"rgba(202,255,77,.08)",color:"#CAFF4D",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:sharing?.6:1}}>
+          <Share2 size={14}/>{sharing?"Generant...":"Compartir a Stories"}
         </button>
-        <button onClick={handleDownloadCard} disabled={sharing} style={{width:48,flexShrink:0,borderRadius:10,border:"1px solid #222327",background:"#1A1B1E",color:"#CAFF4D",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <Download size={16}/>
+        <button onClick={handleDownload} disabled={sharing}
+          style={{padding:"13px 14px",borderRadius:12,border:"1px solid #222327",background:"#1A1B1E",color:"#787C8A",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:sharing?.6:1}}>
+          <Download size={14}/>
         </button>
       </div>
 
@@ -2212,7 +2135,7 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
 /* ═══════════════════════════════════════════════════════════════
    RANKING SCREEN — 3 filtres: Global / Setmana / Per camp
 ═══════════════════════════════════════════════════════════════ */
-function RankingScreen({ user, openAuth, setScreen, lang }) {
+function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
   const tl = (k,v={}) => t(lang,k,v);
   const [liveRanking, setLiveRanking] = useState(null);
   const [loading, setLoading]         = useState(true);
@@ -2242,7 +2165,7 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
           });
           const global = Object.entries(userMap)
             .map(([uid, v], i) => ({
-              rank: i+1, name: v.name, club: v.club,
+              rank: i+1, name: v.name, club: v.club, uid,
               pts: v.pts,
               best: v.scores.length ? Math.min(...v.scores) : 0,
               avatar: v.name.split(" ").map(w=>w[0]).slice(0,2).join(""),
@@ -2292,13 +2215,15 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
       </div>
       {/* ── LEADERBOARD */}
       <div className="card" style={{overflow:"hidden",padding:0,marginBottom:16}}>
-        <div style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 58px",padding:"7px 13px",borderBottom:"1px solid #1A1B1E",fontSize:9,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761"}}>
-          <span>#</span><span>{lang==="en"?"Player":lang==="es"?"Jugador":"Jugador"}</span><span style={{textAlign:"center"}}>{lang==="en"?"Best":lang==="es"?"Mejor":"Millor"}</span><span style={{textAlign:"right"}}>Pts</span>
+        <div style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 44px 32px",padding:"7px 13px",borderBottom:"1px solid #1A1B1E",fontSize:9,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761"}}>
+          <span>#</span><span>{lang==="en"?"Player":lang==="es"?"Jugador":"Jugador"}</span><span style={{textAlign:"center"}}>{lang==="en"?"Best":lang==="es"?"Mejor":"Millor"}</span><span style={{textAlign:"right"}}>Pts</span><span/>
         </div>
         {globalData.map((p,i) => {
           const tier = getTier(p.pts);
+          const canFollow = user && p.uid && p.uid !== user?.id;
+          const isFollowing = follows?.includes(p.uid);
           return (
-            <div key={p.rank} style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 58px",alignItems:"center",padding:"10px 13px",borderBottom:"1px solid #111214",cursor:"pointer"}} onClick={goProfile}>
+            <div key={p.rank} style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 44px 32px",alignItems:"center",padding:"10px 13px",borderBottom:"1px solid #111214"}}>
               <div style={{fontFamily:"'Bebas Neue'",fontSize:14,color:i===0?"#FBBF24":i===1?"#9CA3AF":i===2?"#CD7F32":"#2A2B30"}}>{String(p.rank).padStart(2,"0")}</div>
               <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                 <div style={{width:26,height:26,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{p.avatar}</div>
@@ -2309,6 +2234,14 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
               </div>
               <div style={{fontFamily:"'Bebas Neue'",fontSize:16,textAlign:"center",color:p.best<0?"#CAFF4D":p.best===0?"#fff":"#555761"}}>{p.best>0?`+${p.best}`:p.best}</div>
               <div style={{textAlign:"right",fontWeight:700,fontSize:12,color:"#CAFF4D"}}>{p.pts}</div>
+              <div style={{display:"flex",justifyContent:"center"}}>
+                {canFollow && (
+                  <button onClick={()=>onFollow&&onFollow(p.uid)}
+                    style={{padding:"4px 5px",borderRadius:6,border:`1px solid ${isFollowing?"rgba(202,255,77,.3)":"#333"}`,background:isFollowing?"rgba(202,255,77,.08)":"transparent",color:isFollowing?"#CAFF4D":"#555",cursor:"pointer",display:"flex",alignItems:"center"}}>
+                    <Bell size={10}/>
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
@@ -3062,6 +2995,22 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
         </div>
       )}
 
+      {/* ── CLOSE LIVE GAME ── */}
+      {user && (
+        <div className="card" style={{marginBottom:12,padding:"14px",borderColor:"rgba(239,68,68,.2)"}}>
+          <div style={{fontSize:11,color:"#787C8A",marginBottom:10}}>
+            Tens alguna partida en directe activa? Tanca-la si no estàs jugant.
+          </div>
+          <button onClick={async()=>{
+            const {error}=await supabase.from("games").update({is_live:false}).eq("user_id",user.id).eq("is_live",true);
+            if(!error) alert("Partides en directe tancades.");
+            else alert("Error: "+error.message);
+          }} style={{width:"100%",padding:"10px",borderRadius:10,border:"1px solid rgba(239,68,68,.35)",background:"rgba(239,68,68,.07)",color:"#EF4444",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+            Tancar partida en directe
+          </button>
+        </div>
+      )}
+
       {/* ── SEGUINT (follows) ── */}
       {user && (
         <div className="card" style={{marginBottom:12,padding:"14px"}}>
@@ -3241,12 +3190,20 @@ export default function App() {
   const [activityFeed, setActivityFeed] = useState([]);
   const [liveGames, setLiveGames]       = useState([]);
   const [selectedLiveGame, setSelectedLiveGame] = useState(null);
-  const [roundPhoto, setRoundPhoto] = useState(null);
-  const [roundPhotoUrl, setRoundPhotoUrl] = useState(null);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [follows, setFollows] = useState([]);
+  const [roundPhoto, setRoundPhoto] = useState(null);
+  const [roundPhotoUrl, setRoundPhotoUrl] = useState(null);
+  const shareCardRef = useRef(null);
   const leads = useRef([]);
   const liveDebounce = useRef(null);
+
+  useEffect(() => {
+    if (!roundPhoto) { setRoundPhotoUrl(null); return; }
+    const url = URL.createObjectURL(roundPhoto);
+    setRoundPhotoUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [roundPhoto]);
 
   // PWA install prompt
   useEffect(() => {
@@ -3254,14 +3211,6 @@ export default function App() {
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
-
-  // Convert roundPhoto File to URL for ShareCard
-  useEffect(() => {
-    if (!roundPhoto) { setRoundPhotoUrl(null); return; }
-    const url = URL.createObjectURL(roundPhoto);
-    setRoundPhotoUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [roundPhoto]);
 
   useEffect(() => {
     // Fetch activity feed (all recent games for the public feed)
@@ -3429,7 +3378,6 @@ export default function App() {
     localStorage.setItem('pc_gameData', JSON.stringify(data));
     localStorage.setItem('pc_screen', 'scorecard');
     setGameData(data);
-    setRoundPhoto(null);
     setScreen("scorecard");
 
     // If live share enabled and user is logged in, insert a live row immediately
@@ -3575,8 +3523,8 @@ export default function App() {
             }).eq("id", liveGameId);
           }, 1500);
         }}/>}
-        {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} onPhotoUpload={handlePhotoUpload} roundPhoto={roundPhotoUrl}/>}
-        {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang}/>}
+        {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} shareCardRef={shareCardRef} roundPhoto={roundPhotoUrl}/>}
+        {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang} follows={follows} onFollow={handleFollow}/>}
         {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null} follows={follows} onFollow={handleFollow}/>}
         {screen==="live" && selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth} follows={follows} onFollow={handleFollow}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
@@ -3584,15 +3532,11 @@ export default function App() {
 
         {!isGameFlow && <BottomNav screen={screen} setScreen={setScreenSafe} lang={lang}/>}
 
+        {/* Hidden ShareCard for Stories export */}
+        {lastGame && <ShareCard game={lastGame} cardRef={shareCardRef} photo={roundPhotoUrl}/>}
+
         {showAuth && <AuthModal onClose={()=>setShowAuth(false)} onAuth={handleAuth} lang={lang} initialMode={authMode}/>}
         {toast && <div className="toast">{toast}</div>}
-
-        {/* Hidden ShareCard for html2canvas — always in DOM when lastGame exists */}
-        {lastGame && (
-          <div id="share-card" style={{position:'fixed',left:'-9999px',top:0,width:1080,height:1920,pointerEvents:'none',zIndex:-1}}>
-            <ShareCard game={lastGame} user={user} roundPhoto={roundPhotoUrl}/>
-          </div>
-        )}
 
         {/* PWA install banner */}
         {installPrompt && (

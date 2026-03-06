@@ -317,14 +317,11 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 
 /* ── APP SHELL */
 .app{
-  background:#111214;
-  background-image: repeating-linear-gradient(
-    135deg,
-    rgba(202,255,77,0.018) 0px,
-    rgba(202,255,77,0.018) 1px,
-    transparent 1px,
-    transparent 8px
-  );
+  background:#0A0A0B;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(34,85,34,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(20,60,20,0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 80%, rgba(40,90,40,0.03) 0%, transparent 55%);
   color:#FFFFFF;
   height:100dvh;
   width:100%;
@@ -685,7 +682,7 @@ const mapGameToFeedItem = (g) => {
   const diff = me?.diff ?? 0;
   const label = diff <= -3 ? "Eagle+" : diff === -2 ? "Eagle" : diff === -1 ? "Birdie" : diff === 0 ? "Par" : diff === 1 ? "Bogey" : `+${diff}`;
   const lc = diff < -1 ? "#FBBF24" : diff === -1 ? "#60A5FA" : diff === 0 ? "#CAFF4D" : "#9CA3AF";
-  return { id: g.id, user: me?.name || "?", course: g.course, diff, label, lc, points: me?.points ?? 0, created_at: g.created_at };
+  return { id: g.id, user: me?.name || "Jugador", avatarUrl: me?.avatarUrl || null, course: g.course_name || g.course, diff, label, lc, points: me?.points ?? 0, created_at: g.created_at };
 };
 
 const timeAgo = (isoStr) => {
@@ -760,7 +757,7 @@ const LEADERBOARD_CAMP = [
 /* ═══════════════════════════════════════════════════════════════
    HOME SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, activeGame, onResumeGame, activityFeed, liveGames }) {
+function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, activeGame, onResumeGame, activityFeed, liveGames, onSelectGame }) {
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [liked, setLiked] = useState({});
@@ -885,8 +882,8 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.course}</div>
-                    <div style={{fontSize:11,color:"#555761",marginTop:2,display:"flex",alignItems:"center",gap:4}}>
-                      <Calendar size={10}/>{g.date} · {g.scores.length} {tl("holes_label")}
+                    <div style={{fontSize:11,color:"#555761",marginTop:2}}>
+                      {g.scores.length} {tl("holes_label")}
                     </div>
                   </div>
                   {me && <div style={{textAlign:"right",marginLeft:10,flexShrink:0}}>
@@ -926,32 +923,10 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
                 Tot <ChevronRight size={13}/>
               </button>
             </div>
-            {livePrev.map(g=><LiveGameCard key={g.id} game={g} compact/>)}
+            {livePrev.map(g=><LiveGameCard key={g.id} game={g} compact onClick={g=>{ if(!user){openAuth();return;} if(onSelectGame)onSelectGame(g); }}/>)}
           </div>
         ) : null;
       })()}
-
-      {/* ── ACTIVITAT GLOBAL ── */}
-      {activityFeed && activityFeed.length > 0 && (
-        <div style={{marginBottom:16}}>
-          <SectionHeader sub="Activitat global" title="ÚLTIMES PARTIDES"/>
-          {activityFeed.slice(0,4).map(item=>(
-            <div key={item.id} className="card" style={{padding:"11px 14px",marginBottom:6,display:"flex",alignItems:"center",gap:10}}>
-              <div style={{width:30,height:30,borderRadius:"50%",background:"#2A2B30",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,flexShrink:0}}>
-                {String(item.user||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
-              </div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.user}</div>
-                <div style={{fontSize:10,color:"#555761",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.course} · {timeAgo(item.created_at)}</div>
-              </div>
-              <div style={{textAlign:"right",flexShrink:0}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:item.lc,lineHeight:1}}>{item.diff>0?`+${item.diff}`:item.diff===0?"E":item.diff}</div>
-                <div style={{fontSize:9,color:"#555761"}}>{item.label}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* ── TESTIMONIALS ── */}
       <div style={{marginBottom:16}}>
@@ -964,8 +939,10 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
             {initials:"GR",color:"#34D399",quote:lang==="en"?"Finally a pitch & putt app made by players":lang==="es"?"Por fin una app de pitch & putt hecha por jugadores":"Finalment una app de pitch & putt feta per jugadors",author:"Gerard R.",club:"Vallromanes"},
             {initials:"MO",color:"#60A5FA",quote:lang==="en"?"The live ranking makes every hole count":lang==="es"?"El ranking en directo hace que cada hoyo cuente":"El rànquing en directe fa que cada forat compti",author:"Marta O.",club:"Mas Gurumbau"},
             {initials:"JV",color:"#A78BFA",quote:lang==="en"?"The best way to track my handicap progress":lang==="es"?"La mejor manera de seguir la progresión de mi hándicap":"La millor manera de seguir la progressió del meu hàndicap",author:"Jordi V.",club:"Àccura Teià"},
+            {initials:"AP",color:"#CAFF4D",quote:lang==="en"?"Signing up took 30 seconds and now I can\'t stop checking my ranking":lang==="es"?"Me registré en 30 segundos y ahora no puedo dejar de mirar el ranking":"Em vaig registrar en 30 segons i ara no paro de mirar el rànquing",author:"Anna P.",club:"Prat de Llobregat"},
+            {initials:"RF",color:"#FBBF24",quote:lang==="en"?"Playing in tournaments has never been this fun":lang==="es"?"Jugar en torneos nunca había sido tan divertido":"Mai havia sigut tan divertit jugar en tornejos",author:"Raimon F.",club:"Canal Olímpic"},
           ].map((t,i)=>(
-            <div key={i} style={{minWidth:260,background:"#1A1B1E",borderLeft:`3px solid ${t.color}`,borderRadius:"0 8px 8px 0",padding:"14px",scrollSnapAlign:"start",flexShrink:0}}>
+            <div key={i} style={{minWidth:280,background:"#111118",borderLeft:`3px solid ${t.color}`,borderRadius:"0 8px 8px 0",padding:"14px",scrollSnapAlign:"start",flexShrink:0}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
                 <div style={{width:30,height:30,borderRadius:"50%",background:t.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{t.initials}</div>
                 <div>
@@ -1029,38 +1006,6 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
 
 
 
-      {/* ── MINI LEADERBOARD ── */}
-      <div style={{marginBottom:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
-          <div>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:4}}>{tl("sec_ranking")}</div>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(20px,5vw,30px)",letterSpacing:".04em",lineHeight:1}}>{tl("sec_top_ranking")}</div>
-          </div>
-          <button style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#CAFF4D",cursor:"pointer",border:"none",background:"none",display:"flex",alignItems:"center",gap:4}} onClick={()=>setScreen("ranking")}>
-            {lang==="en"?"All":tl("cat_all")} <ChevronRight size={13}/>
-          </button>
-        </div>
-        <div className="card" style={{overflow:"hidden",padding:0}}>
-          {LEADERBOARD.slice(0,5).map((p,i)=>{
-            const tier=getTier(p.pts);
-            return (
-              <div key={p.rank} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:i<4?"1px solid #111214":"none"}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:i<3?17:13,color:i<3?"#CAFF4D":"#2A2B30",width:22,textAlign:"center",flexShrink:0}}>0{p.rank}</div>
-                <div style={{width:27,height:27,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{p.avatar}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
-                  <div style={{fontSize:9,color:"#555761"}}>{tier.emoji} {tier.name} · {p.club}</div>
-                </div>
-                <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{fontFamily:"'Bebas Neue'",fontSize:15,color:p.best<0?"#CAFF4D":p.best===0?"#fff":"#555761"}}>{p.best>0?`+${p.best}`:p.best}</div>
-                  <div style={{fontSize:9,color:"#CAFF4D",fontWeight:700}}>{p.pts}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* ── BOTIGA AVIAT ── */}
       <div className="card card-lime" style={{padding:"16px",marginBottom:16,display:"flex",gap:14,alignItems:"center"}}>
         <ShoppingBag size={22} color="#CAFF4D" style={{flexShrink:0}}/>
@@ -1102,6 +1047,29 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
   const [players, setPlayers] = useState([{ id:1, name: user?.name || "", isMe:true }]);
   const [liveShare, setLiveShare] = useState(false);
   const [teams, setTeams] = useState([{id:"A",players:[]},{id:"B",players:[]}]);
+  const [playerSuggestions, setPlayerSuggestions] = useState({});
+  const [focusedPlayerId, setFocusedPlayerId] = useState(null);
+  const searchDebounce = useRef({});
+
+  const searchPlayers = (playerId, query) => {
+    clearTimeout(searchDebounce.current[playerId]);
+    if (query.length < 2) { setPlayerSuggestions(ps=>({...ps,[playerId]:[]})); return; }
+    searchDebounce.current[playerId] = setTimeout(async () => {
+      const { data } = await supabase.from("games").select("players").limit(30);
+      if (!data) return;
+      const seen = new Set();
+      const results = [];
+      data.forEach(row => {
+        (row.players||[]).forEach(p => {
+          if (p.name && p.name.toLowerCase().includes(query.toLowerCase()) && !seen.has(p.name)) {
+            seen.add(p.name);
+            results.push({ name: p.name, initials: p.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase() });
+          }
+        });
+      });
+      setPlayerSuggestions(ps=>({...ps,[playerId]:results.slice(0,5)}));
+    }, 250);
+  };
 
   // Sync player 1 name when user auth resolves after mount
   useEffect(() => {
@@ -1307,17 +1275,33 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
         ) : (
           /* ── Standard player list ── */
           players.map((p,i) => (
-            <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",background:"#1A1B1E",border:"1px solid #222327",borderRadius:8,marginBottom:6}}>
-              <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[i],flexShrink:0}} />
-              <input className="inp" style={{flex:1,minWidth:0,padding:"6px 0",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0,color:"#fff"}}
-                placeholder={p.isMe ? "El teu nom" : `Jugador ${i+1}`}
-                value={p.name}
-                onChange={e=>updateName(p.id,e.target.value)}
-                onFocus={e=>e.target.select()}
-                autoFocus={!p.isMe && i===players.length-1}
-              />
-              {p.isMe && <span style={{fontSize:10,color:"#555761",fontWeight:600,flexShrink:0}}>TU</span>}
-              {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:18,padding:4,lineHeight:1,flexShrink:0}} onClick={()=>removePlayer(p.id)}>×</button>}
+            <div key={p.id} style={{position:"relative",marginBottom:6}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",background:"#1A1B1E",border:"1px solid #222327",borderRadius:8}}>
+                <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[i],flexShrink:0}} />
+                <input className="inp" style={{flex:1,minWidth:0,padding:"6px 0",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0,color:"#fff"}}
+                  placeholder={p.isMe ? "El teu nom" : `Jugador ${i+1}`}
+                  value={p.name}
+                  onChange={e=>{updateName(p.id,e.target.value);if(!p.isMe)searchPlayers(p.id,e.target.value);}}
+                  onFocus={e=>{e.target.select();setFocusedPlayerId(p.id);}}
+                  onBlur={()=>setTimeout(()=>setFocusedPlayerId(null),150)}
+                  autoFocus={!p.isMe && i===players.length-1}
+                />
+                {p.isMe && <span style={{fontSize:10,color:"#555761",fontWeight:600,flexShrink:0}}>TU</span>}
+                {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:18,padding:4,lineHeight:1,flexShrink:0}} onClick={()=>removePlayer(p.id)}>×</button>}
+              </div>
+              {!p.isMe && focusedPlayerId===p.id && (playerSuggestions[p.id]||[]).length>0 && (
+                <div style={{position:"absolute",left:0,right:0,top:"100%",zIndex:50,background:"#1A1B1E",border:"1px solid #333",borderRadius:8,overflow:"hidden",boxShadow:"0 4px 16px rgba(0,0,0,.5)"}}>
+                  {(playerSuggestions[p.id]||[]).map((s,si)=>(
+                    <div key={si} onMouseDown={()=>{updateName(p.id,s.name);setPlayerSuggestions(ps=>({...ps,[p.id]:[]}));}}
+                      style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",borderBottom:si<(playerSuggestions[p.id].length-1)?"1px solid #222327":"none"}}
+                      onMouseEnter={e=>e.currentTarget.style.background="#222327"}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <div style={{width:28,height:28,borderRadius:"50%",background:PLAYER_COLORS[i],display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{s.initials}</div>
+                      <div style={{fontSize:13,fontWeight:600}}>{s.name}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))
         )}
@@ -2117,7 +2101,16 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
     return () => { cancelled = true; };
   }, []);
 
-  const globalData = (liveRanking || LEADERBOARD).slice(0, 10);
+  const MOCK_EXTRA = [
+    { name:"Arnau Puig",  avatar:"AP", club:"Vallromanes",  pts:847,  best:-4, color:"#60A5FA" },
+    { name:"Marta Oller", avatar:"MO", club:"Mas Gurumbau", pts:723,  best:-2, color:"#F472B6" },
+    { name:"Pere Vidal",  avatar:"PV", club:"Canal Olímpic",pts:612,  best:-1, color:"#FBBF24" },
+  ];
+  const base = liveRanking || LEADERBOARD;
+  const merged = [...base, ...MOCK_EXTRA]
+    .sort((a, b) => b.pts - a.pts)
+    .map((p, i) => ({ ...p, rank: i + 1 }));
+  const globalData = merged.slice(0, 10);
   const isLive     = !!liveRanking;
 
   return (
@@ -2306,7 +2299,7 @@ function TournamentsScreen({ openAuth, user, lang }) {
 /* ═══════════════════════════════════════════════════════════════
    LIVE GAME VIEW — full-screen overlay for watching a live game
 ═══════════════════════════════════════════════════════════════ */
-function LiveGameView({ game, liveGames, onClose, lang }) {
+function LiveGameView({ game, liveGames, onClose, lang, user, openAuth }) {
   // Auto-update: find latest version from live feed
   const live = (liveGames && liveGames.find(g => g.id === game.id)) || game;
   const diff = live.score_total ?? 0;
@@ -2348,8 +2341,11 @@ function LiveGameView({ game, liveGames, onClose, lang }) {
             const pScoreColor = pDiff < -1 ? "#FBBF24" : pDiff === -1 ? "#60A5FA" : pDiff === 0 ? "#CAFF4D" : "#EF4444";
             return (
               <div key={p.id||i} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:i<live.players.length-1?"1px solid #111214":"none"}}>
-                <div style={{width:28,height:28,borderRadius:"50%",background:pc,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>
-                  {(p.name||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+                <div style={{width:28,height:28,borderRadius:"50%",background:pc,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
+                  {p.avatarUrl
+                    ? <img src={p.avatarUrl} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+                    : (p.name||"P").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase() || "P"
+                  }
                 </div>
                 <div style={{flex:1,fontWeight:600,fontSize:13}}>{p.name}</div>
                 <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:pScoreColor}}>
@@ -2373,21 +2369,34 @@ function LiveGameView({ game, liveGames, onClose, lang }) {
               <div style={{fontSize:9,color:"#555761",fontWeight:700,textAlign:"center",paddingBottom:4}}>F.</div>
               {(live.players||[]).map((p,i)=>(
                 <div key={p.id||i} style={{fontSize:9,color:PLAYER_COLORS[i]||"#CAFF4D",fontWeight:700,textAlign:"center",paddingBottom:4}}>
-                  {(p.name||"?").split(" ")[0].slice(0,4).toUpperCase()}
+                  {(p.name||"P").split(" ")[0].slice(0,4).toUpperCase()}
                 </div>
               ))}
-              {/* Score rows */}
-              {live.scores.map((h, hi) => (
-                <React.Fragment key={hi}>
-                  <div style={{fontSize:10,color:"#555761",fontWeight:600,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",height:34}}>{h.hole}</div>
-                  {(live.players||[{id:"0"}]).map((p, pi) => (
-                    <div key={p.id||pi} style={{display:"flex",alignItems:"center",justifyContent:"center",height:34}}>
-                      <ScoreSymbol v={h.playerScores?.[p.id]} par={h.par} size={28}/>
-                    </div>
-                  ))}
-                </React.Fragment>
-              ))}
+              {/* Score rows — guests see only first 3 holes */}
+              {live.scores.map((h, hi) => {
+                const isBlurred = !user && hi >= 3;
+                return (
+                  <React.Fragment key={hi}>
+                    <div style={{fontSize:10,color:"#555761",fontWeight:600,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",height:34,filter:isBlurred?"blur(4px)":"none",userSelect:isBlurred?"none":"auto"}}>{h.hole}</div>
+                    {(live.players||[{id:"0"}]).map((p, pi) => (
+                      <div key={p.id||pi} style={{display:"flex",alignItems:"center",justifyContent:"center",height:34,filter:isBlurred?"blur(5px)":"none",userSelect:isBlurred?"none":"auto"}}>
+                        <ScoreSymbol v={h.playerScores?.[p.id]} par={h.par} size={28}/>
+                      </div>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
             </div>
+            {!user && live.scores?.length > 3 && (
+              <div style={{textAlign:"center",padding:"16px",marginTop:12,background:"rgba(10,10,11,.95)",borderRadius:10,border:"1px solid rgba(202,255,77,.25)"}}>
+                <div style={{fontSize:13,fontWeight:700,color:"#CAFF4D",marginBottom:6}}>
+                  {lang==="en"?"Create a free account to watch the full round →":lang==="es"?"Crea cuenta gratuita para ver la partida completa →":"Crea un compte per veure la partida completa →"}
+                </div>
+                <button className="btn btn-primary btn-sm" style={{width:"auto",borderRadius:100,padding:"8px 20px",fontSize:12}} onClick={()=>{onClose();openAuth();}}>
+                  {lang==="en"?"Join free →":lang==="es"?"Únete gratis →":"Uneix-te gratis →"}
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <div style={{textAlign:"center",padding:"32px 16px",color:"#555761",fontSize:13}}>
@@ -2431,7 +2440,7 @@ function LiveGameCard({ game, compact, onClick }) {
       <div className={`live-card${game.is_live?" is-live":""}`} onClick={onClick?()=>onClick(game):undefined} style={onClick?{cursor:"pointer"}:{}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:34,height:34,borderRadius:"50%",background:game.color||"#CAFF4D",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
-            {game.avatar_url ? <img src={game.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : (game.avatar||"?")}
+            {game.avatar_url ? <img src={game.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : (game.avatar || (game.player_name||"P").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("") || "P")}
           </div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
@@ -2457,7 +2466,7 @@ function LiveGameCard({ game, compact, onClick }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:40,height:40,borderRadius:"50%",background:game.color||"#CAFF4D",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
-            {game.avatar_url ? <img src={game.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : (game.avatar||"?")}
+            {game.avatar_url ? <img src={game.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : (game.avatar || (game.player_name||"P").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("") || "P")}
           </div>
           <div>
             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
@@ -2479,6 +2488,14 @@ function LiveGameCard({ game, compact, onClick }) {
       <div style={{height:4,background:"#111214",borderRadius:2,overflow:"hidden"}}>
         <div style={{height:"100%",width:`${pct}%`,background:game.is_live?"#EF4444":"#555761",borderRadius:2,transition:"width .5s"}}/>
       </div>
+      {onClick && (
+        <button onClick={e=>{e.stopPropagation();onClick(game);}}
+          style={{marginTop:10,width:"100%",padding:"7px",borderRadius:8,border:"1px solid rgba(239,68,68,.3)",
+            background:"rgba(239,68,68,.07)",color:"#EF4444",fontSize:11,fontWeight:700,cursor:"pointer",
+            display:"flex",alignItems:"center",justifyContent:"center",gap:6,letterSpacing:".04em"}}>
+          👁 Seguir en directe
+        </button>
+      )}
     </div>
   );
 }
@@ -2817,7 +2834,7 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
             const vals=profile.hcpHist.map(x=>x.v);
             const maxV=Math.max(...vals), minV=Math.min(...vals);
             const range=maxV-minV||1;
-            const h=Math.round(((maxV-pt.v)/range)*44)+8;
+            const h=Math.round(((pt.v-minV)/range)*44)+8;
             return (
               <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:2}}>
                 <div style={{fontSize:7,color:"#60A5FA",fontWeight:700}}>{pt.v}</div>
@@ -2827,7 +2844,7 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
             );
           })}
         </div>
-        <div style={{fontSize:9,color:"#60A5FA",fontWeight:600,textAlign:"center",opacity:.7}}>↓ millora</div>
+        <div style={{fontSize:9,color:"#60A5FA",fontWeight:600,textAlign:"center",opacity:.7}}>↓ menor = millora</div>
       </div>
 
       {/* Score distribution */}
@@ -2995,7 +3012,8 @@ function AuthModal({ onClose, onAuth, lang, initialMode="register" }) {
 export default function App() {
   const [screen, setScreen] = useState(() => {
     const saved = localStorage.getItem('pc_screen');
-    return saved === 'scorecard' ? 'scorecard' : 'home';
+    const hasGame = !!localStorage.getItem('pc_gameData');
+    return (saved === 'scorecard' && hasGame) ? 'scorecard' : 'home';
   });
   const [lang, setLang] = useState("ca");
   const [user, setUser] = useState(null);
@@ -3281,7 +3299,7 @@ export default function App() {
       <div className="app">
         {screen!=="scorecard" && <AppHeader screen={screen} setScreen={setScreenSafe} user={user} openAuth={openAuth} onSignOut={handleSignOut} userPts={userPts} lang={lang} setLang={setLang}/>}
 
-        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")} activityFeed={activityFeed} liveGames={liveGames}/>}
+        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")} activityFeed={activityFeed} liveGames={liveGames} onSelectGame={setSelectedLiveGame}/>}
         {screen==="game-setup" && <GameSetupScreen   user={user} openAuth={openAuth} onStart={handleGameStart} lang={lang}/>}
         {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang} liveGameId={liveGameId} onLiveUpdate={(scores, curHole) => {
           if (!liveGameId) return;
@@ -3299,7 +3317,7 @@ export default function App() {
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} onPhotoUpload={handlePhotoUpload}/>}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang}/>}
         {screen==="live"       && <LiveScreen        user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null}/>}
-        {selectedLiveGame && user && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang}/>}
+        {selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser}/>}
 

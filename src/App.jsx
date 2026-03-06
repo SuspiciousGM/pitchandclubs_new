@@ -3,9 +3,10 @@ import {
   Home, BarChart2, ShoppingBag, Trophy, User, Plus, ChevronRight, ChevronLeft,
   Check, X, Search, MapPin, Calendar, Users, Zap, Star, TrendingUp,
   Award, Flag, Target, Activity, Heart, Globe, Flame, Crown, ArrowRight,
-  Play, Share2, Bell, AlertCircle, CheckCircle, Minus, Menu, LogOut
+  Play, Share2, Bell, AlertCircle, CheckCircle, Minus, Menu, LogOut, Camera, Download
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
+import html2canvas from "html2canvas";
 
 /* ─── i18n ───────────────────────────────────────────────────── */
 const T = {
@@ -1494,7 +1495,7 @@ function AnimPts({ value, prev }) {
   );
 }
 
-function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, liveGameId, onLiveUpdate }) {
+function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, liveGameId, onLiveUpdate, onPhotoCapture }) {
   const tl = (k,v={}) => t(lang,k,v);
   const { course, players } = gameData;
   const pph = Math.round(course.par / course.holes);
@@ -1667,6 +1668,10 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
             <button onClick={()=>setShowFull(true)} style={{padding:'6px 11px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#787C8A',fontSize:10,fontWeight:700,cursor:'pointer',letterSpacing:'.06em',textTransform:'uppercase'}}>
               {lang==='en'?'Card':lang==='es'?'Tarjeta':'Targeta'}
             </button>
+            <label htmlFor="cam-capture" style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center'}}>
+              <Camera size={12}/>
+            </label>
+            <input id="cam-capture" type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e=>{ const f=e.target.files?.[0]; if(f&&onPhotoCapture) onPhotoCapture(f); e.target.value=''; }}/>
             <button onClick={()=>{ if(window.confirm(lang==='en'?'Abandon this round? Progress will be lost.':lang==='es'?'¿Abandonar la ronda? Se perderá el progreso.':'Abandonar la ronda? Es perdran els progressos.')) onDelete(); }} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',fontSize:10,fontWeight:700,cursor:'pointer'}}>
               <X size={12}/>
             </button>
@@ -1847,7 +1852,120 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
   );
 }
 
-function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang, onPhotoUpload }) {
+/* ═══════════════════════════════════════════════════════════════
+   SHARE CARD — hidden 1080×1920 PNG for Instagram Stories
+═══════════════════════════════════════════════════════════════ */
+function ShareCard({ game, user, roundPhoto }) {
+  if (!game) return null;
+  const me = game.players.find(p => p.isMe) || game.players[0];
+  const diff = me?.diff ?? 0;
+  const scoreColor = diff <= -2 ? "#FBBF24" : diff === -1 ? "#60A5FA" : diff === 0 ? "#CAFF4D" : "#EF4444";
+  const scoreFmt = diff > 0 ? `+${diff}` : diff === 0 ? "E" : `${diff}`;
+  const initials = (me?.name || "PC").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+
+  // Compute per-hole stats for the "me" player
+  const holes = game.scores || [];
+  const stats = { eagle:0, birdie:0, par:0, bogey:0, double:0 };
+  holes.forEach(h => {
+    const s = h.playerScores?.[me?.id]; if (s == null) return;
+    const d = s - h.par;
+    if (d <= -2) stats.eagle++; else if (d === -1) stats.birdie++; else if (d === 0) stats.par++; else if (d === 1) stats.bogey++; else stats.double++;
+  });
+  const pts = me?.points ?? 0;
+  const halfCount = Math.ceil(holes.length / 2);
+  const row1 = holes.slice(0, halfCount);
+  const row2 = holes.slice(halfCount);
+
+  return (
+    <div style={{width:1080,height:1920,background:"#0A0A0B",fontFamily:"Inter,sans-serif",position:"relative",overflow:"hidden",display:"flex",flexDirection:"column"}}>
+      {/* Background radial gradients */}
+      <div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(ellipse at 20% 30%, rgba(34,100,34,0.12) 0%, transparent 55%), radial-gradient(ellipse at 80% 70%, rgba(20,60,20,0.09) 0%, transparent 50%)",zIndex:0}}/>
+
+      {/* Top photo zone — 55% height = 1056px */}
+      <div style={{height:1056,position:"relative",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",zIndex:1}}>
+        {roundPhoto ? (
+          <img src={roundPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+        ) : (
+          <div style={{position:"absolute",inset:0,background:"linear-gradient(160deg,#0f1f0f 0%,#1a2e1a 40%,#0A0A0B 100%)"}}/>
+        )}
+        {/* Dark overlay for readability */}
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.55) 100%)"}}/>
+
+        {/* Initials avatar */}
+        <div style={{position:"absolute",top:80,left:"50%",transform:"translateX(-50%)",width:160,height:160,borderRadius:"50%",background:PLAYER_COLORS[0],display:"flex",alignItems:"center",justifyContent:"center",fontSize:52,fontWeight:700,color:"#0A0A0B",zIndex:2,border:"5px solid rgba(255,255,255,0.15)"}}>
+          {initials}
+        </div>
+
+        {/* Giant score */}
+        <div style={{position:"absolute",bottom:60,left:0,right:0,textAlign:"center",zIndex:2}}>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:380,color:scoreColor,lineHeight:.85,textShadow:`0 0 120px ${scoreColor}55`,letterSpacing:"-.02em"}}>
+            {scoreFmt}
+          </div>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:52,color:"rgba(255,255,255,0.5)",letterSpacing:".1em",marginTop:-20}}>
+            {diff < -1 ? "EAGLE +" : diff === -1 ? "BIRDIE" : diff === 0 ? "PAR" : "SOBRE PAR"}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom panel — 45% = 864px */}
+      <div style={{flex:1,padding:"50px 60px 60px",display:"flex",flexDirection:"column",gap:36,zIndex:1,position:"relative"}}>
+        {/* Player + course */}
+        <div>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:72,letterSpacing:".04em",color:"#fff",lineHeight:1}}>{me?.name || user?.name || "Jugador"}</div>
+          <div style={{fontSize:36,color:"#787C8A",fontWeight:500,marginTop:6}}>{game.course} · {game.date}</div>
+        </div>
+
+        {/* Hole grid — row 1 */}
+        <div>
+          <div style={{display:"flex",gap:8,marginBottom:8}}>
+            {row1.map((h,i) => (
+              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                <div style={{fontSize:18,color:"#555761",fontWeight:600}}>{h.hole}</div>
+                <ScoreSymbol v={h.playerScores?.[me?.id]} par={h.par} size={52}/>
+              </div>
+            ))}
+          </div>
+          {row2.length > 0 && (
+            <div style={{display:"flex",gap:8}}>
+              {row2.map((h,i) => (
+                <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                  <div style={{fontSize:18,color:"#555761",fontWeight:600}}>{h.hole}</div>
+                  <ScoreSymbol v={h.playerScores?.[me?.id]} par={h.par} size={52}/>
+                </div>
+              ))}
+              {/* Pad to keep alignment */}
+              {Array.from({length: row1.length - row2.length}).map((_,i) => <div key={`pad-${i}`} style={{flex:1}}/>)}
+            </div>
+          )}
+        </div>
+
+        {/* Stats row */}
+        <div style={{display:"flex",gap:0,borderTop:"1px solid #1A1B1E",paddingTop:30}}>
+          {[
+            {l:"Eagles",v:stats.eagle,c:"#FBBF24"},
+            {l:"Birdies",v:stats.birdie,c:"#60A5FA"},
+            {l:"Pars",v:stats.par,c:"#CAFF4D"},
+            {l:"Bogeys",v:stats.bogey,c:"#9CA3AF"},
+            {l:"Pts P&C",v:pts,c:"#CAFF4D"},
+          ].map((s,i) => (
+            <div key={i} style={{flex:1,textAlign:"center",borderRight:i<4?"1px solid #1A1B1E":"none",padding:"0 10px"}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:52,color:s.c,lineHeight:1}}>{s.v}</div>
+              <div style={{fontSize:20,color:"#555761",fontWeight:600,marginTop:6,textTransform:"uppercase",letterSpacing:".06em"}}>{s.l}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* P&C branding */}
+        <div style={{marginTop:"auto",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:48,letterSpacing:".04em",color:"#fff"}}>PITCH&CLUBS</div>
+          <div style={{fontSize:28,color:"#555761",fontWeight:500}}>pitchandclubs.cat</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang, onPhotoUpload, roundPhoto }) {
   const tl = (k,v={}) => t(lang,k,v);
   const me = game.players.find(p => p.isMe);
   const diff = me?.diff ?? 0;
@@ -1860,6 +1978,43 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
   const [photoLabel, setPhotoLabel] = useState("Par");
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoShared, setPhotoShared] = useState(false);
+  const [sharing, setSharing] = useState(false);
+
+  const captureCard = async () => {
+    const cardEl = document.getElementById('share-card');
+    if (!cardEl) return null;
+    return html2canvas(cardEl, { scale:1, useCORS:true, backgroundColor:null });
+  };
+
+  const handleShareStories = async () => {
+    setSharing(true);
+    try {
+      const canvas = await captureCard();
+      if (!canvas) return;
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], 'partida-pc.png', { type:'image/png' });
+        if (navigator.share && navigator.canShare({ files:[file] })) {
+          await navigator.share({ files:[file], title:'La meva partida a P&C' });
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href=url; a.download='partida-pc.png'; a.click();
+        }
+      });
+    } finally { setSharing(false); }
+  };
+
+  const handleDownloadCard = async () => {
+    setSharing(true);
+    try {
+      const canvas = await captureCard();
+      if (!canvas) return;
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href=url; a.download='partida-pc.png'; a.click();
+      });
+    } finally { setSharing(false); }
+  };
+
   const handleSharePhoto = async () => {
     if (!photoFile || !onPhotoUpload) return;
     setPhotoUploading(true);
@@ -2032,6 +2187,16 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Share card buttons */}
+      <div style={{display:"flex",gap:8,marginBottom:8}}>
+        <button className="btn btn-primary" style={{flex:1,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:6}} onClick={handleShareStories} disabled={sharing}>
+          <Share2 size={15}/>{sharing?"Generant...":"Compartir a Stories"}
+        </button>
+        <button onClick={handleDownloadCard} disabled={sharing} style={{width:48,flexShrink:0,borderRadius:10,border:"1px solid #222327",background:"#1A1B1E",color:"#CAFF4D",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <Download size={16}/>
+        </button>
       </div>
 
       <button className="btn btn-primary" style={{marginBottom:8,fontSize:15}} onClick={()=>setScreen("home")}>
@@ -2295,7 +2460,7 @@ function TournamentsScreen({ openAuth, user, lang }) {
 /* ═══════════════════════════════════════════════════════════════
    LIVE GAME VIEW — full-screen overlay for watching a live game
 ═══════════════════════════════════════════════════════════════ */
-function LiveGameView({ game, liveGames, onClose, lang, user, openAuth }) {
+function LiveGameView({ game, liveGames, onClose, lang, user, openAuth, follows, onFollow }) {
   // Auto-update: find latest version from live feed
   const live = (liveGames && liveGames.find(g => g.id === game.id)) || game;
   const diff = live.score_total ?? 0;
@@ -2318,10 +2483,16 @@ function LiveGameView({ game, liveGames, onClose, lang, user, openAuth }) {
           <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:".04em",lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{live.player_name}</div>
           <div style={{fontSize:11,color:"#787C8A",marginTop:1}}>{live.course_name} · {lang==="en"?"Hole":lang==="es"?"Hoyo":"Forat"} {live.current_hole||1}/{live.holes||18}</div>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
           <div style={{textAlign:"right"}}>
             <div style={{fontFamily:"'Bebas Neue'",fontSize:32,color:scoreColor,lineHeight:1}}>{diff>0?`+${diff}`:diff===0?"E":diff}</div>
           </div>
+          {live.user_id && user && (
+            <button onClick={()=>onFollow&&onFollow(live.user_id)}
+              style={{padding:"5px 10px",borderRadius:8,border:`1px solid ${follows?.includes(live.user_id)?"rgba(202,255,77,.3)":"#333"}`,background:follows?.includes(live.user_id)?"rgba(202,255,77,.08)":"#1A1B1E",color:follows?.includes(live.user_id)?"#CAFF4D":"#787C8A",fontSize:10,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+              <Bell size={10}/>{follows?.includes(live.user_id)?"Seguint":"Seguir"}
+            </button>
+          )}
           <button onClick={onClose} style={{width:34,height:34,borderRadius:"50%",border:"1px solid #222327",background:"#1A1B1E",color:"#787C8A",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
             <X size={16}/>
           </button>
@@ -2496,7 +2667,7 @@ function LiveGameCard({ game, compact, onClick }) {
   );
 }
 
-function LiveScreen({ user, openAuth, lang, liveGames, onSelectGame }) {
+function LiveScreen({ user, openAuth, lang, liveGames, onSelectGame, follows, onFollow }) {
   const games = (liveGames && liveGames.length) ? liveGames : MOCK_LIVE_GAMES;
   const liveNow = games.filter(g => g.is_live);
   const recent = games.filter(g => !g.is_live);
@@ -2654,7 +2825,7 @@ function ShopScreen({ openAuth, user, lang }) {
 /* ═══════════════════════════════════════════════════════════════
    PROFILE / STATS SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history, setUser }) {
+function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history, setUser, follows, onFollow, enableNotifications }) {
   const tl = (k,v={}) => t(lang,k,v);
   const profile = PLAYER_PROFILE;
   const tier = getTier(userPts);
@@ -2891,6 +3062,49 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
         </div>
       )}
 
+      {/* ── SEGUINT (follows) ── */}
+      {user && (
+        <div className="card" style={{marginBottom:12,padding:"14px"}}>
+          <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:10}}>
+            Els meus seguits ({follows?.length||0})
+          </div>
+          {(!follows || follows.length === 0) ? (
+            <div style={{fontSize:11,color:"#555761",fontStyle:"italic",textAlign:"center",padding:"8px 0"}}>
+              Segueix jugadors des de la pantalla En Directe
+            </div>
+          ) : (
+            follows.map(fid => (
+              <div key={fid} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid #111214"}}>
+                <div style={{width:32,height:32,borderRadius:"50%",background:"#1A1B1E",border:"1px solid #333",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#CAFF4D",flexShrink:0}}>
+                  {fid.slice(0,2).toUpperCase()}
+                </div>
+                <div style={{flex:1,fontSize:12,fontWeight:600,color:"#787C8A"}}>{fid.slice(0,8)}…</div>
+                <button onClick={()=>onFollow&&onFollow(fid)} style={{fontSize:10,fontWeight:700,color:"#EF4444",background:"none",border:"1px solid rgba(239,68,68,.3)",borderRadius:6,padding:"4px 8px",cursor:"pointer"}}>
+                  Deixar de seguir
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ── NOTIFICATIONS ── */}
+      {user && 'Notification' in window && (
+        <div className="card" style={{marginBottom:12,padding:"14px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontWeight:600,fontSize:14,display:"flex",alignItems:"center",gap:6}}>
+                <Bell size={14} style={{color:"#CAFF4D"}}/> Notificacions push
+              </div>
+              <div style={{fontSize:11,color:"#555761",marginTop:3}}>Rep avisos quan els jugadors que segueixes acaben</div>
+            </div>
+            <button onClick={enableNotifications} style={{padding:"7px 12px",borderRadius:8,border:"1px solid rgba(202,255,77,.3)",background:"rgba(202,255,77,.07)",color:"#CAFF4D",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
+              Activar
+            </button>
+          </div>
+        </div>
+      )}
+
       <button className="btn btn-ghost" style={{fontSize:13}} onClick={()=>setScreen("home")}>{tl("back")}</button>
     </div>
   );
@@ -3027,8 +3241,27 @@ export default function App() {
   const [activityFeed, setActivityFeed] = useState([]);
   const [liveGames, setLiveGames]       = useState([]);
   const [selectedLiveGame, setSelectedLiveGame] = useState(null);
+  const [roundPhoto, setRoundPhoto] = useState(null);
+  const [roundPhotoUrl, setRoundPhotoUrl] = useState(null);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [follows, setFollows] = useState([]);
   const leads = useRef([]);
   const liveDebounce = useRef(null);
+
+  // PWA install prompt
+  useEffect(() => {
+    const handler = e => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  // Convert roundPhoto File to URL for ShareCard
+  useEffect(() => {
+    if (!roundPhoto) { setRoundPhotoUrl(null); return; }
+    const url = URL.createObjectURL(roundPhoto);
+    setRoundPhotoUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [roundPhoto]);
 
   useEffect(() => {
     // Fetch activity feed (all recent games for the public feed)
@@ -3161,12 +3394,42 @@ export default function App() {
       setHistory(games.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
       setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
     }
+    // Load follows
+    const { data: followData } = await supabase.from("follows").select("following_id").eq("follower_id", u.id);
+    if (followData) setFollows(followData.map(f => f.following_id));
+  };
+
+  const handleFollow = async (followingId) => {
+    if (!user) { openAuth(); return; }
+    if (follows.includes(followingId)) {
+      await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", followingId);
+      setFollows(f => f.filter(id => id !== followingId));
+    } else {
+      await supabase.from("follows").insert({ follower_id: user.id, following_id: followingId });
+      setFollows(f => [...f, followingId]);
+    }
+  };
+
+  const enableNotifications = async () => {
+    if (!('Notification' in window)) return;
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidKey) { showToast("Afegeix VITE_VAPID_PUBLIC_KEY a .env"); return; }
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey });
+      const { data: authData } = await supabase.auth.getUser();
+      await supabase.from("push_subscriptions").upsert({ user_id: authData.user.id, subscription: sub.toJSON() });
+      showToast("Notificacions activades!");
+    } catch(e) { console.error("Push subscription error:", e); }
   };
 
   const handleGameStart = async (data) => {
     localStorage.setItem('pc_gameData', JSON.stringify(data));
     localStorage.setItem('pc_screen', 'scorecard');
     setGameData(data);
+    setRoundPhoto(null);
     setScreen("scorecard");
 
     // If live share enabled and user is logged in, insert a live row immediately
@@ -3252,6 +3515,8 @@ export default function App() {
           setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
         }
         showToast("Partida guardada! ✓");
+        // Notify followers
+        supabase.functions.invoke('notify-followers', { body: { game: {...game, players: game.players.map(p => ({...p, user_id: p.isMe ? user.id : null})) } } }).catch(()=>{});
       } catch(e) {
         console.error("P&C: Error saving game:", e);
         alert("Error guardant la partida:\n" + (e.message || JSON.stringify(e)));
@@ -3297,7 +3562,7 @@ export default function App() {
 
         {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")} activityFeed={activityFeed} liveGames={liveGames} onSelectGame={g=>{setSelectedLiveGame(g);setScreenSafe("live");}}/>}
         {screen==="game-setup" && <GameSetupScreen   user={user} openAuth={openAuth} onStart={handleGameStart} lang={lang}/>}
-        {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang} liveGameId={liveGameId} onLiveUpdate={(scores, curHole) => {
+        {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang} liveGameId={liveGameId} onPhotoCapture={setRoundPhoto} onLiveUpdate={(scores, curHole) => {
           if (!liveGameId) return;
           clearTimeout(liveDebounce.current);
           liveDebounce.current = setTimeout(async () => {
@@ -3310,17 +3575,41 @@ export default function App() {
             }).eq("id", liveGameId);
           }, 1500);
         }}/>}
-        {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} onPhotoUpload={handlePhotoUpload}/>}
+        {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} onPhotoUpload={handlePhotoUpload} roundPhoto={roundPhotoUrl}/>}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang}/>}
-        {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null}/>}
-        {screen==="live" && selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth}/>}
+        {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null} follows={follows} onFollow={handleFollow}/>}
+        {screen==="live" && selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth} follows={follows} onFollow={handleFollow}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
-        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser}/>}
+        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser} follows={follows} onFollow={handleFollow} enableNotifications={enableNotifications}/>}
 
         {!isGameFlow && <BottomNav screen={screen} setScreen={setScreenSafe} lang={lang}/>}
 
         {showAuth && <AuthModal onClose={()=>setShowAuth(false)} onAuth={handleAuth} lang={lang} initialMode={authMode}/>}
         {toast && <div className="toast">{toast}</div>}
+
+        {/* Hidden ShareCard for html2canvas — always in DOM when lastGame exists */}
+        {lastGame && (
+          <div id="share-card" style={{position:'fixed',left:'-9999px',top:0,width:1080,height:1920,pointerEvents:'none',zIndex:-1}}>
+            <ShareCard game={lastGame} user={user} roundPhoto={roundPhotoUrl}/>
+          </div>
+        )}
+
+        {/* PWA install banner */}
+        {installPrompt && (
+          <div style={{position:'fixed',bottom:80,left:'50%',transform:'translateX(-50%)',width:'calc(100% - 32px)',maxWidth:398,background:'#1A1B1E',border:'1px solid rgba(202,255,77,.25)',borderRadius:12,padding:'12px 14px',display:'flex',alignItems:'center',gap:10,zIndex:400,boxShadow:'0 4px 24px rgba(0,0,0,.4)'}}>
+            <div style={{fontSize:22,flexShrink:0}}>📱</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#CAFF4D",marginBottom:2}}>Instal·la P&C</div>
+              <div style={{fontSize:11,color:"#787C8A",fontWeight:400}}>Afegeix a la pantalla d'inici per rebre notificacions</div>
+            </div>
+            <button onClick={()=>{installPrompt.prompt();setInstallPrompt(null);}} style={{padding:'7px 12px',borderRadius:8,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontSize:11,fontWeight:700,cursor:'pointer',flexShrink:0}}>
+              Instal·la
+            </button>
+            <button onClick={()=>setInstallPrompt(null)} style={{background:'none',border:'none',color:'#555',cursor:'pointer',padding:4,flexShrink:0,lineHeight:1}}>
+              <X size={14}/>
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

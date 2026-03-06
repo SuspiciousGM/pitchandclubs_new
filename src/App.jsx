@@ -839,11 +839,7 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
             <TrendingUp size={12}/>{tl("cta_stats")}
           </button>
         </div>
-      ) : (
-        <div style={{marginBottom:14}}>
-          <p style={{fontSize:13,color:"#555761",lineHeight:1.7,marginBottom:0,fontWeight:400,maxWidth:400}}>{tl("hero_desc")}</p>
-        </div>
-      )}
+      ) : null}
 
       {/* ── PRIMARY CTA ── */}
       <button className="btn btn-primary" style={{marginBottom:10,fontSize:14}}

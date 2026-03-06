@@ -11,7 +11,7 @@ import { supabase } from "./supabaseClient";
 const T = {
   ca:{
     nav_home:"Inici",nav_ranking:"Rànquing",nav_game:"Partida",nav_live:"Live",nav_shop:"Botiga",nav_profile:"Perfil",
-    hero_title:"PITCH&CLUBS",hero_sub:"L'Strava del golf.",hero_desc:"Registra partides, puja al rànquing i suporta el teu club.",hero_live:"Beta oberta · {n} jugadors",
+    hero_title:"PITCH&CLUBS",hero_sub:"Registra partides, Puja al rànquing i lidera el teu equip",hero_desc:"Registra partides, puja al rànquing i suporta el teu club.",hero_live:"Beta oberta · {n} jugadors",
     cta_new_game:"Nova Partida",cta_join:"Uneix-te",cta_join_free:"Uneix-te gratis →",cta_create_account:"Crea un compte →",
     cta_register_now:"Registrar ara →",cta_ready:"READY TO PLAY?",cta_ready_sub:"Registra la primera partida sense necessitat de fer login.",cta_ready_btn:"Registra una partida",cta_stats:"Les meves estadístiques →",
     sec_activity:"Activitat",sec_last_games:"ÚLTIMES PARTIDES",sec_ranking:"Classificació",sec_top_ranking:"TOP RÀNQUING",
@@ -62,7 +62,7 @@ const T = {
   },
   es:{
     nav_home:"Inicio",nav_ranking:"Ranking",nav_game:"Partida",nav_live:"Live",nav_shop:"Tienda",nav_profile:"Perfil",
-    hero_title:"PITCH&CLUBS",hero_sub:"El Strava del golf.",hero_desc:"Registra partidas, sube en el ranking y apoya a tu club.",hero_live:"Beta abierta · {n} jugadores",
+    hero_title:"PITCH&CLUBS",hero_sub:"Registra partidas, Sube al ranking y lidera tu equipo",hero_desc:"Registra partidas, sube en el ranking y apoya a tu club.",hero_live:"Beta abierta · {n} jugadores",
     cta_new_game:"Nueva Partida",cta_join:"Únete",cta_join_free:"Únete gratis →",cta_create_account:"Crea una cuenta — guarda tus stats →",
     cta_register_now:"Registrar ahora →",cta_ready:"¿LISTO PARA JUGAR?",cta_ready_sub:"Registra la primera partida sin necesidad de login.",cta_ready_btn:"Registra una partida",cta_stats:"Mis estadísticas →",
     sec_activity:"Actividad",sec_last_games:"ÚLTIMAS PARTIDAS",sec_ranking:"Clasificación",sec_top_ranking:"TOP RANKING",
@@ -113,7 +113,7 @@ const T = {
   },
   en:{
     nav_home:"Home",nav_ranking:"Ranking",nav_game:"Round",nav_live:"Live",nav_shop:"Shop",nav_profile:"Profile",
-    hero_title:"PITCH&CLUBS",hero_sub:"The Strava of golf.",hero_desc:"Track rounds, climb the leaderboard and support your club.",hero_live:"Open beta · {n} players",
+    hero_title:"PITCH&CLUBS",hero_sub:"Track rounds, climb the ranking and lead your team",hero_desc:"Track rounds, climb the leaderboard and support your club.",hero_live:"Open beta · {n} players",
     cta_new_game:"New Round",cta_join:"Join",cta_join_free:"Join for free →",cta_create_account:"Create an account — save your stats →",
     cta_register_now:"Register now →",cta_ready:"READY TO PLAY?",cta_ready_sub:"Track your first round without signing up.",cta_ready_btn:"Track a round",cta_stats:"My statistics →",
     sec_activity:"Activity",sec_last_games:"RECENT ROUNDS",sec_ranking:"Leaderboard",sec_top_ranking:"TOP RANKING",
@@ -280,6 +280,7 @@ const PLAYER_COLORS = ["#CAFF4D","#60A5FA","#FBBF24","#F472B6"];
 const GAME_MODES = [
   { id:"stableford", label:"Stableford", desc:"Punts per forat" },
   { id:"medal",      label:"Medalplay",  desc:"Total de cops"   },
+  { id:"parelles",   label:"Parelles",   desc:"Best ball · 2 o 4 jugadors" },
 ];
 
 /* ─── MOCK LEADERBOARD ───────────────────────────────────────── */
@@ -317,6 +318,13 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 /* ── APP SHELL */
 .app{
   background:#111214;
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(202,255,77,0.018) 0px,
+    rgba(202,255,77,0.018) 1px,
+    transparent 1px,
+    transparent 8px
+  );
   color:#FFFFFF;
   height:100dvh;
   width:100%;
@@ -789,7 +797,21 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
         </div>
       )}
 
-      {/* ── PLAYER CARD / HERO ── */}
+      {/* ── HERO TITLE — always visible ── */}
+      <div style={{paddingTop:4,marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
+          <div className="live-dot"/>
+          <span style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761"}}>
+            {tl("hero_live",{n:234+leads.current.length})}
+          </span>
+        </div>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(44px,12vw,80px)",lineHeight:.85,marginBottom:8,letterSpacing:"-.01em"}}>
+          {tl("hero_title")}
+        </div>
+        <div style={{fontSize:13,color:"#787C8A",fontWeight:500,letterSpacing:".01em"}}>{tl("hero_sub")}</div>
+      </div>
+
+      {/* ── PLAYER CARD (logged in) / GUEST CTA ── */}
       {user ? (
         <div className="card card-lime" style={{marginBottom:14,background:`linear-gradient(135deg,${tier.bg} 0%,rgba(17,18,20,0) 100%)`,borderColor:tier.border}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
@@ -821,18 +843,8 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
           </button>
         </div>
       ) : (
-        <div style={{paddingTop:8,marginBottom:16}}>
-          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:14}}>
-            <div className="live-dot"/>
-            <span style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761"}}>
-              {tl("hero_live",{n:234+leads.current.length})}
-            </span>
-          </div>
-          <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(52px,14vw,100px)",lineHeight:.82,marginBottom:10,letterSpacing:"-.01em"}}>
-            {tl("hero_title")}
-          </div>
-          <div style={{fontSize:14,color:"#787C8A",fontWeight:500,marginBottom:10,letterSpacing:".01em"}}>{tl("hero_sub")}</div>
-          <p style={{fontSize:13,color:"#555761",lineHeight:1.7,marginBottom:14,fontWeight:400,maxWidth:400}}>{tl("hero_desc")}</p>
+        <div style={{marginBottom:14}}>
+          <p style={{fontSize:13,color:"#555761",lineHeight:1.7,marginBottom:0,fontWeight:400,maxWidth:400}}>{tl("hero_desc")}</p>
         </div>
       )}
 
@@ -941,6 +953,33 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
         </div>
       )}
 
+      {/* ── TESTIMONIALS ── */}
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:10}}>
+          {lang==="en"?"WHAT THE COMMUNITY SAYS":lang==="es"?"LO QUE DICE LA COMUNIDAD":"EL QUE DIU LA COMUNITAT"}
+        </div>
+        <div style={{display:"flex",gap:10,overflowX:"auto",scrollSnapType:"x mandatory",paddingBottom:4,WebkitOverflowScrolling:"touch"}}
+          className="noscroll">
+          {[
+            {initials:"GR",color:"#34D399",quote:lang==="en"?"Finally a pitch & putt app made by players":lang==="es"?"Por fin una app de pitch & putt hecha por jugadores":"Finalment una app de pitch & putt feta per jugadors",author:"Gerard R.",club:"Vallromanes"},
+            {initials:"MO",color:"#60A5FA",quote:lang==="en"?"The live ranking makes every hole count":lang==="es"?"El ranking en directo hace que cada hoyo cuente":"El rànquing en directe fa que cada forat compti",author:"Marta O.",club:"Mas Gurumbau"},
+            {initials:"JV",color:"#A78BFA",quote:lang==="en"?"The best way to track my handicap progress":lang==="es"?"La mejor manera de seguir la progresión de mi hándicap":"La millor manera de seguir la progressió del meu hàndicap",author:"Jordi V.",club:"Àccura Teià"},
+          ].map((t,i)=>(
+            <div key={i} style={{minWidth:260,background:"#1A1B1E",borderLeft:`3px solid ${t.color}`,borderRadius:"0 8px 8px 0",padding:"14px",scrollSnapAlign:"start",flexShrink:0}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <div style={{width:30,height:30,borderRadius:"50%",background:t.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{t.initials}</div>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700}}>{t.author}</div>
+                  <div style={{fontSize:10,color:"#555761"}}>{t.club}</div>
+                </div>
+              </div>
+              <div style={{fontSize:12,color:"#D1D5DB",lineHeight:1.6,fontWeight:400,fontStyle:"italic",marginBottom:8}}>"{t.quote}"</div>
+              <div style={{fontSize:12,color:"#FBBF24"}}>★★★★★</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* ── COM FUNCIONA ── */}
       <div style={{marginBottom:16}}>
         <SectionHeader sub={tl("sec_how")} title={tl("sec_how_title")}/>
@@ -953,37 +992,6 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
             <div style={{fontSize:12,color:"#787C8A",lineHeight:1.6,fontWeight:400}}>{desc}</div>
           </div>
         ))}
-      </div>
-
-      {/* ── SISTEMA DE NIVELLS ── */}
-      <div style={{marginBottom:16}}>
-        <SectionHeader sub={tl("sec_levels")} title={tl("sec_levels_title")}/>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:10}}>
-          {TIERS.map(tier=>{
-            const descs={ca:[tl("tier_caddie_desc"),tl("tier_player_desc"),tl("tier_pro_desc"),tl("tier_master_desc")]};
-            const descArr=[tl("tier_caddie_desc"),tl("tier_player_desc"),tl("tier_pro_desc"),tl("tier_master_desc")];
-            const di=TIERS.findIndex(x=>x.id===tier.id);
-            return (
-              <div key={tier.id} className="card card-press" style={{padding:"14px 12px",textAlign:"center",borderColor:tier.border,background:tier.bg}}>
-                <div style={{fontSize:24,marginBottom:4}}>{tier.emoji}</div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,color:tier.color,marginBottom:2}}>{tier.name}</div>
-                <div style={{fontSize:9,color:"#555761",marginBottom:8,fontWeight:600}}>{tier.min}–{tier.max===99999?"∞":tier.max} pts</div>
-                <div style={{fontSize:10,color:"#787C8A",lineHeight:1.5,fontWeight:400}}>{descArr[di]}</div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="card" style={{padding:"14px"}}>
-          <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:10}}>{tl("sec_points")}</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6}}>
-            {[{l:"Hole in One 🎯",p:"+25",c:"#FBBF24"},{l:"Birdie (−1)",p:"+12",c:"#60A5FA"},{l:"Par",p:"+6",c:"#CAFF4D"},{l:"Bogey (+1)",p:"+2",c:"#9CA3AF"},{l:tl("pts_tournament_win"),p:"+100",c:"#CAFF4D"},{l:tl("pts_inactivity"),p:"−15/m",c:"#EF4444"}].map((r,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:"#111214",borderRadius:7}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,color:r.p.startsWith("-")||r.p.startsWith("−")?"#EF4444":"#CAFF4D",width:38,textAlign:"right",flexShrink:0}}>{r.p}</div>
-                <div style={{fontSize:11,color:"#787C8A",fontWeight:500}}>{r.l}</div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* ── PROPERS TORNEJOS ── */}
@@ -1093,11 +1101,22 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
   const [gameMode, setGameMode] = useState("stableford");
   const [players, setPlayers] = useState([{ id:1, name: user?.name || "", isMe:true }]);
   const [liveShare, setLiveShare] = useState(false);
+  const [teams, setTeams] = useState([{id:"A",players:[]},{id:"B",players:[]}]);
 
   // Sync player 1 name when user auth resolves after mount
   useEffect(() => {
     if (user?.name) setPlayers(p => p.map(x => x.isMe ? {...x, name: user.name} : x));
   }, [user?.name]);
+
+  // Sync teams when gameMode switches to parelles
+  useEffect(() => {
+    if (gameMode === "parelles") {
+      setTeams([
+        {id:"A", players: players.slice(0,2).map(p=>p.id)},
+        {id:"B", players: players.slice(2,4).map(p=>p.id)},
+      ]);
+    }
+  }, [gameMode]);
 
   const activeCourse = customCourse || selCourse;
 
@@ -1107,13 +1126,41 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
     return c.name.toLowerCase().includes(q) || c.location.toLowerCase().includes(q) || c.province.toLowerCase().includes(q);
   }).slice(0, 8);
 
-  const addPlayer = () => { if (players.length >= 4) return; setPlayers(p => [...p, {id:Date.now(), name:`Jugador ${p.length+1}`, isMe:false}]); };
-  const removePlayer = (id) => setPlayers(p => p.filter(x => x.id !== id));
+  const addPlayer = () => {
+    if (players.length >= 4) return;
+    const newId = Date.now();
+    const newPlayer = {id:newId, name:`Jugador ${players.length+1}`, isMe:false};
+    setPlayers(p => [...p, newPlayer]);
+    if (gameMode === "parelles") {
+      // Fill Team A first (slots 0-1), then Team B (slots 2-3)
+      const teamId = players.length < 2 ? "A" : "B";
+      setTeams(ts => ts.map(t => t.id === teamId ? {...t, players:[...t.players, newId]} : t));
+    }
+  };
+  const removePlayer = (id) => {
+    setPlayers(p => p.filter(x => x.id !== id));
+    setTeams(ts => ts.map(t => ({...t, players: t.players.filter(pid => pid !== id)})));
+  };
   const updateName = (id, name) => setPlayers(p => p.map(x => x.id === id ? {...x, name} : x));
+  const switchTeam = (playerId) => {
+    setTeams(ts => {
+      const inA = ts[0].players.includes(playerId);
+      if (inA) {
+        return [{...ts[0], players:ts[0].players.filter(id=>id!==playerId)},{...ts[1], players:[...ts[1].players, playerId]}];
+      } else {
+        return [{...ts[0], players:[...ts[0].players, playerId]},{...ts[1], players:ts[1].players.filter(id=>id!==playerId)}];
+      }
+    });
+  };
+  const getPlayerTeam = (playerId) => teams[0].players.includes(playerId) ? "A" : teams[1].players.includes(playerId) ? "B" : null;
 
   const handleStart = () => {
     if (!activeCourse) return;
-    onStart({ course:activeCourse, date, gameMode, players, liveShare });
+    let playersWithTeam = players;
+    if (gameMode === "parelles") {
+      playersWithTeam = players.map(p => ({...p, teamId: getPlayerTeam(p.id)}));
+    }
+    onStart({ course:activeCourse, date, gameMode, players:playersWithTeam, liveShare });
   };
 
   return (
@@ -1216,23 +1263,64 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
       {/* PLAYERS */}
       <div style={{marginBottom:16}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <span className="label" style={{marginBottom:0}}>{tl("label_players")} ({players.length}/4)</span>
-          {players.length < 4 && <button className="btn btn-ghost btn-sm" onClick={addPlayer}>+ Afegir</button>}
+          <span className="label" style={{marginBottom:0}}>{tl("label_players")} ({players.length}/{gameMode==="parelles"?4:4})</span>
+          {players.length < 4 && <button className="btn btn-ghost btn-sm" onClick={addPlayer}>+ {tl("add_player")}</button>}
         </div>
-        {players.map((p,i) => (
-          <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",background:"#1A1B1E",border:"1px solid #222327",borderRadius:8,marginBottom:6}}>
-            <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[i],flexShrink:0}} />
-            <input className="inp" style={{flex:1,minWidth:0,padding:"6px 0",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0,color:"#fff"}}
-              placeholder={p.isMe ? "El teu nom" : `Jugador ${i+1}`}
-              value={p.name}
-              onChange={e=>updateName(p.id,e.target.value)}
-              onFocus={e=>e.target.select()}
-              autoFocus={!p.isMe && i===players.length-1}
-            />
-            {p.isMe && <span style={{fontSize:10,color:"#555761",fontWeight:600,flexShrink:0}}>TU</span>}
-            {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:18,padding:4,lineHeight:1,flexShrink:0}} onClick={()=>removePlayer(p.id)}>×</button>}
+
+        {gameMode === "parelles" ? (
+          /* ── PARELLES team UI ── */
+          <div>
+            {[{id:"A",color:"#CAFF4D"},{id:"B",color:"#60A5FA"}].map(team => {
+              const teamPlayers = players.filter(p => getPlayerTeam(p.id) === team.id);
+              return (
+                <div key={team.id} style={{marginBottom:10,padding:"12px",border:`1px dashed ${team.color}44`,borderRadius:10,background:`${team.color}08`}}>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:team.color,marginBottom:8}}>EQUIP {team.id}</div>
+                  {teamPlayers.length === 0 && <div style={{fontSize:11,color:"#555761",fontStyle:"italic"}}>Sense jugadors</div>}
+                  {teamPlayers.map((p,i) => {
+                    const pi = players.findIndex(x=>x.id===p.id);
+                    return (
+                      <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                        <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[pi],flexShrink:0}}/>
+                        <input className="inp" style={{flex:1,minWidth:0,padding:"6px 0",fontSize:13,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0,color:"#fff"}}
+                          placeholder={p.isMe?"El teu nom":`Jugador ${pi+1}`}
+                          value={p.name}
+                          onChange={e=>updateName(p.id,e.target.value)}
+                          onFocus={e=>e.target.select()}/>
+                        {p.isMe && <span style={{fontSize:9,color:"#555761",fontWeight:600,flexShrink:0}}>TU</span>}
+                        <button onClick={()=>switchTeam(p.id)} style={{background:"transparent",border:`1px solid ${team.color}55`,borderRadius:6,color:team.color,fontSize:10,fontWeight:700,cursor:"pointer",padding:"3px 7px",flexShrink:0,fontFamily:"Inter"}}>
+                          {team.id==="A"?"→B":"←A"}
+                        </button>
+                        {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:16,padding:2,lineHeight:1,flexShrink:0}} onClick={()=>removePlayer(p.id)}>×</button>}
+                      </div>
+                    );
+                  })}
+                  {teamPlayers.length < 2 && <div style={{fontSize:10,color:"#555761",marginTop:4}}>• {2-teamPlayers.length} {lang==="en"?"slot":"lloc"}{2-teamPlayers.length>1?"s":""} lliure{2-teamPlayers.length>1?"s":""}</div>}
+                </div>
+              );
+            })}
+            {players.length < 4 && (
+              <div style={{fontSize:11,color:"#EF4444",fontWeight:600,textAlign:"center",marginTop:4}}>
+                {lang==="en"?`Add ${4-players.length} more player${4-players.length>1?"s":""}`:lang==="es"?`Añadir ${4-players.length} jugador${4-players.length>1?"es":"es"} más`:`Cal afegir ${4-players.length} jugador${4-players.length>1?"s":""} més`}
+              </div>
+            )}
           </div>
-        ))}
+        ) : (
+          /* ── Standard player list ── */
+          players.map((p,i) => (
+            <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",background:"#1A1B1E",border:"1px solid #222327",borderRadius:8,marginBottom:6}}>
+              <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[i],flexShrink:0}} />
+              <input className="inp" style={{flex:1,minWidth:0,padding:"6px 0",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0,color:"#fff"}}
+                placeholder={p.isMe ? "El teu nom" : `Jugador ${i+1}`}
+                value={p.name}
+                onChange={e=>updateName(p.id,e.target.value)}
+                onFocus={e=>e.target.select()}
+                autoFocus={!p.isMe && i===players.length-1}
+              />
+              {p.isMe && <span style={{fontSize:10,color:"#555761",fontWeight:600,flexShrink:0}}>TU</span>}
+              {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:18,padding:4,lineHeight:1,flexShrink:0}} onClick={()=>removePlayer(p.id)}>×</button>}
+            </div>
+          ))
+        )}
       </div>
 
       {/* LIVE */}
@@ -1246,8 +1334,8 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
         </button>
       </div>
 
-      <button className="btn btn-primary" disabled={!activeCourse} onClick={handleStart} style={{marginBottom:10,fontSize:17}}>
-        Som-hi! →
+      <button className="btn btn-primary" disabled={!activeCourse || (gameMode==="parelles" && players.length < 4)} onClick={handleStart} style={{marginBottom:10,fontSize:17}}>
+        {tl("start_game")}
       </button>
     </div>
   );
@@ -1625,6 +1713,19 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
 
       {/* PLAYER CARDS */}
       <div style={{flex:1,overflowY:'auto',padding:'10px 14px',display:'flex',flexDirection:'column',gap:8}}>
+        {/* For parelles mode: compute best ball per team per hole */}
+        {(() => {
+          const isParelles = gameData.gameMode === "parelles";
+          const getBestBallPlayer = (holeScores, teamPlayers) => {
+            let best = null, bestPid = null;
+            teamPlayers.forEach(p => {
+              const s = holeScores[p.id];
+              if (s != null && (best === null || s < best)) { best = s; bestPid = p.id; }
+            });
+            return bestPid;
+          };
+          return null;
+        })()}
         {players.map((p,pi)=>{
           const pcolor  = PLAYER_COLORS[pi];
           const v       = hole.playerScores[p.id];
@@ -1633,12 +1734,22 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
           const isAct   = activePid===p.id;
           const flash   = flashInfo?.pid===p.id;
           const played  = scores.filter(h=>h.playerScores[p.id]!=null).length;
+          // Parelles: best ball highlighting
+          const isParelles = gameData.gameMode === "parelles";
+          const myTeamId = p.teamId;
+          const teamMates = isParelles ? players.filter(x => x.teamId === myTeamId) : [];
+          const isBestBall = isParelles && teamMates.length > 1 && (() => {
+            const scores_cur = hole.playerScores;
+            let best = null;
+            teamMates.forEach(tm => { const s = scores_cur[tm.id]; if (s != null && (best === null || s < best)) best = s; });
+            return v != null && v === best;
+          })();
 
           return (
             <div key={p.id} onClick={()=>setActivePid(p.id)}
               style={{borderRadius:14,transition:'all .2s',cursor:'pointer',position:'relative',
                 background:isAct?'#15151c':'#0f0f13',
-                border:isAct?`1.5px solid ${pcolor}60`:'1px solid #1a1a1f',
+                border: isBestBall ? '2px solid rgba(202,255,77,.7)' : isAct?`1.5px solid ${pcolor}60`:'1px solid #1a1a1f',
                 boxShadow:isAct?`0 0 28px ${pcolor}14,inset 0 0 40px ${pcolor}05`:'none',
                 padding:'12px 13px'}}>
 
@@ -1654,7 +1765,10 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
                   <div style={{width:32,height:32,borderRadius:'50%',background:isAct?pcolor:pcolor+'66',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#0A0A0B',flexShrink:0,transition:'background .2s'}}>
                     {p.name[0]}
                   </div>
-                  <div style={{fontWeight:700,fontSize:13,color:isAct?'#fff':'#555',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',transition:'color .2s'}}>{p.name}</div>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontWeight:700,fontSize:13,color:isAct?'#fff':'#555',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',transition:'color .2s'}}>{p.name}</div>
+                    {isParelles && myTeamId && <div style={{fontSize:9,fontWeight:700,letterSpacing:'.1em',color:myTeamId==="A"?"#CAFF4D":"#60A5FA",textTransform:'uppercase'}}>EQUIP {myTeamId}{isBestBall?" · ★ BEST BALL":""}</div>}
+                  </div>
                 </div>
                 <div style={{textAlign:'right',flexShrink:0}}>
                   <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:34,color:scDiffColor(tot),lineHeight:1,transition:'color .3s',textShadow:tot!=null&&isAct?`0 0 30px ${scDiffColor(tot)}25`:'none'}}>
@@ -1783,6 +1897,40 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
         <div style={{fontFamily:"'Bebas Neue'",fontSize:36,letterSpacing:".04em",marginBottom:4}}>Partida finalitzada</div>
         <div style={{fontSize:13,color:"#555761",fontWeight:400}}>{game.course} · {game.date}</div>
       </div>
+
+      {/* Parelles team result */}
+      {game.mode === "parelles" && game.players.some(p=>p.teamId) && (() => {
+        const teamA = game.players.filter(p=>p.teamId==="A");
+        const teamB = game.players.filter(p=>p.teamId==="B");
+        const bestBallTotal = (teamPlayers) => game.scores.reduce((sum,h) => {
+          const scores = teamPlayers.map(p=>h.playerScores?.[p.id]).filter(s=>s!=null);
+          return sum + (scores.length ? Math.min(...scores) - h.par : 0);
+        }, 0);
+        const totA = bestBallTotal(teamA);
+        const totB = bestBallTotal(teamB);
+        const winnerA = totA < totB, winnerB = totB < totA;
+        const fmtD = d => d > 0 ? `+${d}` : d === 0 ? "E" : `${d}`;
+        return (
+          <div style={{marginBottom:14}}>
+            <div className="sec-title">{lang==="en"?"TEAM RESULT":lang==="es"?"RESULTADO POR EQUIPOS":"RESULTAT POR EQUIPS"}</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:8,alignItems:"center"}}>
+              <div className="card" style={{textAlign:"center",padding:"16px 10px",borderColor:winnerA?"rgba(202,255,77,.5)":"#222327",background:winnerA?"rgba(202,255,77,.06)":"#1A1B1E"}}>
+                <div style={{fontSize:9,fontWeight:700,letterSpacing:".1em",color:"#CAFF4D",marginBottom:4}}>EQUIP A</div>
+                {teamA.map(p=><div key={p.id} style={{fontSize:10,color:"#787C8A"}}>{p.name}</div>)}
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:36,color:totA<0?"#FBBF24":totA===0?"#CAFF4D":"#fff",lineHeight:1,marginTop:6}}>{fmtD(totA)}</div>
+                {winnerA && <div style={{fontSize:10,fontWeight:700,color:"#CAFF4D",marginTop:4}}>🏆 Guanyadors</div>}
+              </div>
+              <div style={{fontSize:11,fontWeight:700,color:"#555761"}}>VS</div>
+              <div className="card" style={{textAlign:"center",padding:"16px 10px",borderColor:winnerB?"rgba(96,165,250,.5)":"#222327",background:winnerB?"rgba(96,165,250,.06)":"#1A1B1E"}}>
+                <div style={{fontSize:9,fontWeight:700,letterSpacing:".1em",color:"#60A5FA",marginBottom:4}}>EQUIP B</div>
+                {teamB.map(p=><div key={p.id} style={{fontSize:10,color:"#787C8A"}}>{p.name}</div>)}
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:36,color:totB<0?"#FBBF24":totB===0?"#CAFF4D":"#fff",lineHeight:1,marginTop:6}}>{fmtD(totB)}</div>
+                {winnerB && <div style={{fontSize:10,fontWeight:700,color:"#60A5FA",marginTop:4}}>🏆 Guanyadors</div>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Classificació multi */}
       {game.players.length > 1 && (
@@ -2016,6 +2164,36 @@ function RankingScreen({ user, openAuth, setScreen, lang }) {
         </div>}
       </div>
 
+      {/* ── SISTEMA DE NIVELLS ── */}
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:5}}>{tl("sec_levels")}</div>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(20px,5vw,28px)",letterSpacing:".04em",lineHeight:1,marginBottom:12}}>{tl("sec_levels_title")}</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:10}}>
+          {TIERS.map((tier,di)=>{
+            const descArr=[tl("tier_caddie_desc"),tl("tier_player_desc"),tl("tier_pro_desc"),tl("tier_master_desc")];
+            return (
+              <div key={tier.id} className="card" style={{padding:"14px 12px",textAlign:"center",borderColor:tier.border,background:tier.bg}}>
+                <div style={{fontSize:24,marginBottom:4}}>{tier.emoji}</div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,color:tier.color,marginBottom:2}}>{tier.name}</div>
+                <div style={{fontSize:9,color:"#555761",marginBottom:8,fontWeight:600}}>{tier.min}–{tier.max===99999?"∞":tier.max} pts</div>
+                <div style={{fontSize:10,color:"#787C8A",lineHeight:1.5,fontWeight:400}}>{descArr[di]}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="card" style={{padding:"14px"}}>
+          <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:10}}>{tl("sec_points")}</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6}}>
+            {[{l:"Hole in One 🎯",p:"+25",c:"#FBBF24"},{l:"Birdie (−1)",p:"+12",c:"#60A5FA"},{l:"Par",p:"+6",c:"#CAFF4D"},{l:"Bogey (+1)",p:"+2",c:"#9CA3AF"},{l:tl("pts_tournament_win"),p:"+100",c:"#CAFF4D"},{l:tl("pts_inactivity"),p:"−15/m",c:"#EF4444"}].map((r,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:"#111214",borderRadius:7}}>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,color:r.p.startsWith("-")||r.p.startsWith("−")?"#EF4444":"#CAFF4D",width:38,textAlign:"right",flexShrink:0}}>{r.p}</div>
+                <div style={{fontSize:11,color:"#787C8A",fontWeight:500}}>{r.l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }
@@ -2126,6 +2304,102 @@ function TournamentsScreen({ openAuth, user, lang }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   LIVE GAME VIEW — full-screen overlay for watching a live game
+═══════════════════════════════════════════════════════════════ */
+function LiveGameView({ game, liveGames, onClose, lang }) {
+  // Auto-update: find latest version from live feed
+  const live = (liveGames && liveGames.find(g => g.id === game.id)) || game;
+  const diff = live.score_total ?? 0;
+  const scoreColor = diff < -1 ? "#FBBF24" : diff === -1 ? "#60A5FA" : diff === 0 ? "#CAFF4D" : "#EF4444";
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"#0A0A0B",zIndex:350,display:"flex",flexDirection:"column",maxWidth:430,left:"50%",transform:"translateX(-50%)"}}>
+      {/* Header */}
+      <div style={{padding:"14px 16px",borderBottom:"1px solid #1A1B1E",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,paddingTop:`calc(14px + env(safe-area-inset-top))`}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:3}}>
+            {live.is_live ? (
+              <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(239,68,68,.15)",color:"#EF4444",border:"1px solid rgba(239,68,68,.3)",borderRadius:3,padding:"2px 7px",display:"flex",alignItems:"center",gap:4}}>
+                <span style={{width:4,height:4,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/> EN DIRECTE
+              </span>
+            ) : (
+              <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(85,87,97,.15)",color:"#555761",border:"1px solid #222327",borderRadius:3,padding:"2px 7px"}}>PARTIDA ACABADA</span>
+            )}
+          </div>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:".04em",lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{live.player_name}</div>
+          <div style={{fontSize:11,color:"#787C8A",marginTop:1}}>{live.course_name} · {lang==="en"?"Hole":lang==="es"?"Hoyo":"Forat"} {live.current_hole||1}/{live.holes||18}</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:32,color:scoreColor,lineHeight:1}}>{diff>0?`+${diff}`:diff===0?"E":diff}</div>
+          </div>
+          <button onClick={onClose} style={{width:34,height:34,borderRadius:"50%",border:"1px solid #222327",background:"#1A1B1E",color:"#787C8A",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <X size={16}/>
+          </button>
+        </div>
+      </div>
+
+      {/* Players */}
+      {live.players && live.players.length > 0 && (
+        <div style={{padding:"12px 16px",borderBottom:"1px solid #1A1B1E",flexShrink:0}}>
+          {live.players.map((p, i) => {
+            const pDiff = p.diff ?? 0;
+            const pc = PLAYER_COLORS[i] || "#CAFF4D";
+            const pScoreColor = pDiff < -1 ? "#FBBF24" : pDiff === -1 ? "#60A5FA" : pDiff === 0 ? "#CAFF4D" : "#EF4444";
+            return (
+              <div key={p.id||i} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:i<live.players.length-1?"1px solid #111214":"none"}}>
+                <div style={{width:28,height:28,borderRadius:"50%",background:pc,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>
+                  {(p.name||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+                </div>
+                <div style={{flex:1,fontWeight:600,fontSize:13}}>{p.name}</div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:pScoreColor}}>
+                  {pDiff>0?`+${pDiff}`:pDiff===0?"E":pDiff}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Scorecard grid */}
+      <div style={{flex:1,overflowY:"auto",padding:"12px 16px"}}>
+        {live.scores && live.scores.length > 0 ? (
+          <>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:10}}>
+              {lang==="en"?"Hole by hole":lang==="es"?"Hoyo a hoyo":"Forat a forat"}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:`40px repeat(${Math.min(live.players?.length||1,4)},1fr)`,gap:4}}>
+              {/* Header row */}
+              <div style={{fontSize:9,color:"#555761",fontWeight:700,textAlign:"center",paddingBottom:4}}>F.</div>
+              {(live.players||[]).map((p,i)=>(
+                <div key={p.id||i} style={{fontSize:9,color:PLAYER_COLORS[i]||"#CAFF4D",fontWeight:700,textAlign:"center",paddingBottom:4}}>
+                  {(p.name||"?").split(" ")[0].slice(0,4).toUpperCase()}
+                </div>
+              ))}
+              {/* Score rows */}
+              {live.scores.map((h, hi) => (
+                <React.Fragment key={hi}>
+                  <div style={{fontSize:10,color:"#555761",fontWeight:600,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",height:34}}>{h.hole}</div>
+                  {(live.players||[{id:"0"}]).map((p, pi) => (
+                    <div key={p.id||pi} style={{display:"flex",alignItems:"center",justifyContent:"center",height:34}}>
+                      <ScoreSymbol v={h.playerScores?.[p.id]} par={h.par} size={28}/>
+                    </div>
+                  ))}
+                </React.Fragment>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div style={{textAlign:"center",padding:"32px 16px",color:"#555761",fontSize:13}}>
+            {lang==="en"?"No scores yet":"Sense puntuació encara"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
    LIVE SCREEN
 ═══════════════════════════════════════════════════════════════ */
 const SPAIN_PINS = [
@@ -2147,14 +2421,14 @@ const MOCK_LIVE_GAMES = [
   { id:5, player_name:"Pau Serra",     course_name:"P&P Badalona",     current_hole:5,  holes:9,  score_total:-1, par_total:0, is_live:true,  avatar:"PS", color:"#34D399", created_at: new Date(Date.now()-600000).toISOString() },
 ];
 
-function LiveGameCard({ game, compact }) {
+function LiveGameCard({ game, compact, onClick }) {
   const diff = game.score_total ?? game.players?.find(p=>p.isMe)?.diff ?? 0;
   const scoreColor = diff < -1 ? "#FBBF24" : diff === -1 ? "#60A5FA" : diff === 0 ? "#CAFF4D" : "#EF4444";
   const pct = Math.round(((game.current_hole||1) / (game.holes||18)) * 100);
 
   if (compact) {
     return (
-      <div className={`live-card${game.is_live?" is-live":""}`}>
+      <div className={`live-card${game.is_live?" is-live":""}`} onClick={onClick?()=>onClick(game):undefined} style={onClick?{cursor:"pointer"}:{}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:34,height:34,borderRadius:"50%",background:game.color||"#CAFF4D",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
             {game.avatar_url ? <img src={game.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : (game.avatar||"?")}
@@ -2179,7 +2453,7 @@ function LiveGameCard({ game, compact }) {
   }
 
   return (
-    <div className={`live-card${game.is_live?" is-live":""}`}>
+    <div className={`live-card${game.is_live?" is-live":""}`} onClick={onClick?()=>onClick(game):undefined} style={onClick?{cursor:"pointer"}:{}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:40,height:40,borderRadius:"50%",background:game.color||"#CAFF4D",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
@@ -2209,10 +2483,14 @@ function LiveGameCard({ game, compact }) {
   );
 }
 
-function LiveScreen({ user, openAuth, lang, liveGames }) {
+function LiveScreen({ user, openAuth, lang, liveGames, onSelectGame }) {
   const games = (liveGames && liveGames.length) ? liveGames : MOCK_LIVE_GAMES;
   const liveNow = games.filter(g => g.is_live);
   const recent = games.filter(g => !g.is_live);
+  const handleCardClick = (game) => {
+    if (!user) { openAuth(); return; }
+    if (onSelectGame) onSelectGame(game);
+  };
 
   return (
     <div className="page-scroll ani-up">
@@ -2251,7 +2529,7 @@ function LiveScreen({ user, openAuth, lang, liveGames }) {
           <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#EF4444",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
             <span style={{width:5,height:5,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/> LIVE ARA
           </div>
-          {liveNow.map(g=><LiveGameCard key={g.id} game={g}/>)}
+          {liveNow.map(g=><LiveGameCard key={g.id} game={g} onClick={handleCardClick}/>)}
         </div>
       )}
 
@@ -2259,7 +2537,7 @@ function LiveScreen({ user, openAuth, lang, liveGames }) {
       {recent.length > 0 && (
         <div style={{marginBottom:16}}>
           <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:8}}>PARTIDES RECENTS</div>
-          {recent.map(g=><LiveGameCard key={g.id} game={g}/>)}
+          {recent.map(g=><LiveGameCard key={g.id} game={g} onClick={handleCardClick}/>)}
         </div>
       )}
 
@@ -2272,9 +2550,12 @@ function LiveScreen({ user, openAuth, lang, liveGames }) {
       )}
 
       {!user && (
-        <div style={{background:"rgba(202,255,77,.06)",border:"1px solid rgba(202,255,77,.2)",borderRadius:10,padding:"13px 14px",marginTop:8,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
-          <div style={{fontSize:12,color:"#787C8A"}}>Crea un compte per retransmetre les teves partides</div>
-          <button className="btn btn-primary btn-sm" style={{borderRadius:100,padding:"7px 14px",fontSize:11,width:"auto",flexShrink:0}} onClick={openAuth}>Uneix-te →</button>
+        <div style={{background:"rgba(202,255,77,.06)",border:"1px solid rgba(202,255,77,.2)",borderRadius:10,padding:"13px 14px",marginTop:8}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#CAFF4D",marginBottom:4}}>
+            {lang==="en"?"Sign up to follow games live →":lang==="es"?"Regístrate para seguir partidas en directo →":"Registra't per seguir partides en directe →"}
+          </div>
+          <div style={{fontSize:12,color:"#787C8A",marginBottom:10}}>{lang==="en"?"Create a free account to watch and broadcast live rounds":lang==="es"?"Crea una cuenta gratuita para ver y retransmitir partidas":"Crea un compte gratuït per veure i retransmetre partides"}</div>
+          <button className="btn btn-primary btn-sm" style={{borderRadius:100,padding:"7px 14px",fontSize:11,width:"auto"}} onClick={openAuth}>{lang==="en"?"Join free →":lang==="es"?"Únete gratis →":"Uneix-te gratis →"}</button>
         </div>
       )}
     </div>
@@ -2546,6 +2827,7 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
             );
           })}
         </div>
+        <div style={{fontSize:9,color:"#60A5FA",fontWeight:600,textAlign:"center",opacity:.7}}>↓ millora</div>
       </div>
 
       {/* Score distribution */}
@@ -2730,6 +3012,7 @@ export default function App() {
   const [liveGameId, setLiveGameId] = useState(null); // Supabase row id for live game
   const [activityFeed, setActivityFeed] = useState([]);
   const [liveGames, setLiveGames]       = useState([]);
+  const [selectedLiveGame, setSelectedLiveGame] = useState(null);
   const leads = useRef([]);
   const liveDebounce = useRef(null);
 
@@ -3015,7 +3298,8 @@ export default function App() {
         }}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} onPhotoUpload={handlePhotoUpload}/>}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang}/>}
-        {screen==="live"       && <LiveScreen        user={user} openAuth={openAuth} lang={lang} liveGames={liveGames}/>}
+        {screen==="live"       && <LiveScreen        user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null}/>}
+        {selectedLiveGame && user && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser}/>}
 

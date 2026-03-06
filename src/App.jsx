@@ -2766,10 +2766,10 @@ export default function App() {
       if (session?.user) {
         const u = session.user;
         setUser({ id: u.id, name: u.user_metadata?.name || u.email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", avatarUrl: u.user_metadata?.avatar_url || null });
-        // Scope games query to this user's games only
         supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false })
           .then(({ data, error }) => {
-            if (error) { console.error("P&C: Error loading history:", error); return; }
+            console.log("P&C history load — user:", u.id, "games:", data?.length, "error:", error?.message);
+            if (error) return;
             if (data) {
               setHistory(data.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
               setUserPts(data.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
@@ -2777,6 +2777,8 @@ export default function App() {
           });
       } else {
         setUser(null);
+        setHistory([]);
+        setUserPts(0);
       }
     });
     return () => subscription.unsubscribe();
@@ -2918,6 +2920,7 @@ export default function App() {
     if (me) { setPrevPts(userPts); setUserPts(p=>p+me.points); }
 
     let dbGameId = null;
+    console.log("P&C handleGameFinish — user.id:", user?.id, "liveGameId:", liveGameId);
     if (user?.id) {
       try {
         if (liveGameId) {
@@ -2940,6 +2943,7 @@ export default function App() {
             players: game.players,
             scores: game.scores,
           }).select();
+          console.log("P&C INSERT result — rows:", rows, "error:", error);
           if (error) throw error;
           dbGameId = rows?.[0]?.id || null;
         }

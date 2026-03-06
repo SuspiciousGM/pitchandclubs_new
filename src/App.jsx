@@ -2857,13 +2857,10 @@ export default function App() {
     setShowAuth(false);
     const greet = lang==="en"?`👋 Welcome, ${u.name.split(" ")[0]}!`:lang==="es"?`👋 Bienvenido/a, ${u.name.split(" ")[0]}!`:`👋 Benvingut/da, ${u.name.split(" ")[0]}!`;
     showToast(greet);
-    const { data: authData } = await supabase.auth.getUser();
-    if (authData?.user) {
-      const { data: games } = await supabase.from("games").select("*").eq("user_id", authData.user.id).order("created_at", { ascending: false });
-      if (games?.length) {
-        setHistory(games.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
-        setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
-      }
+    const { data: games } = await supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false });
+    if (games?.length) {
+      setHistory(games.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
+      setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
     }
   };
 
@@ -2874,33 +2871,29 @@ export default function App() {
     setScreen("scorecard");
 
     // If live share enabled and user is logged in, insert a live row immediately
-    if (data.liveShare && user) {
-      const { data: authData } = await supabase.auth.getUser();
-      if (authData?.user) {
-        const me = data.players.find(p => p.isMe) || data.players[0];
-        const { data: row, error: liveErr } = await supabase.from("games").insert({
-          user_id: authData.user.id,
-          course: data.course.name,
-          course_name: data.course.name,
-          player_name: me.name,
-          players: data.players,
-          scores: Array.from({length: data.course.holes}, (_,i) => ({
-            hole: i+1, par: Math.round(data.course.par / data.course.holes),
-            playerScores: Object.fromEntries(data.players.map(p => [p.id, null])),
-          })),
-          is_live: true,
-          current_hole: 1,
-          holes: data.course.holes,
-          par: data.course.par,
-          score_total: 0,
-          date: data.date,
-          game_mode: data.gameMode,
-        }).select().single();
-        if (liveErr) { console.error("P&C: live game insert error:", liveErr); }
-        else if (row) {
-          setLiveGameId(row.id);
-          setLiveGames(prev => [row, ...prev].slice(0, 10));
-        }
+    if (data.liveShare && user?.id) {
+      const me = data.players.find(p => p.isMe) || data.players[0];
+      const { data: row, error: liveErr } = await supabase.from("games").insert({
+        user_id: user.id,
+        course_name: data.course.name,
+        player_name: me.name,
+        players: data.players,
+        scores: Array.from({length: data.course.holes}, (_,i) => ({
+          hole: i+1, par: Math.round(data.course.par / data.course.holes),
+          playerScores: Object.fromEntries(data.players.map(p => [p.id, null])),
+        })),
+        is_live: true,
+        current_hole: 1,
+        holes: data.course.holes,
+        par: data.course.par,
+        score_total: 0,
+        date: data.date,
+        game_mode: data.gameMode,
+      }).select().single();
+      if (liveErr) { console.error("P&C: live game insert error:", liveErr); }
+      else if (row) {
+        setLiveGameId(row.id);
+        setLiveGames(prev => [row, ...prev].slice(0, 10));
       }
     }
   };

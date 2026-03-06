@@ -2302,9 +2302,9 @@ function LiveGameView({ game, liveGames, onClose, lang, user, openAuth }) {
   const scoreColor = diff < -1 ? "#FBBF24" : diff === -1 ? "#60A5FA" : diff === 0 ? "#CAFF4D" : "#EF4444";
 
   return (
-    <div style={{position:"fixed",inset:0,background:"#0A0A0B",zIndex:350,display:"flex",flexDirection:"column",maxWidth:430,left:"50%",transform:"translateX(-50%)"}}>
+    <div className="page-scroll ani-up" style={{display:"flex",flexDirection:"column"}}>
       {/* Header */}
-      <div style={{padding:"14px 16px",borderBottom:"1px solid #1A1B1E",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,paddingTop:`calc(14px + env(safe-area-inset-top))`}}>
+      <div style={{padding:"14px 0",borderBottom:"1px solid #1A1B1E",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,marginBottom:14}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:3}}>
             {live.is_live ? (
@@ -2484,12 +2484,12 @@ function LiveGameCard({ game, compact, onClick }) {
       <div style={{height:4,background:"#111214",borderRadius:2,overflow:"hidden"}}>
         <div style={{height:"100%",width:`${pct}%`,background:game.is_live?"#EF4444":"#555761",borderRadius:2,transition:"width .5s"}}/>
       </div>
-      {onClick && (
+      {onClick && game.is_live && (
         <button onClick={e=>{e.stopPropagation();onClick(game);}}
           style={{marginTop:10,width:"100%",padding:"7px",borderRadius:8,border:"1px solid rgba(239,68,68,.3)",
             background:"rgba(239,68,68,.07)",color:"#EF4444",fontSize:11,fontWeight:700,cursor:"pointer",
             display:"flex",alignItems:"center",justifyContent:"center",gap:6,letterSpacing:".04em"}}>
-          👁 Seguir en directe
+          Seguir en directe
         </button>
       )}
     </div>
@@ -3295,7 +3295,7 @@ export default function App() {
       <div className="app">
         {screen!=="scorecard" && <AppHeader screen={screen} setScreen={setScreenSafe} user={user} openAuth={openAuth} onSignOut={handleSignOut} userPts={userPts} lang={lang} setLang={setLang}/>}
 
-        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")} activityFeed={activityFeed} liveGames={liveGames} onSelectGame={setSelectedLiveGame}/>}
+        {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")} activityFeed={activityFeed} liveGames={liveGames} onSelectGame={g=>{setSelectedLiveGame(g);setScreenSafe("live");}}/>}
         {screen==="game-setup" && <GameSetupScreen   user={user} openAuth={openAuth} onStart={handleGameStart} lang={lang}/>}
         {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang} liveGameId={liveGameId} onLiveUpdate={(scores, curHole) => {
           if (!liveGameId) return;
@@ -3312,8 +3312,8 @@ export default function App() {
         }}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} onPhotoUpload={handlePhotoUpload}/>}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang}/>}
-        {screen==="live"       && <LiveScreen        user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null}/>}
-        {selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth}/>}
+        {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null}/>}
+        {screen==="live" && selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser}/>}
 

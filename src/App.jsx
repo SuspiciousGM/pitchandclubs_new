@@ -1498,7 +1498,7 @@ function AnimPts({ value, prev }) {
   );
 }
 
-function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, liveGameId, onLiveUpdate, onPhotoCapture }) {
+function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, liveGameId, onLiveUpdate, onPhotoCapture, liveShareToken }) {
   const tl = (k,v={}) => t(lang,k,v);
   const { course, players } = gameData;
   const pph = Math.round(course.par / course.holes);
@@ -1668,6 +1668,19 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
             </div>
           </div>
           <div style={{display:'flex',gap:6,flexShrink:0}}>
+            {liveShareToken && (
+              <button onClick={async()=>{
+                const url = `${window.location.origin}/game/${liveShareToken}`;
+                if (navigator.share) {
+                  try { await navigator.share({ title:"Segueix la meva partida en directe", text:`${gameData.course?.name} — En directe`, url }); } catch(e){}
+                } else {
+                  await navigator.clipboard.writeText(url);
+                  alert("Link copiat! Comparteix-lo amb els altres jugadors.");
+                }
+              }} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(202,255,77,.3)',background:'rgba(202,255,77,.08)',color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',letterSpacing:'.04em',display:'flex',alignItems:'center',gap:4}}>
+                <Users size={11}/> Invita
+              </button>
+            )}
             <button onClick={()=>setShowFull(true)} style={{padding:'6px 11px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#787C8A',fontSize:10,fontWeight:700,cursor:'pointer',letterSpacing:'.06em',textTransform:'uppercase'}}>
               {lang==='en'?'Card':lang==='es'?'Tarjeta':'Targeta'}
             </button>
@@ -3188,8 +3201,264 @@ function AuthModal({ onClose, onAuth, lang, initialMode="register" }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   APP ROOT
+   SHARED GAME ROUTE — public /game/:token (no auth required)
 ═══════════════════════════════════════════════════════════════ */
+function SharedGameRoute({ token }) {
+  const [game, setGame]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [view, setView]       = useState("watch"); // "watch" | "join"
+  const [joinedPid, setJoinedPid] = useState(() => localStorage.getItem(`pc_join_${token}`) || null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.from("games").select("*").eq("share_token", token).single();
+      if (cancelled) return;
+      if (error || !data) { setNotFound(true); setLoading(false); return; }
+      setGame(data);
+      setLoading(false);
+
+      // Realtime: watch this specific game row
+      const ch = supabase.channel(`sg-${data.id}`)
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${data.id}` },
+          payload => { if (!cancelled) setGame(payload.new); })
+        .subscribe();
+      return () => { cancelled = true; supabase.removeChannel(ch); };
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  if (loading) return (
+    <div style={{minHeight:"100dvh",background:"#0A0A0B",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
+      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,color:"#CAFF4D",letterSpacing:".08em"}}>PITCH&CLUBS</div>
+      <div style={{fontSize:12,color:"#555761"}}>Carregant partida…</div>
+    </div>
+  );
+
+  if (notFound) return (
+    <div style={{minHeight:"100dvh",background:"#0A0A0B",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16,padding:24,textAlign:"center"}}>
+      <div style={{fontSize:48}}>🏌️</div>
+      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,color:"#CAFF4D"}}>Partida no trobada</div>
+      <div style={{fontSize:13,color:"#555761"}}>El link ha caducat o la partida no existeix.</div>
+      <a href="/" style={{color:"#CAFF4D",fontSize:13,fontWeight:700,textDecoration:"none"}}>Ves a pitchandclubs.cat →</a>
+    </div>
+  );
+
+  if (view === "join") return (
+    <JoinGameScreen game={game} token={token}
+      onJoin={pid => { setJoinedPid(pid); localStorage.setItem(`pc_join_${token}`, pid); setView("watch"); }}
+      onBack={() => setView("watch")}/>
+  );
+
+  return (
+    <SharedGameView game={game} token={token} joinedPid={joinedPid}
+      onJoinClick={() => setView("join")}/>
+  );
+}
+
+/* ─── Shared game: viewer + joined player scoring ─── */
+function SharedGameView({ game, token, joinedPid, onJoinClick }) {
+  const isLive = game.is_live;
+  const players = game.players || [];
+  const scores  = game.scores  || [];
+  const [curHole, setCurHole] = useState(() => Math.max(0, (game.current_hole||1) - 1));
+  const [saving,  setSaving]  = useState(false);
+
+  const me = joinedPid ? players.find(p => p.id === joinedPid) : null;
+  const pph = Math.round((game.par||18) / (game.holes||18));
+
+  const scDiff = (sc, pid) => {
+    let d = 0;
+    scores.forEach(h => { const v = h.playerScores?.[pid]; if (v != null) d += v - h.par; });
+    return d;
+  };
+  const diffColor = d => d < -1 ? "#FBBF24" : d === -1 ? "#60A5FA" : d === 0 ? "#CAFF4D" : "#EF4444";
+
+  const updateScore = async (holeIdx, score) => {
+    setSaving(true);
+    const newScores = scores.map((h, i) => i === holeIdx
+      ? { ...h, playerScores: { ...h.playerScores, [joinedPid]: score } }
+      : h);
+    await supabase.from("games").update({ scores: newScores }).eq("share_token", token);
+    setSaving(false);
+  };
+
+  return (
+    <div style={{minHeight:"100dvh",background:"#0A0A0B",fontFamily:"Inter,sans-serif",maxWidth:430,margin:"0 auto",paddingBottom:40}}>
+      {/* Top bar */}
+      <div style={{padding:"14px 16px 10px",borderBottom:"1px solid #1A1B1E",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:"#CAFF4D",letterSpacing:".08em"}}>PITCH&CLUBS</div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {isLive ? (
+            <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(239,68,68,.15)",color:"#EF4444",border:"1px solid rgba(239,68,68,.3)",borderRadius:3,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}>
+              <span style={{width:4,height:4,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/> EN DIRECTE
+            </span>
+          ) : (
+            <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(85,87,97,.15)",color:"#555761",border:"1px solid #222327",borderRadius:3,padding:"3px 8px"}}>ACABADA</span>
+          )}
+        </div>
+      </div>
+
+      {/* Course / header */}
+      <div style={{padding:"14px 16px 10px"}}>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:".04em",lineHeight:1,marginBottom:3}}>{game.course_name}</div>
+        <div style={{fontSize:11,color:"#787C8A"}}>
+          {game.date} · {game.holes||18} forats · Par {game.par||18}
+          {isLive && ` · Forat ${game.current_hole||1}/${game.holes||18}`}
+        </div>
+      </div>
+
+      {/* Players */}
+      {players.length > 0 && (
+        <div style={{margin:"0 16px 12px",border:"1px solid #1A1B1E",borderRadius:12,overflow:"hidden"}}>
+          {players.map((p, i) => {
+            const d = scDiff(scores, p.id);
+            const isJoined = p.id === joinedPid;
+            return (
+              <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 13px",borderBottom:i<players.length-1?"1px solid #111214":"none",background:isJoined?"rgba(202,255,77,.04)":"transparent"}}>
+                <div style={{width:28,height:28,borderRadius:"50%",background:PLAYER_COLORS[i]||"#CAFF4D",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>
+                  {(p.name||"P").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase()||"P"}
+                </div>
+                <div style={{flex:1,fontWeight:600,fontSize:13}}>
+                  {p.name}{isJoined&&<span style={{fontSize:9,color:"#CAFF4D",marginLeft:5,fontWeight:700}}>TU</span>}
+                </div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:diffColor(d)}}>
+                  {d>0?`+${d}`:d===0?"E":d}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Score grid */}
+      {scores.length > 0 && (
+        <div style={{padding:"0 16px",marginBottom:16}}>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:8}}>Forat a forat</div>
+          <div style={{display:"grid",gridTemplateColumns:`40px repeat(${Math.min(players.length||1,4)},1fr)`,gap:3}}>
+            <div style={{fontSize:9,color:"#555761",fontWeight:700,textAlign:"center",paddingBottom:4}}>F.</div>
+            {players.slice(0,4).map((p,i)=>(
+              <div key={p.id} style={{fontSize:9,color:PLAYER_COLORS[i]||"#CAFF4D",fontWeight:700,textAlign:"center",paddingBottom:4}}>
+                {(p.name||"P").split(" ")[0].slice(0,4).toUpperCase()}
+              </div>
+            ))}
+            {scores.map((h, hi) => (
+              <React.Fragment key={hi}>
+                <div style={{fontSize:10,color:"#555761",fontWeight:600,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",height:32}}>{h.hole}</div>
+                {players.slice(0,4).map((p, pi) => (
+                  <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"center",height:32}}>
+                    <ScoreSymbol v={h.playerScores?.[p.id]} par={h.par} size={26}/>
+                  </div>
+                ))}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Joined player: scoring UI */}
+      {me && isLive && (
+        <div style={{margin:"0 16px 16px",border:"1px solid rgba(202,255,77,.25)",borderRadius:12,padding:"14px",background:"rgba(202,255,77,.04)"}}>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#CAFF4D",marginBottom:10}}>
+            La teva puntuació — Forat {curHole+1}
+          </div>
+          {scores[curHole] && (
+            <>
+              <div style={{fontSize:11,color:"#787C8A",marginBottom:10}}>Par {scores[curHole].par}</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:16,marginBottom:12}}>
+                <button onClick={()=>{const cur=scores[curHole].playerScores[joinedPid]??scores[curHole].par;if(cur>1)updateScore(curHole,cur-1);}}
+                  style={{width:44,height:44,borderRadius:"50%",border:"1px solid #333",background:"#1A1B1E",color:"#fff",fontSize:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:52,color:"#CAFF4D",lineHeight:1,minWidth:60,textAlign:"center"}}>
+                  {scores[curHole].playerScores[joinedPid] ?? "—"}
+                </div>
+                <button onClick={()=>{const cur=scores[curHole].playerScores[joinedPid]??scores[curHole].par;updateScore(curHole,cur+1);}}
+                  style={{width:44,height:44,borderRadius:"50%",border:"1px solid #333",background:"#1A1B1E",color:"#fff",fontSize:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                {curHole > 0 && <button onClick={()=>setCurHole(h=>h-1)} style={{flex:1,padding:"10px",borderRadius:10,border:"1px solid #222",background:"#1A1B1E",color:"#787C8A",fontWeight:700,fontSize:12,cursor:"pointer"}}>← Anterior</button>}
+                {curHole < scores.length-1 && <button onClick={()=>setCurHole(h=>h+1)} style={{flex:1,padding:"10px",borderRadius:10,border:"none",background:"#CAFF4D",color:"#0A0A0B",fontWeight:700,fontSize:12,cursor:"pointer"}}>Forat {curHole+2} →</button>}
+              </div>
+              {saving && <div style={{textAlign:"center",fontSize:10,color:"#555761",marginTop:8}}>Guardant…</div>}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* CTA: join as player */}
+      {!joinedPid && game.share_mode === "play" && isLive && (
+        <div style={{margin:"0 16px 16px",border:"1px solid rgba(202,255,77,.25)",borderRadius:12,padding:"16px",textAlign:"center"}}>
+          <div style={{fontWeight:700,fontSize:14,marginBottom:6}}>Uneix-te com a jugador</div>
+          <div style={{fontSize:12,color:"#787C8A",marginBottom:12}}>Registra la teva puntuació en temps real</div>
+          <button onClick={onJoinClick} style={{width:"100%",padding:"12px",borderRadius:10,border:"none",background:"#CAFF4D",color:"#0A0A0B",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+            Uneix-te →
+          </button>
+        </div>
+      )}
+
+      {/* P&C footer */}
+      <div style={{padding:"20px 16px",textAlign:"center",borderTop:"1px solid #1A1B1E",marginTop:8}}>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:16,color:"#555761",letterSpacing:".1em",marginBottom:8}}>PITCH&CLUBS</div>
+        <a href="/" style={{display:"inline-block",padding:"10px 20px",borderRadius:100,background:"#CAFF4D",color:"#0A0A0B",fontWeight:700,fontSize:12,textDecoration:"none"}}>
+          Registra't gratis →
+        </a>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Join game screen ─── */
+function JoinGameScreen({ game, token, onJoin, onBack }) {
+  const [name, setName]       = useState("");
+  const [joining, setJoining] = useState(false);
+  const [err, setErr]         = useState("");
+
+  const handleJoin = async () => {
+    if (!name.trim()) { setErr("Escriu el teu nom"); return; }
+    setJoining(true);
+    const pid = crypto.randomUUID();
+    const newPlayer = { id: pid, name: name.trim(), isMe: false };
+    const updatedPlayers = [...(game.players||[]), newPlayer];
+    const updatedScores  = (game.scores||[]).map(h => ({
+      ...h, playerScores: { ...h.playerScores, [pid]: null }
+    }));
+    const { error } = await supabase.from("games").update({
+      players: updatedPlayers, scores: updatedScores
+    }).eq("share_token", token);
+    if (error) { setErr(error.message); setJoining(false); return; }
+    onJoin(pid);
+  };
+
+  return (
+    <div style={{minHeight:"100dvh",background:"#0A0A0B",fontFamily:"Inter,sans-serif",maxWidth:430,margin:"0 auto",display:"flex",flexDirection:"column",justifyContent:"center",padding:24}}>
+      <button onClick={onBack} style={{alignSelf:"flex-start",background:"none",border:"none",color:"#555761",fontSize:13,cursor:"pointer",marginBottom:24,padding:0}}>← Tornar</button>
+      <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:".04em",marginBottom:4}}>UNEIX-TE A LA PARTIDA</div>
+      <div style={{fontSize:12,color:"#787C8A",marginBottom:24}}>{game.course_name} · {game.holes||18} forats</div>
+      <div style={{marginBottom:8}}>
+        <div style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#555761",marginBottom:6}}>El teu nom</div>
+        <input
+          className="inp" placeholder="Marc Puig" value={name} autoFocus
+          onChange={e=>{setName(e.target.value);setErr("");}}
+          onKeyDown={e=>e.key==="Enter"&&handleJoin()}/>
+      </div>
+      {err && <div style={{fontSize:12,color:"#EF4444",marginBottom:8}}>⚠ {err}</div>}
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",marginBottom:6}}>Jugadors actuals</div>
+        {(game.players||[]).map((p,i)=>(
+          <div key={p.id||i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid #111214"}}>
+            <div style={{width:22,height:22,borderRadius:"50%",background:PLAYER_COLORS[i]||"#555",display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>
+              {(p.name||"P")[0].toUpperCase()}
+            </div>
+            <span style={{fontSize:12,color:"#787C8A"}}>{p.name}</span>
+          </div>
+        ))}
+      </div>
+      <button className="btn btn-primary" onClick={handleJoin} disabled={joining}>
+        {joining ? "Unint-se…" : "Uneix-te a la partida →"}
+      </button>
+    </div>
+  );
+}
 
 /* ═══════════════════════════════════════════════════════════════
    APP ROOT
@@ -3218,6 +3487,7 @@ export default function App() {
   const [selectedLiveGame, setSelectedLiveGame] = useState(null);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [follows, setFollows] = useState([]);
+  const [liveShareToken, setLiveShareToken] = useState(null);
   const [roundPhoto, setRoundPhoto] = useState(null);
   const [roundPhotoUrl, setRoundPhotoUrl] = useState(null);
   const shareCardRef = useRef(null);
@@ -3409,6 +3679,7 @@ export default function App() {
     // If live share enabled and user is logged in, insert a live row immediately
     if (data.liveShare && user?.id) {
       const me = data.players.find(p => p.isMe) || data.players[0];
+      const shareToken = crypto.randomUUID();
       const { data: row, error: liveErr } = await supabase.from("games").insert({
         user_id: user.id,
         course_name: data.course.name,
@@ -3425,10 +3696,13 @@ export default function App() {
         score_total: 0,
         date: data.date,
         game_mode: data.gameMode,
+        share_token: shareToken,
+        share_mode: "play",
       }).select().single();
       if (liveErr) { console.error("P&C: live game insert error:", liveErr); }
       else if (row) {
         setLiveGameId(row.id);
+        setLiveShareToken(row.share_token || shareToken);
         setLiveGames(prev => [row, ...prev].slice(0, 10));
       }
     }
@@ -3522,6 +3796,10 @@ export default function App() {
   const setScreenSafe = (s) => { setScreen(s); window.scrollTo(0,0); };
   const isGameFlow = screen==="game-setup"||screen==="scorecard"||screen==="summary";
 
+  // Public share route: /game/:token
+  const sharedGameToken = window.location.pathname.match(/^\/game\/([^/]+)/)?.[1];
+  if (sharedGameToken) return <SharedGameRoute token={sharedGameToken}/>;
+
   return (
     <>
       <style>{G}</style>
@@ -3536,7 +3814,7 @@ export default function App() {
 
         {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")} activityFeed={activityFeed} liveGames={liveGames} onSelectGame={g=>{setSelectedLiveGame(g);setScreenSafe("live");}}/>}
         {screen==="game-setup" && <GameSetupScreen   user={user} openAuth={openAuth} onStart={handleGameStart} lang={lang}/>}
-        {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang} liveGameId={liveGameId} onPhotoCapture={setRoundPhoto} onLiveUpdate={(scores, curHole) => {
+        {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang} liveGameId={liveGameId} onPhotoCapture={setRoundPhoto} liveShareToken={liveShareToken} onLiveUpdate={(scores, curHole) => {
           if (!liveGameId) return;
           clearTimeout(liveDebounce.current);
           liveDebounce.current = setTimeout(async () => {

@@ -2165,29 +2165,31 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
           .select("user_id, players, scores, created_at");
 
         if (gamesData && !cancelled) {
-          // Build global leaderboard from games
           const userMap = {};
           gamesData.forEach(g => {
             const me = (g.players||[]).find(p => p.isMe);
             if (!me || !g.user_id) return;
             if (!userMap[g.user_id]) {
-              userMap[g.user_id] = { name: me.name, pts: 0, scores: [], club: me.club||"" };
+              userMap[g.user_id] = { name: me.name, pts: 0, scores: [], club: me.club||"", games: 0 };
             }
             userMap[g.user_id].pts += (me.points || 0);
-            userMap[g.user_id].scores.push(me.diff ?? 0);
+            userMap[g.user_id].games += 1;
+            const d = me.diff;
+            if (typeof d === "number" && !isNaN(d)) userMap[g.user_id].scores.push(d);
           });
           const global = Object.entries(userMap)
-            .map(([uid, v], i) => ({
-              rank: i+1, name: v.name, club: v.club, uid,
-              pts: v.pts,
-              best: v.scores.length ? Math.min(...v.scores) : 0,
+            .map(([uid, v]) => ({
+              uid, name: v.name, club: v.club,
+              pts: v.pts, games: v.games,
+              best: v.scores.length ? Math.min(...v.scores) : null,
               avatar: v.name.split(" ").map(w=>w[0]).slice(0,2).join(""),
-              color: ["#CAFF4D","#60A5FA","#A78BFA","#F472B6","#34D399","#FBBF24"][i%6],
             }))
             .sort((a,b) => b.pts - a.pts)
-            .map((p,i) => ({...p, rank:i+1}));
+            .map((p, i) => ({
+              ...p, rank: i+1,
+              color: ["#CAFF4D","#60A5FA","#A78BFA","#F472B6","#34D399","#FBBF24"][i%6],
+            }));
           if (global.length) setLiveRanking(global);
-
         }
       } catch(e) {
         console.warn("P&C: Could not load ranking from Supabase:", e.message);
@@ -2198,17 +2200,11 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
     return () => { cancelled = true; };
   }, []);
 
-  const MOCK_EXTRA = [
-    { name:"Arnau Puig",  avatar:"AP", club:"Vallromanes",  pts:847,  best:-4, color:"#60A5FA" },
-    { name:"Marta Oller", avatar:"MO", club:"Mas Gurumbau", pts:723,  best:-2, color:"#F472B6" },
-    { name:"Pere Vidal",  avatar:"PV", club:"Canal Olímpic",pts:612,  best:-1, color:"#FBBF24" },
-  ];
-  const base = liveRanking || LEADERBOARD;
-  const merged = [...base, ...MOCK_EXTRA]
-    .sort((a, b) => b.pts - a.pts)
-    .map((p, i) => ({ ...p, rank: i + 1 }));
-  const globalData = merged.slice(0, 10);
+  const globalData = (liveRanking || LEADERBOARD).slice(0, 10);
   const isLive     = !!liveRanking;
+  // Current user's position (may be outside top 10)
+  const myRow = user && liveRanking ? liveRanking.find(p => p.uid === user.id) : null;
+  const myInTop10 = myRow && myRow.rank <= 10;
 
   return (
     <div className="page-scroll">
@@ -2233,19 +2229,21 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
         </div>
         {globalData.map((p,i) => {
           const tier = getTier(p.pts);
-          const canFollow = user && p.uid && p.uid !== user?.id;
+          const isMe = user && p.uid === user.id;
+          const canFollow = user && p.uid && !isMe;
           const isFollowing = follows?.includes(p.uid);
+          const bestFmt = p.best == null ? "—" : p.best > 0 ? `+${p.best}` : p.best === 0 ? "E" : `${p.best}`;
           return (
-            <div key={p.rank} style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 44px 32px",alignItems:"center",padding:"10px 13px",borderBottom:"1px solid #111214"}}>
+            <div key={p.rank} style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 44px 32px",alignItems:"center",padding:"10px 13px",borderBottom:"1px solid #111214",background:isMe?"rgba(202,255,77,.04)":"transparent"}}>
               <div style={{fontFamily:"'Bebas Neue'",fontSize:14,color:i===0?"#FBBF24":i===1?"#9CA3AF":i===2?"#CD7F32":"#2A2B30"}}>{String(p.rank).padStart(2,"0")}</div>
               <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-                <div style={{width:26,height:26,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{p.avatar}</div>
+                <div style={{width:26,height:26,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0,border:isMe?"2px solid #CAFF4D":"none"}}>{p.avatar}</div>
                 <div style={{minWidth:0}}>
-                  <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
-                  <div style={{fontSize:9,color:"#555761",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tier.emoji} {tier.name}{p.club?` · ${p.club}`:""}</div>
+                  <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:isMe?"#CAFF4D":"#fff"}}>{p.name}{isMe&&<span style={{fontSize:8,marginLeft:4,color:"#CAFF4D",fontWeight:700}}>TU</span>}</div>
+                  <div style={{fontSize:9,color:"#555761",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tier.emoji} {tier.name}{p.club?` · ${p.club}`:""}{p.games?` · ${p.games}p`:""}</div>
                 </div>
               </div>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:16,textAlign:"center",color:p.best<0?"#CAFF4D":p.best===0?"#fff":"#555761"}}>{p.best>0?`+${p.best}`:p.best}</div>
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:16,textAlign:"center",color:p.best!=null&&p.best<0?"#CAFF4D":p.best===0?"#fff":"#555761"}}>{bestFmt}</div>
               <div style={{textAlign:"right",fontWeight:700,fontSize:12,color:"#CAFF4D"}}>{p.pts}</div>
               <div style={{display:"flex",justifyContent:"center"}}>
                 {canFollow && (
@@ -2258,6 +2256,25 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
             </div>
           );
         })}
+        {/* Current user outside top 10 */}
+        {myRow && !myInTop10 && (
+          <>
+            <div style={{padding:"5px 13px",background:"#111214",textAlign:"center",fontSize:9,color:"#2A2B30",letterSpacing:".06em"}}>· · ·</div>
+            <div style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 44px 32px",alignItems:"center",padding:"10px 13px",background:"rgba(202,255,77,.04)"}}>
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:14,color:"#555761"}}>{String(myRow.rank).padStart(2,"0")}</div>
+              <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                <div style={{width:26,height:26,borderRadius:"50%",background:myRow.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0,border:"2px solid #CAFF4D"}}>{myRow.avatar}</div>
+                <div style={{minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:12,color:"#CAFF4D"}}>{myRow.name} <span style={{fontSize:8,fontWeight:700}}>TU</span></div>
+                  <div style={{fontSize:9,color:"#555761"}}>{getTier(myRow.pts).emoji} {getTier(myRow.pts).name}{myRow.games?` · ${myRow.games}p`:""}</div>
+                </div>
+              </div>
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:16,textAlign:"center",color:myRow.best!=null&&myRow.best<0?"#CAFF4D":"#555761"}}>{myRow.best==null?"—":myRow.best>0?`+${myRow.best}`:myRow.best===0?"E":myRow.best}</div>
+              <div style={{textAlign:"right",fontWeight:700,fontSize:12,color:"#CAFF4D"}}>{myRow.pts}</div>
+              <div/>
+            </div>
+          </>
+        )}
         {!user && <div style={{padding:"11px 13px",background:"rgba(202,255,77,.04)",borderTop:"1px solid #1A1B1E",display:"flex",alignItems:"center",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
           <span style={{fontSize:12,color:"#787C8A"}}>{lang==="en"?"Create an account to appear in the ranking":lang==="es"?"Crea una cuenta para aparecer en el ranking":"Crea un compte per aparèixer al rànquing"}</span>
           <button className="btn btn-primary btn-sm" style={{borderRadius:100,padding:"7px 14px",fontSize:11,width:"auto"}} onClick={openAuth}>{lang==="en"?"Join →":lang==="es"?"Únete →":"Uneix-te →"}</button>

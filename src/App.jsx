@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { supabase } from "./supabaseClient";
+import ShareCardScreen from "./screens/ShareCardScreen";
 
 /* ─── i18n ───────────────────────────────────────────────────── */
 const T = {
@@ -596,7 +597,7 @@ function AppHeader({ screen, setScreen, user, openAuth, onSignOut, userPts, lang
   const [showLang, setShowLang] = useState(false);
   const tl = (k) => t(lang, k);
   const tier = getTier(userPts);
-  const isGameFlow = screen==="game-setup"||screen==="scorecard"||screen==="summary";
+  const isGameFlow = screen==="game-setup"||screen==="scorecard"||screen==="summary"||screen==="share-card";
   return (
     <header className="app-header">
       <div className="header-logo" onClick={()=>setScreen("home")}>P<em>&</em>C</div>
@@ -1045,7 +1046,6 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [gameMode, setGameMode] = useState("stableford");
   const [players, setPlayers] = useState([{ id:1, name: user?.name || "", isMe:true }]);
-  const [liveShare, setLiveShare] = useState(false);
   const [teams, setTeams] = useState([{id:"A",players:[]},{id:"B",players:[]}]);
   const [playerSuggestions, setPlayerSuggestions] = useState({});
   const [focusedPlayerId, setFocusedPlayerId] = useState(null);
@@ -1055,19 +1055,20 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
     clearTimeout(searchDebounce.current[playerId]);
     if (query.length < 2) { setPlayerSuggestions(ps=>({...ps,[playerId]:[]})); return; }
     searchDebounce.current[playerId] = setTimeout(async () => {
-      const { data } = await supabase.from("games").select("players").limit(30);
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, club')
+        .ilike('full_name', `%${query}%`)
+        .limit(5);
       if (!data) return;
-      const seen = new Set();
-      const results = [];
-      data.forEach(row => {
-        (row.players||[]).forEach(p => {
-          if (p.name && p.name.toLowerCase().includes(query.toLowerCase()) && !seen.has(p.name)) {
-            seen.add(p.name);
-            results.push({ name: p.name, initials: p.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase() });
-          }
-        });
-      });
-      setPlayerSuggestions(ps=>({...ps,[playerId]:results.slice(0,5)}));
+      const results = data.map(p => ({
+        name: p.full_name,
+        userId: p.id,
+        club: p.club || "",
+        initials: (p.full_name||"").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase(),
+        isRegistered: true,
+      }));
+      setPlayerSuggestions(ps=>({...ps,[playerId]:results}));
     }, 250);
   };
 
@@ -1097,7 +1098,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
   const addPlayer = () => {
     if (players.length >= 4) return;
     const newId = Date.now();
-    const newPlayer = {id:newId, name:`Jugador ${players.length+1}`, isMe:false};
+    const newPlayer = {id:newId, name:"", isMe:false, userId:null, isRegistered:false};
     setPlayers(p => [...p, newPlayer]);
     if (gameMode === "parelles") {
       // Fill Team A first (slots 0-1), then Team B (slots 2-3)
@@ -1109,7 +1110,11 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
     setPlayers(p => p.filter(x => x.id !== id));
     setTeams(ts => ts.map(t => ({...t, players: t.players.filter(pid => pid !== id)})));
   };
-  const updateName = (id, name) => setPlayers(p => p.map(x => x.id === id ? {...x, name} : x));
+  const updateName = (id, name) => setPlayers(p => p.map(x => x.id === id ? {...x, name, userId:null, isRegistered:false} : x));
+  const selectSuggestion = (playerId, s) => {
+    setPlayers(p => p.map(x => x.id === playerId ? {...x, name: s.name, userId: s.userId||null, isRegistered: !!s.userId} : x));
+    setPlayerSuggestions(ps=>({...ps,[playerId]:[]}));
+  };
   const switchTeam = (playerId) => {
     setTeams(ts => {
       const inA = ts[0].players.includes(playerId);
@@ -1124,11 +1129,15 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
 
   const handleStart = () => {
     if (!activeCourse) return;
+    if (players.some(p => !p.name?.trim())) {
+      alert("Tots els jugadors han de tenir nom");
+      return;
+    }
     let playersWithTeam = players;
     if (gameMode === "parelles") {
       playersWithTeam = players.map(p => ({...p, teamId: getPlayerTeam(p.id)}));
     }
-    onStart({ course:activeCourse, date, gameMode, players:playersWithTeam, liveShare });
+    onStart({ course:activeCourse, date, gameMode, players:playersWithTeam });
   };
 
   return (
@@ -1279,25 +1288,32 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
               <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",background:"#1A1B1E",border:"1px solid #222327",borderRadius:8}}>
                 <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[i],flexShrink:0}} />
                 <input className="inp" style={{flex:1,minWidth:0,padding:"6px 0",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0,color:"#fff"}}
-                  placeholder={p.isMe ? "El teu nom" : `Jugador ${i+1}`}
+                  placeholder={p.isMe ? "El teu nom" : "Cerca jugador o escriu nom..."}
                   value={p.name}
                   onChange={e=>{updateName(p.id,e.target.value);if(!p.isMe)searchPlayers(p.id,e.target.value);}}
-                  onFocus={e=>{e.target.select();setFocusedPlayerId(p.id);}}
+                  onFocus={e=>{setFocusedPlayerId(p.id);}}
                   onBlur={()=>setTimeout(()=>setFocusedPlayerId(null),150)}
                   autoFocus={!p.isMe && i===players.length-1}
                 />
                 {p.isMe && <span style={{fontSize:10,color:"#555761",fontWeight:600,flexShrink:0}}>TU</span>}
+                {p.isRegistered && !p.isMe && <span style={{fontSize:7,color:"#CAFF4D",fontWeight:700,flexShrink:0,letterSpacing:".06em"}}>●</span>}
                 {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:18,padding:4,lineHeight:1,flexShrink:0}} onClick={()=>removePlayer(p.id)}>×</button>}
               </div>
               {!p.isMe && focusedPlayerId===p.id && (playerSuggestions[p.id]||[]).length>0 && (
                 <div style={{position:"absolute",left:0,right:0,top:"100%",zIndex:50,background:"#1A1B1E",border:"1px solid #333",borderRadius:8,overflow:"hidden",boxShadow:"0 4px 16px rgba(0,0,0,.5)"}}>
                   {(playerSuggestions[p.id]||[]).map((s,si)=>(
-                    <div key={si} onMouseDown={()=>{updateName(p.id,s.name);setPlayerSuggestions(ps=>({...ps,[p.id]:[]}));}}
+                    <div key={si} onMouseDown={()=>selectSuggestion(p.id,s)}
                       style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",borderBottom:si<(playerSuggestions[p.id].length-1)?"1px solid #222327":"none"}}
                       onMouseEnter={e=>e.currentTarget.style.background="#222327"}
                       onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                       <div style={{width:28,height:28,borderRadius:"50%",background:PLAYER_COLORS[i],display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{s.initials}</div>
-                      <div style={{fontSize:13,fontWeight:600}}>{s.name}</div>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
+                          {s.isRegistered && <span style={{fontSize:8,color:"#CAFF4D"}}>●</span>}
+                          {s.name}
+                        </div>
+                        {s.club && <div style={{fontSize:10,color:"#555761"}}>{s.club}</div>}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1307,15 +1323,9 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
         )}
       </div>
 
-      {/* LIVE */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderTop:"1px solid #1A1B1E",borderBottom:"1px solid #1A1B1E",marginBottom:20}}>
-        <div>
-          <div style={{fontWeight:600,fontSize:14}}>Retransmissió en directe</div>
-          <div style={{fontSize:11,color:"#555761",fontWeight:400,marginTop:2}}>Els teus seguidors podran veure la partida</div>
-        </div>
-        <button className="toggle" style={{background:liveShare?"#CAFF4D":"#222327"}} onClick={()=>setLiveShare(v=>!v)}>
-          <div className="toggle-knob" style={{left:liveShare?22:3}} />
-        </button>
+      {/* INFO */}
+      <div style={{fontSize:11,color:"#555761",marginBottom:20,lineHeight:1.5}}>
+        ℹ️ Tu portes el marcador. Tots els jugadors veuran la partida al seu historial.
       </div>
 
       <button className="btn btn-primary" disabled={!activeCourse || (gameMode==="parelles" && players.length < 4)} onClick={handleStart} style={{marginBottom:10,fontSize:17}}>
@@ -1710,10 +1720,6 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
           <button onClick={()=>setShowFull(true)} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
             <Flag size={12}/>
           </button>
-          <label htmlFor="cam-capture" style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
-            <Camera size={12}/>
-          </label>
-          <input id="cam-capture" type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f&&onPhotoCapture)onPhotoCapture(f);}}/>
           <button onClick={()=>{ if(window.confirm(lang==='en'?'Abandon?':lang==='es'?'¿Abandonar?':'Abandonar?')) onDelete(); }} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
             <X size={12}/>
           </button>
@@ -1792,7 +1798,10 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
                     {p.name[0]}
                   </div>
                   <div style={{minWidth:0}}>
-                    <div style={{fontWeight:700,fontSize:13,color:isAct?'#fff':'#555',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',transition:'color .2s'}}>{p.name}</div>
+                    <div style={{fontWeight:700,fontSize:13,color:isAct?'#fff':p.isRegistered?'#aaa':'#555',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',transition:'color .2s',display:'flex',alignItems:'center',gap:4}}>
+                      {p.isRegistered && <span style={{fontSize:7,color:'#CAFF4D',flexShrink:0}}>●</span>}
+                      {p.name}
+                    </div>
                     {isParelles && myTeamId && <div style={{fontSize:9,fontWeight:700,letterSpacing:'.1em',color:myTeamId==="A"?"#CAFF4D":"#60A5FA",textTransform:'uppercase'}}>EQUIP {myTeamId}{isBestBall?" · ★ BEST BALL":""}</div>}
                   </div>
                 </div>
@@ -2147,11 +2156,33 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
         </div>
       </div>
 
+      {/* Linked players confirmation */}
+      {(() => {
+        const linked = game.players.filter(p => !p.isMe && p.isRegistered && p.userId);
+        const guests = game.players.filter(p => !p.isMe && !p.isRegistered);
+        if (!linked.length && !guests.length) return null;
+        return (
+          <div style={{background:"rgba(202,255,77,.04)",border:"1px solid rgba(202,255,77,.15)",borderRadius:10,padding:"12px 14px",marginBottom:14,fontSize:12,lineHeight:1.6}}>
+            {linked.length > 0 && (
+              <div style={{color:"#787C8A"}}>
+                <span style={{color:"#CAFF4D",fontWeight:700}}>✓ Partida guardada al perfil de: </span>
+                {linked.map(p=>p.name).join(", ")}
+              </div>
+            )}
+            {guests.length > 0 && (
+              <div style={{color:"#555761",marginTop:linked.length?4:0}}>
+                Jugadors sense compte: {guests.map(p=>p.name).join(", ")}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Share to Stories */}
       <div style={{marginBottom:16,display:"flex",gap:8}}>
-        <button onClick={handleShareStories} disabled={sharing}
-          style={{flex:1,padding:"13px",borderRadius:12,border:"1px solid rgba(202,255,77,.4)",background:"rgba(202,255,77,.08)",color:"#CAFF4D",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:sharing?.6:1}}>
-          <Share2 size={14}/>{sharing?"Generant...":"Compartir a Stories"}
+        <button onClick={() => setScreen("share-card")}
+          style={{flex:1,padding:"13px",borderRadius:12,border:"1px solid rgba(202,255,77,.4)",background:"rgba(202,255,77,.08)",color:"#CAFF4D",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <Share2 size={14}/>Compartir Targeta
         </button>
         <button onClick={handleDownload} disabled={sharing}
           style={{padding:"13px 14px",borderRadius:12,border:"1px solid #222327",background:"#1A1B1E",color:"#787C8A",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:sharing?.6:1}}>
@@ -3752,8 +3783,8 @@ export default function App() {
     setGameData(data);
     setScreen("scorecard");
 
-    // If live share enabled and user is logged in, insert a live row immediately
-    if (data.liveShare && user?.id) {
+    // Insert a live game row for logged-in users (enables spectators + live linking)
+    if (user?.id) {
       const me = data.players.find(p => p.isMe) || data.players[0];
       const shareToken = crypto.randomUUID();
       const { data: row, error: liveErr } = await supabase.from("games").insert({
@@ -3839,6 +3870,18 @@ export default function App() {
           setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
         }
         showToast("Partida guardada! ✓");
+        // Save copies for other registered players
+        const otherRegistered = gameData.players.filter(p => !p.isMe && p.userId);
+        for (const rp of otherRegistered) {
+          await supabase.from("games").insert({
+            user_id: rp.userId,
+            course_name: game.course,
+            date: game.date,
+            game_mode: game.mode,
+            players: game.players,
+            scores: game.scores,
+          }).then(({error}) => { if (error) console.warn("P&C: linked player save error:", error.message); });
+        }
         // Notify followers
         supabase.functions.invoke('notify-followers', { body: { game: {...game, players: game.players.map(p => ({...p, user_id: p.isMe ? user.id : null})) } } }).catch(()=>{});
       } catch(e) {
@@ -3870,7 +3913,7 @@ export default function App() {
   };
 
   const setScreenSafe = (s) => { setScreen(s); window.scrollTo(0,0); };
-  const isGameFlow = screen==="game-setup"||screen==="scorecard"||screen==="summary";
+  const isGameFlow = screen==="game-setup"||screen==="scorecard"||screen==="summary"||screen==="share-card";
 
   // Public share route: /game/:token
   const sharedGameToken = window.location.pathname.match(/^\/game\/([^/]+)/)?.[1];
@@ -3904,6 +3947,20 @@ export default function App() {
           }, 1500);
         }}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} shareCardRef={shareCardRef} roundPhoto={roundPhotoUrl}/>}
+        {screen==="share-card" && lastGame && (() => {
+          const scGame = {
+            course: lastGame.course,
+            date: lastGame.date,
+            players: lastGame.players.map(p => ({
+              name: p.name,
+              diff: p.diff ?? 0,
+              pts: p.points ?? 0,
+              scores: lastGame.scores.map(h => h.playerScores?.[p.id] ?? h.par),
+              pars: lastGame.scores.map(h => h.par),
+            })),
+          };
+          return <ShareCardScreen game={scGame} onBack={() => setScreenSafe("summary")} />;
+        })()}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang} follows={follows} onFollow={handleFollow}/>}
         {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null} follows={follows} onFollow={handleFollow}/>}
         {screen==="live" && selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth} follows={follows} onFollow={handleFollow}/>}

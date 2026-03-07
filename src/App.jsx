@@ -1055,21 +1055,42 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
     clearTimeout(searchDebounce.current[playerId]);
     if (query.length < 2) { setPlayerSuggestions(ps=>({...ps,[playerId]:[]})); return; }
     searchDebounce.current[playerId] = setTimeout(async () => {
+      // Query recent games to discover registered users (no profiles table needed)
       const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url, club')
-        .ilike('full_name', `%${query}%`)
-        .limit(5);
+        .from('games')
+        .select('user_id, players')
+        .not('user_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(200);
       if (!data) return;
-      const results = data.map(p => ({
-        name: p.full_name,
-        userId: p.id,
-        club: p.club || "",
-        initials: (p.full_name||"").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase(),
-        isRegistered: true,
-      }));
+      const q = query.toLowerCase();
+      const seen = new Set();
+      // Exclude current user from suggestions
+      if (user?.id) seen.add(user.id);
+      const results = [];
+      for (const g of data) {
+        if (results.length >= 5) break;
+        // The game owner = isMe player
+        if (!seen.has(g.user_id)) {
+          seen.add(g.user_id);
+          const me = (g.players || []).find(p => p.isMe);
+          if (me?.name?.toLowerCase().includes(q)) {
+            const initials = me.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+            results.push({ name: me.name, userId: g.user_id, club: me.club || "", initials, isRegistered: true });
+          }
+        }
+        // Also check any linked registered players in this game
+        for (const p of (g.players || [])) {
+          if (results.length >= 5) break;
+          if (!p.isMe && p.userId && !seen.has(p.userId) && p.name?.toLowerCase().includes(q)) {
+            seen.add(p.userId);
+            const initials = p.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+            results.push({ name: p.name, userId: p.userId, club: p.club || "", initials, isRegistered: true });
+          }
+        }
+      }
       setPlayerSuggestions(ps=>({...ps,[playerId]:results}));
-    }, 250);
+    }, 350);
   };
 
   // Sync player 1 name when user auth resolves after mount

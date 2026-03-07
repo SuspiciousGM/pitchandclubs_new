@@ -2301,7 +2301,10 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
               <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                 <div style={{width:26,height:26,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0,border:isMe?"2px solid #CAFF4D":"none"}}>{p.avatar}</div>
                 <div style={{minWidth:0}}>
-                  <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:isMe?"#CAFF4D":"#fff"}}>{p.name}{isMe&&<span style={{fontSize:8,marginLeft:4,color:"#CAFF4D",fontWeight:700}}>TU</span>}</div>
+                  <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:isMe?"#CAFF4D":"#fff",display:"flex",alignItems:"center",gap:5}}>
+                    {p.name}{isMe&&<span style={{fontSize:8,color:"#CAFF4D",fontWeight:700}}>TU</span>}
+                    {isMe&&user?.hcp!=null&&<span style={{fontSize:8,fontWeight:700,color:"#CAFF4D",background:"rgba(202,255,77,.12)",border:"1px solid rgba(202,255,77,.25)",borderRadius:4,padding:"0 4px",letterSpacing:".03em",flexShrink:0}}>HCP {user.hcp%1===0?user.hcp:user.hcp.toFixed(1)}</span>}
+                  </div>
                   <div style={{fontSize:9,color:"#555761",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tier.emoji} {tier.name}{p.club?` · ${p.club}`:""}{p.games?` · ${p.games}p`:""}</div>
                 </div>
               </div>
@@ -2852,13 +2855,21 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
   const [editMode, setEditMode] = useState(false);
   const [editName, setEditName] = useState(user?.name || "");
   const [editClub, setEditClub] = useState(user?.club || "");
+  const [editHcp, setEditHcp] = useState(user?.hcp != null ? String(user.hcp) : "");
+  const [editLicense, setEditLicense] = useState(user?.license || "");
   const [saving, setSaving] = useState(false);
 
   const handleSaveProfile = async () => {
     if (!editName.trim()) return;
     setSaving(true);
-    await supabase.auth.updateUser({ data: { name: editName.trim(), club: editClub.trim() } });
-    if (setUser) setUser(prev => ({ ...prev, name: editName.trim(), club: editClub.trim() }));
+    const hcpVal = editHcp.trim() !== "" ? parseFloat(editHcp.replace(",", ".")) : null;
+    await supabase.auth.updateUser({ data: {
+      name: editName.trim(),
+      club: editClub.trim(),
+      hcp: isNaN(hcpVal) ? null : hcpVal,
+      license: editLicense.trim(),
+    }});
+    if (setUser) setUser(prev => ({ ...prev, name: editName.trim(), club: editClub.trim(), hcp: isNaN(hcpVal) ? null : hcpVal, license: editLicense.trim() }));
     setSaving(false);
     setEditMode(false);
   };
@@ -2916,8 +2927,20 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
           <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:5}}>Perfil</div>
           <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(26px,7vw,40px)",letterSpacing:".04em",lineHeight:1}}>{user?.name||profile.name}</div>
           {(user?.club||profile.club) && <div style={{fontSize:12,color:"#787C8A",marginTop:3}}>{user?.club||profile.club}</div>}
+          {user?.hcp != null && (
+            <div style={{display:"flex",alignItems:"center",gap:6,marginTop:5,flexWrap:"wrap"}}>
+              <span style={{background:"rgba(202,255,77,.12)",border:"1px solid rgba(202,255,77,.3)",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700,color:"#CAFF4D",letterSpacing:".04em"}}>
+                HCP {user.hcp % 1 === 0 ? user.hcp : user.hcp.toFixed(1)}
+              </span>
+              {user.license && (
+                <span style={{background:"rgba(255,255,255,.04)",border:"1px solid #222327",borderRadius:6,padding:"2px 8px",fontSize:10,color:"#555761",letterSpacing:".04em"}}>
+                  Llicència {user.license}
+                </span>
+              )}
+            </div>
+          )}
           {user && !editMode && (
-            <button onClick={()=>{setEditName(user.name||"");setEditClub(user.club||"");setEditMode(true);}}
+            <button onClick={()=>{setEditName(user.name||"");setEditClub(user.club||"");setEditHcp(user.hcp!=null?String(user.hcp):"");setEditLicense(user.license||"");setEditMode(true);}}
               style={{marginTop:8,background:"none",border:"1px solid #222327",borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:700,color:"#787C8A",cursor:"pointer",letterSpacing:".06em",textTransform:"uppercase"}}>
               Editar →
             </button>
@@ -2943,9 +2966,23 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
             <span className="label">Nom</span>
             <input className="inp" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="El teu nom" autoFocus/>
           </div>
-          <div style={{marginBottom:14}}>
+          <div style={{marginBottom:10}}>
             <span className="label">Club</span>
             <input className="inp" value={editClub} onChange={e=>setEditClub(e.target.value)} placeholder="El teu club (opcional)"/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+            <div>
+              <span className="label">Hàndicap oficial</span>
+              <input className="inp" value={editHcp} onChange={e=>setEditHcp(e.target.value)}
+                placeholder="Ex: 18.4" inputMode="decimal" type="text"
+                style={{borderColor:editHcp&&isNaN(parseFloat(editHcp.replace(",",".")))?"#EF4444":undefined}}/>
+              <div style={{fontSize:9,color:"#555761",marginTop:3}}>Pitch&putt FCPP (0–36)</div>
+            </div>
+            <div>
+              <span className="label">Núm. llicència</span>
+              <input className="inp" value={editLicense} onChange={e=>setEditLicense(e.target.value)} placeholder="Ex: CAT-12345"/>
+              <div style={{fontSize:9,color:"#555761",marginTop:3}}>Federació Catalana P&P</div>
+            </div>
           </div>
           <div style={{display:"flex",gap:8}}>
             <button className="btn btn-primary" style={{fontSize:13}} onClick={handleSaveProfile} disabled={saving||!editName.trim()}>
@@ -2969,14 +3006,15 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
       </div>
 
       {/* Key stats */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:hasRealGames?12:4}}>
+      <div style={{display:"grid",gridTemplateColumns:`repeat(${user?.hcp!=null?4:3},1fr)`,gap:8,marginBottom:hasRealGames?12:4}}>
         {[
           {l:tl("stat_games"), v:hasRealGames?myGames.length:profile.games},
           {l:tl("stat_best"),  v:hasRealGames?(bestDiff!==null?(bestDiff>0?`+${bestDiff}`:bestDiff===0?"E":bestDiff):"—"):`${profile.hcp}`},
           {l:tl("stat_holes"), v:hasRealGames?(myGames.reduce((a,g)=>a+(g.scores?.length||0),0)||"—"):profile.games*9},
+          ...(user?.hcp!=null ? [{l:"HCP oficial", v:user.hcp%1===0?user.hcp:user.hcp.toFixed(1), accent:"#CAFF4D"}] : []),
         ].map(s=>(
           <div key={s.l} className="card" style={{padding:"11px 8px",textAlign:"center"}}>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:"#CAFF4D",lineHeight:1}}>{s.v}</div>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:s.accent||"#CAFF4D",lineHeight:1}}>{s.v}</div>
             <div style={{fontSize:9,color:"#555761",textTransform:"uppercase",letterSpacing:".06em",marginTop:2,fontWeight:600}}>{s.l}</div>
           </div>
         ))}
@@ -3174,12 +3212,12 @@ function AuthModal({ onClose, onAuth, lang, initialMode="register" }) {
       });
       if (error) { setErr(error.message); setLoading(false); return; }
       const u = data.user;
-      onAuth({ id: u.id, name: u.user_metadata?.name || email.split("@")[0], email: u.email, club: u.user_metadata?.club || "" });
+      onAuth({ id: u.id, name: u.user_metadata?.name || email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", hcp: u.user_metadata?.hcp ?? null, license: u.user_metadata?.license || "" });
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) { setErr(error.message); setLoading(false); return; }
       const u = data.user;
-      onAuth({ id: u.id, name: u.user_metadata?.name || email.split("@")[0], email: u.email, club: u.user_metadata?.club || "" });
+      onAuth({ id: u.id, name: u.user_metadata?.name || email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", hcp: u.user_metadata?.hcp ?? null, license: u.user_metadata?.license || "" });
     }
     setLoading(false);
   };
@@ -3620,7 +3658,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const u = session.user;
-        setUser({ id: u.id, name: u.user_metadata?.name || u.user_metadata?.full_name || u.email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", avatarUrl: u.user_metadata?.avatar_url || u.user_metadata?.picture || null });
+        setUser({ id: u.id, name: u.user_metadata?.name || u.user_metadata?.full_name || u.email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", hcp: u.user_metadata?.hcp ?? null, license: u.user_metadata?.license || "", avatarUrl: u.user_metadata?.avatar_url || u.user_metadata?.picture || null });
         supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false })
           .then(({ data, error }) => {
             console.log("P&C history load — user:", u.id, "games:", data?.length, "error:", error?.message);
@@ -3823,7 +3861,7 @@ export default function App() {
     const players = gameData.players.map(p => {
       const pPts = scores.reduce((a,h) => { const s=h.playerScores[p.id]; return a+(s!==null?calcPCPoints(s,h.par):0); },0) + 8;
       const pScore = scores.reduce((a,h)=>a+(h.playerScores[p.id]??h.par),0);
-      return {...p,score:pScore,diff:pScore-totalPar,points:pPts};
+      return {...p, score:pScore, diff:pScore-totalPar, points:pPts, hcp: p.isMe ? (user?.hcp ?? null) : (p.hcp ?? null)};
     });
     const game = { id:Date.now(), course:gameData.course.name, date:gameData.date, mode:gameData.gameMode, players, scores:[...scores] };
     setHistory(prev=>[game,...prev]);

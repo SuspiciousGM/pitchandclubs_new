@@ -620,13 +620,7 @@ function AppHeader({ screen, setScreen, user, openAuth, onSignOut, userPts, lang
         </div>
 
         {isGameFlow && (
-          <button className="btn btn-sm btn-ghost" style={{width:"auto",display:"flex",alignItems:"center",gap:5}} onClick={()=>{
-            localStorage.removeItem('pc_gameData');
-            localStorage.removeItem('pc_scores');
-            localStorage.removeItem('pc_curHole');
-            localStorage.removeItem('pc_screen');
-            setScreen("home");
-          }}>
+          <button className="btn btn-sm btn-ghost" style={{width:"auto",display:"flex",alignItems:"center",gap:5}} onClick={()=>setScreen("home")}>
             <X size={14}/>{tl("exit")}
           </button>
         )}
@@ -1298,7 +1292,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
                           <div style={{position:"absolute",left:0,right:0,top:"100%",zIndex:50,background:"#1A1B1E",border:"1px solid #333",borderRadius:8,overflow:"hidden",boxShadow:"0 8px 24px rgba(0,0,0,.6)"}}>
                             <div style={{padding:"6px 12px 4px",fontSize:9,fontWeight:700,letterSpacing:".1em",color:"#555761",textTransform:"uppercase",borderBottom:"1px solid #222327"}}>Usuaris registrats</div>
                             {(playerSuggestions[p.id]||[]).map((s,si)=>(
-                              <div key={si} onMouseDown={()=>selectSuggestion(p.id,s)}
+                              <div key={si} onPointerDown={()=>selectSuggestion(p.id,s)}
                                 style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer",borderBottom:si<(playerSuggestions[p.id].length-1)?"1px solid #1a1a1f":"none"}}
                                 onMouseEnter={e=>e.currentTarget.style.background="#222327"}
                                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
@@ -1347,7 +1341,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
                 <div style={{position:"absolute",left:0,right:0,top:"100%",zIndex:50,background:"#1A1B1E",border:"1px solid #333",borderRadius:8,overflow:"hidden",boxShadow:"0 8px 24px rgba(0,0,0,.6)"}}>
                   <div style={{padding:"6px 12px 4px",fontSize:9,fontWeight:700,letterSpacing:".1em",color:"#555761",textTransform:"uppercase",borderBottom:"1px solid #222327"}}>Usuaris registrats</div>
                   {(playerSuggestions[p.id]||[]).map((s,si)=>(
-                    <div key={si} onMouseDown={()=>selectSuggestion(p.id,s)}
+                    <div key={si} onPointerDown={()=>selectSuggestion(p.id,s)}
                       style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer",borderBottom:si<(playerSuggestions[p.id].length-1)?"1px solid #1a1a1f":"none"}}
                       onMouseEnter={e=>e.currentTarget.style.background="#222327"}
                       onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
@@ -3705,14 +3699,14 @@ export default function App() {
   });
   const [lastGame, setLastGame] = useState(null);
   const [prevPts, setPrevPts] = useState(0);
-  const [liveGameId, setLiveGameId] = useState(null); // Supabase row id for live game
+  const [liveGameId, setLiveGameId] = useState(() => localStorage.getItem('pc_liveGameId') || null);
   const [activityFeed, setActivityFeed] = useState([]);
   const [liveGames, setLiveGames]       = useState([]);
   const [selectedLiveGame, setSelectedLiveGame] = useState(null);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [follows, setFollows] = useState([]);
   const [followsNames, setFollowsNames] = useState({}); // {uid: name}
-  const [liveShareToken, setLiveShareToken] = useState(null);
+  const [liveShareToken, setLiveShareToken] = useState(() => localStorage.getItem('pc_liveShareToken') || null);
   const [roundPhoto, setRoundPhoto] = useState(null);
   const [roundPhotoUrl, setRoundPhotoUrl] = useState(null);
   const shareCardRef = useRef(null);
@@ -3859,6 +3853,8 @@ export default function App() {
     localStorage.removeItem('pc_scores');
     localStorage.removeItem('pc_curHole');
     localStorage.removeItem('pc_screen');
+    localStorage.removeItem('pc_liveGameId');
+    localStorage.removeItem('pc_liveShareToken');
     setGameData(null);
     setScreen("home");
     window.scrollTo(0, 0);
@@ -3957,6 +3953,8 @@ export default function App() {
       else if (row) {
         setLiveGameId(row.id);
         setLiveShareToken(row.share_token || shareToken);
+        localStorage.setItem('pc_liveGameId', row.id);
+        localStorage.setItem('pc_liveShareToken', row.share_token || shareToken);
         setLiveGames(prev => [row, ...prev].slice(0, 10));
       }
     }
@@ -4044,6 +4042,8 @@ export default function App() {
     localStorage.removeItem('pc_scores');
     localStorage.removeItem('pc_curHole');
     localStorage.removeItem('pc_screen');
+    localStorage.removeItem('pc_liveGameId');
+    localStorage.removeItem('pc_liveShareToken');
     setScreen("summary");
   };
 

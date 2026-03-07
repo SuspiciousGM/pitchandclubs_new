@@ -1525,9 +1525,36 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
   const [activePid,  setActivePid]  = useState(players[0].id);
   const [showFull,   setShowFull]   = useState(false);
   const [flashInfo,  setFlashInfo]  = useState(null);
+  const [liveRemote, setLiveRemote] = useState(null); // remote game state (joined players + their scores)
   const stripRef = useRef(null);
 
-  const hole = scores[curHole];
+  // Subscribe to Realtime updates on the live game row (to pick up joined players)
+  useEffect(() => {
+    if (!liveGameId) return;
+    const ch = supabase.channel(`sc-${liveGameId}`)
+      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'games', filter:`id=eq.${liveGameId}` },
+        payload => setLiveRemote(payload.new))
+      .subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [liveGameId]);
+
+  // allPlayers: original players + any that joined remotely
+  const allPlayers = liveRemote
+    ? [...players, ...(liveRemote.players||[]).filter(rp => !players.find(p => p.id === rp.id))]
+    : players;
+
+  // mergedScores: local host scores + remote joined-player scores merged together
+  const mergedScores = scores.map((h, i) => {
+    if (!liveRemote?.scores?.[i]) return h;
+    const extra = {};
+    (liveRemote.players||[]).forEach(rp => {
+      if (!players.find(p => p.id === rp.id))
+        extra[rp.id] = liveRemote.scores[i].playerScores?.[rp.id] ?? null;
+    });
+    return Object.keys(extra).length ? { ...h, playerScores: { ...h.playerScores, ...extra } } : h;
+  });
+
+  const hole = mergedScores[curHole];
   const par  = hole.par;
 
   useEffect(()=>{
@@ -1542,14 +1569,21 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
     localStorage.setItem('pc_scores', JSON.stringify(next));
     setFlashInfo({pid,label:scDiffLabel(v-par),d:v-par});
     setTimeout(()=>setFlashInfo(null),1500);
-    // Push live update
-    if (onLiveUpdate) onLiveUpdate(next, curHole);
+    // Push live update: merge with remote scores so joined players' data is preserved
+    const merged = next.map((h,i) => {
+      if (!liveRemote?.scores?.[i]) return h;
+      const extra = {};
+      (liveRemote.players||[]).forEach(rp => {
+        if (!players.find(p=>p.id===rp.id)) extra[rp.id] = liveRemote.scores[i].playerScores?.[rp.id]??null;
+      });
+      return Object.keys(extra).length ? {...h,playerScores:{...h.playerScores,...extra}} : h;
+    });
+    if (onLiveUpdate) onLiveUpdate(merged, curHole);
   };
 
   const nudge = (pid,delta) => applyScore(pid, Math.max(1,(hole.playerScores[pid]??par)+delta));
 
   const commitParAndGo = (nextHole) => {
-    // Commit par for the active player if they haven't scored the current hole yet
     let next = scores;
     if (next[curHole].playerScores[activePid] == null) {
       next = next.map((h,i) => i===curHole ? {...h, playerScores:{...h.playerScores,[activePid]:h.par}} : h);
@@ -1563,8 +1597,8 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
     if (onLiveUpdate) onLiveUpdate(next, ni);
   };
 
-  const allDone = players.every(p=>hole.playerScores[p.id]!=null);
-  const allHolesDone = scores.every(h=>players.every(p=>h.playerScores[p.id]!=null));
+  const allDone = allPlayers.every(p=>hole.playerScores[p.id]!=null);
+  const allHolesDone = scores.every(h=>players.every(p=>h.playerScores[p.id]!=null)); // only require original players to finish
 
   /* ── Targeta completa (full scorecard) ── */
   if (showFull) return (
@@ -1582,19 +1616,19 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
             <tr style={{borderBottom:'2px solid #1a1a1f'}}>
               <th style={{fontSize:8,color:'#555',fontWeight:700,padding:'8px 4px',textAlign:'left',letterSpacing:'.1em',textTransform:'uppercase'}}>{lang==='en'?'H':lang==='es'?'H':'F'}</th>
               <th style={{fontSize:8,color:'#555',fontWeight:700,padding:'8px 4px',textAlign:'center'}}>Par</th>
-              {players.map((p,i)=><th key={p.id} style={{fontSize:8,color:PLAYER_COLORS[i],fontWeight:700,padding:'8px 4px',textAlign:'center'}}>{p.name.split(' ')[0].slice(0,4).toUpperCase()}</th>)}
+              {allPlayers.map((p,i)=><th key={p.id} style={{fontSize:8,color:PLAYER_COLORS[i],fontWeight:700,padding:'8px 4px',textAlign:'center'}}>{p.name.split(' ')[0].slice(0,4).toUpperCase()}</th>)}
             </tr>
           </thead>
           <tbody>
             {[0,1].map(hi=>(
               <React.Fragment key={hi}>
-                {scores.slice(hi*9,hi*9+9).map((h,i)=>{
+                {mergedScores.slice(hi*9,hi*9+9).map((h,i)=>{
                   const idx=hi*9+i;
                   return (
                     <tr key={idx} onClick={()=>{commitParAndGo(idx);setShowFull(false);}} style={{cursor:'pointer',background:idx===curHole?'rgba(202,255,77,.04)':'transparent',borderBottom:'1px solid #111'}}>
                       <td style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:idx===curHole?'#CAFF4D':'#555',padding:'5px 4px'}}>{String(h.hole).padStart(2,'0')}{idx===curHole?' ▶':''}</td>
                       <td style={{fontSize:9,color:'#444',padding:'5px 4px',textAlign:'center'}}>{h.par}</td>
-                      {players.map(p=>(
+                      {allPlayers.map(p=>(
                         <td key={p.id} style={{padding:'3px',textAlign:'center'}}>
                           <div style={{display:'flex',justifyContent:'center'}}><ScoreSymbol v={h.playerScores[p.id]} par={h.par} size={28}/></div>
                         </td>
@@ -1604,8 +1638,8 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
                 })}
                 <tr style={{background:'#111',borderTop:'1px solid #222',borderBottom:'1px solid #222'}}>
                   <td colSpan={2} style={{fontSize:8,fontWeight:700,color:'#555',padding:'6px 4px',textTransform:'uppercase',letterSpacing:'.08em'}}>{hi===0?'OUT':'IN'}</td>
-                  {players.map((p,i)=>{
-                    let tt=0,cc=0; scores.slice(hi*9,hi*9+9).forEach(h=>{const v=h.playerScores[p.id];if(v!=null){tt+=v-h.par;cc++;}});
+                  {allPlayers.map((p,i)=>{
+                    let tt=0,cc=0; mergedScores.slice(hi*9,hi*9+9).forEach(h=>{const v=h.playerScores[p.id];if(v!=null){tt+=v-h.par;cc++;}});
                     const d=cc?tt:null;
                     return <td key={p.id} style={{padding:'6px 4px',textAlign:'center'}}><span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:scDiffColor(d)}}>{scFmtTotal(d)}</span></td>;
                   })}
@@ -1614,16 +1648,16 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
             ))}
             <tr style={{background:'#0f0f14',borderTop:'2px solid #222'}}>
               <td colSpan={2} style={{fontSize:9,fontWeight:700,color:'#555',padding:'9px 4px',textTransform:'uppercase',letterSpacing:'.08em'}}>TOTAL</td>
-              {players.map(p=>{
-                const d=scPlayerTot(scores,p.id);
+              {allPlayers.map(p=>{
+                const d=scPlayerTot(mergedScores,p.id);
                 return <td key={p.id} style={{padding:'9px 4px',textAlign:'center'}}><span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:scDiffColor(d)}}>{scFmtTotal(d)}</span></td>;
               })}
             </tr>
           </tbody>
         </table>
         <div style={{marginTop:16,display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-          {players.map((p,i)=>{
-            const pts=scCalcPts(scores,p.id),tot=scPlayerTot(scores,p.id);
+          {allPlayers.map((p,i)=>{
+            const pts=scCalcPts(mergedScores,p.id),tot=scPlayerTot(mergedScores,p.id);
             return (
               <div key={p.id} style={{background:'#111',borderRadius:10,padding:'10px 12px',border:`1px solid ${PLAYER_COLORS[i]}22`}}>
                 <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:6}}>
@@ -1651,55 +1685,45 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
   return (
     <div style={{position:'fixed',top:0,bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:430,background:'#0A0A0B',display:'flex',flexDirection:'column',overflow:'hidden',fontFamily:'Inter,sans-serif',paddingBottom:'env(safe-area-inset-bottom)'}}>
 
-      {/* TOP BAR */}
-      <div style={{padding:'10px 14px 8px',borderBottom:'1px solid #1a1a1f',flexShrink:0}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:9}}>
-          <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:1}}>
-            {/* Save & exit */}
-            <button onClick={()=>onFinish(scores,true)} style={{padding:'5px 10px',borderRadius:100,border:'1px solid #222327',background:'#1A1B1E',color:'#555761',fontSize:10,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
-              ← {lang==='en'?'Save':lang==='es'?'Guardar':'Guardar'}
-            </button>
-            <div style={{minWidth:0}}>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:'.06em',color:'#CAFF4D',lineHeight:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>
-              <div style={{fontSize:11,color:'#787C8A',fontWeight:600,marginTop:2,letterSpacing:'.02em'}}>
-                {lang==='en'?'Hole':lang==='es'?'Hoyo':'Forat'} <span style={{color:'#CAFF4D'}}>{curHole+1}</span>/{course.holes}
-                <span style={{color:'#333',margin:'0 4px'}}>·</span>Par {par}
-              </div>
+      {/* TOP BAR — compact 2-row */}
+      <div style={{padding:'8px 12px 6px',borderBottom:'1px solid #1a1a1f',flexShrink:0}}>
+        {/* Row 1: save | course + hole | invite + exit */}
+        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+          <button onClick={()=>onFinish(scores,true)} style={{padding:'5px 9px',borderRadius:100,border:'1px solid #222327',background:'#1A1B1E',color:'#555761',fontSize:10,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
+            ←
+          </button>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:17,letterSpacing:'.06em',color:'#CAFF4D',lineHeight:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>
+            <div style={{fontSize:10,color:'#555761',fontWeight:600,marginTop:1}}>
+              {lang==='en'?'H':lang==='es'?'H':'F'}<span style={{color:'#CAFF4D'}}>{curHole+1}</span>/{course.holes} · Par {par}
             </div>
           </div>
-          <div style={{display:'flex',gap:6,flexShrink:0}}>
-            {liveShareToken && (
-              <button onClick={async()=>{
-                const url = `${window.location.origin}/game/${liveShareToken}`;
-                if (navigator.share) {
-                  try { await navigator.share({ title:"Segueix la meva partida en directe", text:`${gameData.course?.name} — En directe`, url }); } catch(e){}
-                } else {
-                  await navigator.clipboard.writeText(url);
-                  alert("Link copiat! Comparteix-lo amb els altres jugadors.");
-                }
-              }} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(202,255,77,.3)',background:'rgba(202,255,77,.08)',color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',letterSpacing:'.04em',display:'flex',alignItems:'center',gap:4}}>
-                <Users size={11}/> Invita
-              </button>
-            )}
-            <button onClick={()=>setShowFull(true)} style={{padding:'6px 11px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#787C8A',fontSize:10,fontWeight:700,cursor:'pointer',letterSpacing:'.06em',textTransform:'uppercase'}}>
-              {lang==='en'?'Card':lang==='es'?'Tarjeta':'Targeta'}
+          {liveShareToken && (
+            <button onClick={async()=>{
+              const url = `${window.location.origin}/game/${liveShareToken}`;
+              if (navigator.share) { try { await navigator.share({ title:"Segueix la meva partida en directe", url }); } catch(e){} }
+              else { await navigator.clipboard.writeText(url); alert("Link copiat!"); }
+            }} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(202,255,77,.35)',background:'rgba(202,255,77,.1)',color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+              <Users size={11}/> Invita
             </button>
-            {/* Camera capture for Stories card */}
-            <label htmlFor="cam-capture" style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <Camera size={12}/>
-            </label>
-            <input id="cam-capture" type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f&&onPhotoCapture)onPhotoCapture(f);}}/>
-            <button onClick={()=>{ if(window.confirm(lang==='en'?'Abandon this round? Progress will be lost.':lang==='es'?'¿Abandonar la ronda? Se perderá el progreso.':'Abandonar la ronda? Es perdran els progressos.')) onDelete(); }} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',fontSize:10,fontWeight:700,cursor:'pointer'}}>
-              <X size={12}/>
-            </button>
-          </div>
+          )}
+          <button onClick={()=>setShowFull(true)} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
+            <Flag size={12}/>
+          </button>
+          <label htmlFor="cam-capture" style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
+            <Camera size={12}/>
+          </label>
+          <input id="cam-capture" type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f&&onPhotoCapture)onPhotoCapture(f);}}/>
+          <button onClick={()=>{ if(window.confirm(lang==='en'?'Abandon?':lang==='es'?'¿Abandonar?':'Abandonar?')) onDelete(); }} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
+            <X size={12}/>
+          </button>
         </div>
 
         {/* Hole strip */}
         <div ref={stripRef} style={{display:'flex',gap:3,overflowX:'auto'}} className="noscroll">
-          {scores.map((h,i)=>{
-            const done=players.every(p=>h.playerScores[p.id]!=null);
-            const any =players.some(p=>h.playerScores[p.id]!=null);
+          {mergedScores.map((h,i)=>{
+            const done=allPlayers.every(p=>h.playerScores[p.id]!=null);
+            const any =allPlayers.some(p=>h.playerScores[p.id]!=null);
             const isCur=i===curHole;
             return (
               <div key={i} data-hole={i} onClick={()=>commitParAndGo(i)}
@@ -1728,11 +1752,11 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
           };
           return null;
         })()}
-        {players.map((p,pi)=>{
+        {allPlayers.map((p,pi)=>{
           const pcolor  = PLAYER_COLORS[pi];
           const v       = hole.playerScores[p.id];
           const d       = v!=null?v-par:null;
-          const tot     = scPlayerTot(scores,p.id);
+          const tot     = scPlayerTot(mergedScores,p.id);
           const isAct   = activePid===p.id;
           const flash   = flashInfo?.pid===p.id;
           const played  = scores.filter(h=>h.playerScores[p.id]!=null).length;
@@ -2254,7 +2278,7 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
               <div style={{textAlign:"right",fontWeight:700,fontSize:12,color:"#CAFF4D"}}>{p.pts}</div>
               <div style={{display:"flex",justifyContent:"center"}}>
                 {canFollow && (
-                  <button onClick={()=>onFollow&&onFollow(p.uid)}
+                  <button onClick={()=>onFollow&&onFollow(p.uid, p.name)}
                     style={{padding:"4px 5px",borderRadius:6,border:`1px solid ${isFollowing?"rgba(202,255,77,.3)":"#333"}`,background:isFollowing?"rgba(202,255,77,.08)":"transparent",color:isFollowing?"#CAFF4D":"#555",cursor:"pointer",display:"flex",alignItems:"center"}}>
                     <Bell size={10}/>
                   </button>
@@ -2795,7 +2819,7 @@ function ShopScreen({ openAuth, user, lang }) {
 /* ═══════════════════════════════════════════════════════════════
    PROFILE / STATS SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history, setUser, follows, onFollow, enableNotifications }) {
+function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history, setUser, follows, followsNames, onFollow, enableNotifications }) {
   const tl = (k,v={}) => t(lang,k,v);
   const profile = PLAYER_PROFILE;
   const tier = getTier(userPts);
@@ -3059,17 +3083,21 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
               Segueix jugadors des de la pantalla En Directe
             </div>
           ) : (
-            follows.map(fid => (
-              <div key={fid} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid #111214"}}>
-                <div style={{width:32,height:32,borderRadius:"50%",background:"#1A1B1E",border:"1px solid #333",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#CAFF4D",flexShrink:0}}>
-                  {fid.slice(0,2).toUpperCase()}
+            follows.map(fid => {
+              const name = followsNames?.[fid] || fid.slice(0,8)+"…";
+              const initials = name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase() || "?";
+              return (
+                <div key={fid} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid #111214"}}>
+                  <div style={{width:32,height:32,borderRadius:"50%",background:"#1A1B1E",border:"1px solid #333",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#CAFF4D",flexShrink:0}}>
+                    {initials}
+                  </div>
+                  <div style={{flex:1,fontSize:12,fontWeight:600,color:"#fff"}}>{name}</div>
+                  <button onClick={()=>onFollow&&onFollow(fid)} style={{fontSize:10,fontWeight:700,color:"#EF4444",background:"none",border:"1px solid rgba(239,68,68,.3)",borderRadius:6,padding:"4px 8px",cursor:"pointer"}}>
+                    Deixar de seguir
+                  </button>
                 </div>
-                <div style={{flex:1,fontSize:12,fontWeight:600,color:"#787C8A"}}>{fid.slice(0,8)}…</div>
-                <button onClick={()=>onFollow&&onFollow(fid)} style={{fontSize:10,fontWeight:700,color:"#EF4444",background:"none",border:"1px solid rgba(239,68,68,.3)",borderRadius:6,padding:"4px 8px",cursor:"pointer"}}>
-                  Deixar de seguir
-                </button>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
@@ -3511,6 +3539,7 @@ export default function App() {
   const [selectedLiveGame, setSelectedLiveGame] = useState(null);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [follows, setFollows] = useState([]);
+  const [followsNames, setFollowsNames] = useState({}); // {uid: name}
   const [liveShareToken, setLiveShareToken] = useState(null);
   const [roundPhoto, setRoundPhoto] = useState(null);
   const [roundPhotoUrl, setRoundPhotoUrl] = useState(null);
@@ -3574,10 +3603,23 @@ export default function App() {
               setUserPts(data.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
             }
           });
+        // Load follows + resolve names on every session restore
+        supabase.from("follows").select("following_id").eq("follower_id", u.id).then(async ({ data }) => {
+          if (!data?.length) return;
+          const ids = data.map(f => f.following_id);
+          setFollows(ids);
+          const { data: gamesData } = await supabase.from("games").select("user_id,player_name").in("user_id", ids);
+          if (gamesData) {
+            const names = {};
+            gamesData.forEach(g => { if (g.user_id && g.player_name) names[g.user_id] = g.player_name; });
+            setFollowsNames(names);
+          }
+        });
       } else {
         setUser(null);
         setHistory([]);
         setUserPts(0);
+        setFollows([]);
       }
     });
     return () => subscription.unsubscribe();
@@ -3663,12 +3705,17 @@ export default function App() {
       setHistory(games.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
       setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
     }
-    // Load follows
+    // Load follows + resolve names
     const { data: followData } = await supabase.from("follows").select("following_id").eq("follower_id", u.id);
-    if (followData) setFollows(followData.map(f => f.following_id));
+    if (followData?.length) {
+      const ids = followData.map(f => f.following_id);
+      setFollows(ids);
+      const { data: fGames } = await supabase.from("games").select("user_id,player_name").in("user_id", ids);
+      if (fGames) { const n={}; fGames.forEach(g=>{if(g.user_id&&g.player_name)n[g.user_id]=g.player_name;}); setFollowsNames(n); }
+    }
   };
 
-  const handleFollow = async (followingId) => {
+  const handleFollow = async (followingId, nameHint) => {
     if (!user) { openAuth(); return; }
     if (follows.includes(followingId)) {
       await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", followingId);
@@ -3676,6 +3723,11 @@ export default function App() {
     } else {
       await supabase.from("follows").insert({ follower_id: user.id, following_id: followingId });
       setFollows(f => [...f, followingId]);
+      if (nameHint) setFollowsNames(n => ({...n, [followingId]: nameHint}));
+      else {
+        const { data } = await supabase.from("games").select("player_name").eq("user_id", followingId).limit(1).single();
+        if (data?.player_name) setFollowsNames(n => ({...n, [followingId]: data.player_name}));
+      }
     }
   };
 
@@ -3856,7 +3908,7 @@ export default function App() {
         {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null} follows={follows} onFollow={handleFollow}/>}
         {screen==="live" && selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth} follows={follows} onFollow={handleFollow}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
-        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser} follows={follows} onFollow={handleFollow} enableNotifications={enableNotifications}/>}
+        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser} follows={follows} followsNames={followsNames} onFollow={handleFollow} enableNotifications={enableNotifications}/>}
 
         {!isGameFlow && <BottomNav screen={screen} setScreen={setScreenSafe} lang={lang}/>}
 

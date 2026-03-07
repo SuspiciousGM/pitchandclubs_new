@@ -908,7 +908,7 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
 
       {/* ── LIVE EN DIRECTE preview ── */}
       {(() => {
-        const livePrev = (liveGames && liveGames.length) ? liveGames.filter(g=>g.is_live).slice(0,3) : MOCK_LIVE_GAMES.filter(g=>g.is_live).slice(0,3);
+        const livePrev = (liveGames||[]).filter(g=>g.is_live).slice(0,3);
         return livePrev.length > 0 ? (
           <div style={{marginBottom:16}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
@@ -2705,13 +2705,6 @@ const SPAIN_PINS = [
   { id:"pmi", label:"PMI",  x:88, y:50, games:6,  color:"#818CF8" },
 ];
 
-const MOCK_LIVE_GAMES = [
-  { id:1, player_name:"Marc Puig",     course_name:"Vallromanes",      current_hole:12, holes:18, score_total:-3, par_total:0, is_live:true,  avatar:"MP", color:"#CAFF4D", created_at: new Date(Date.now()-1200000).toISOString() },
-  { id:2, player_name:"Sònia Ros",     course_name:"Canal Olímpic",    current_hole:7,  holes:18, score_total:-1, par_total:0, is_live:true,  avatar:"SR", color:"#60A5FA", created_at: new Date(Date.now()-2400000).toISOString() },
-  { id:3, player_name:"Jordi Mas",     course_name:"HCP1",             current_hole:9,  holes:9,  score_total:0,  par_total:0, is_live:false, avatar:"JM", color:"#A78BFA", created_at: new Date(Date.now()-3600000).toISOString() },
-  { id:4, player_name:"Laura Fernández",course_name:"Áccura Teià",    current_hole:15, holes:18, score_total:2,  par_total:0, is_live:true,  avatar:"LF", color:"#F472B6", created_at: new Date(Date.now()-4800000).toISOString() },
-  { id:5, player_name:"Pau Serra",     course_name:"P&P Badalona",     current_hole:5,  holes:9,  score_total:-1, par_total:0, is_live:true,  avatar:"PS", color:"#34D399", created_at: new Date(Date.now()-600000).toISOString() },
-];
 
 function LiveGameCard({ game, compact, onClick }) {
   const diff = game.score_total ?? game.players?.find(p=>p.isMe)?.diff ?? 0;
@@ -2784,8 +2777,7 @@ function LiveGameCard({ game, compact, onClick }) {
 }
 
 function LiveScreen({ user, openAuth, lang, liveGames, onSelectGame, follows, onFollow }) {
-  const games = (liveGames && liveGames.length) ? liveGames : MOCK_LIVE_GAMES;
-  const liveNow = games.filter(g => g.is_live);
+  const liveNow = (liveGames||[]).filter(g => g.is_live);
   const handleCardClick = (game) => {
     if (!user) { openAuth(); return; }
     if (onSelectGame) onSelectGame(game);
@@ -3860,6 +3852,7 @@ export default function App() {
   const handleGameDelete = async () => {
     if (liveGameId) {
       await supabase.from("games").update({ is_live: false }).eq("id", liveGameId);
+      setLiveGames(prev => prev.filter(g => g.id !== liveGameId));
       setLiveGameId(null);
     }
     localStorage.removeItem('pc_gameData');
@@ -4001,7 +3994,6 @@ export default function App() {
           }).eq("id", liveGameId);
           if (error) throw error;
           dbGameId = liveGameId;
-          setLiveGames(prev => prev.map(g => g.id === liveGameId ? {...g, is_live: false, players: game.players, scores: game.scores} : g));
           setLiveGameId(null);
         } else {
           const { data: rows, error } = await supabase.from("games").insert({
@@ -4044,8 +4036,9 @@ export default function App() {
       }
     }
     setLastGame({...game, supabaseId: dbGameId});
-    // Remove from live list now that game is finished
-    if (liveGameId) setLiveGames(prev => prev.filter(g => g.id !== liveGameId));
+    // Remove from live list + clear active game state
+    setLiveGames(prev => prev.filter(g => g.id !== liveGameId));
+    setGameData(null);
 
     localStorage.removeItem('pc_gameData');
     localStorage.removeItem('pc_scores');

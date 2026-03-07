@@ -1052,7 +1052,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
 
   const searchPlayers = (playerId, query) => {
     clearTimeout(searchDebounce.current[playerId]);
-    if (query.length < 2) { setPlayerSuggestions(ps=>({...ps,[playerId]:[]})); return; }
+    const delay = query.length === 0 ? 0 : 300;
     searchDebounce.current[playerId] = setTimeout(async () => {
       // Query recent games to discover registered users (no profiles table needed)
       const { data } = await supabase
@@ -1064,24 +1064,26 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
       if (!data) return;
       const q = query.toLowerCase();
       const seen = new Set();
-      // Exclude current user from suggestions
+      // Exclude current user and already-added players
       if (user?.id) seen.add(user.id);
+      players.forEach(p => { if (p.userId) seen.add(p.userId); });
       const results = [];
       for (const g of data) {
-        if (results.length >= 5) break;
+        if (results.length >= 6) break;
         // The game owner = isMe player
         if (!seen.has(g.user_id)) {
           seen.add(g.user_id);
           const me = (g.players || []).find(p => p.isMe);
-          if (me?.name?.toLowerCase().includes(q)) {
+          if (me?.name && (q === "" || me.name.toLowerCase().includes(q))) {
             const initials = me.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
             results.push({ name: me.name, userId: g.user_id, club: me.club || "", initials, isRegistered: true });
           }
         }
         // Also check any linked registered players in this game
         for (const p of (g.players || [])) {
-          if (results.length >= 5) break;
-          if (!p.isMe && p.userId && !seen.has(p.userId) && p.name?.toLowerCase().includes(q)) {
+          if (results.length >= 6) break;
+          if (!p.isMe && p.userId && !seen.has(p.userId) && p.name &&
+              (q === "" || p.name.toLowerCase().includes(q))) {
             seen.add(p.userId);
             const initials = p.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
             results.push({ name: p.name, userId: p.userId, club: p.club || "", initials, isRegistered: true });
@@ -1089,7 +1091,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
         }
       }
       setPlayerSuggestions(ps=>({...ps,[playerId]:results}));
-    }, 350);
+    }, delay);
   };
 
   // Sync player 1 name when user auth resolves after mount
@@ -1276,18 +1278,40 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
                   {teamPlayers.map((p,i) => {
                     const pi = players.findIndex(x=>x.id===p.id);
                     return (
-                      <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                        <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[pi],flexShrink:0}}/>
-                        <input className="inp" style={{flex:1,minWidth:0,padding:"6px 0",fontSize:13,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0,color:"#fff"}}
-                          placeholder={p.isMe?"El teu nom":`Jugador ${pi+1}`}
-                          value={p.name}
-                          onChange={e=>updateName(p.id,e.target.value)}
-                          onFocus={e=>e.target.select()}/>
-                        {p.isMe && <span style={{fontSize:9,color:"#555761",fontWeight:600,flexShrink:0}}>TU</span>}
-                        <button onClick={()=>switchTeam(p.id)} style={{background:"transparent",border:`1px solid ${team.color}55`,borderRadius:6,color:team.color,fontSize:10,fontWeight:700,cursor:"pointer",padding:"3px 7px",flexShrink:0,fontFamily:"Inter"}}>
-                          {team.id==="A"?"→B":"←A"}
-                        </button>
-                        {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:16,padding:2,lineHeight:1,flexShrink:0}} onClick={()=>removePlayer(p.id)}>×</button>}
+                      <div key={p.id} style={{position:"relative",marginBottom:6}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[pi],flexShrink:0}}/>
+                          <input className="inp" style={{flex:1,minWidth:0,padding:"6px 0",fontSize:13,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0,color:"#fff"}}
+                            placeholder={p.isMe?"El teu nom":"Cerca jugador registrat..."}
+                            value={p.name}
+                            onChange={e=>{updateName(p.id,e.target.value);if(!p.isMe)searchPlayers(p.id,e.target.value);}}
+                            onFocus={()=>{setFocusedPlayerId(p.id);if(!p.isMe)searchPlayers(p.id,p.name||"");}}
+                            onBlur={()=>setTimeout(()=>setFocusedPlayerId(null),200)}/>
+                          {p.isMe && <span style={{fontSize:9,color:"#555761",fontWeight:600,flexShrink:0}}>TU</span>}
+                          {p.isRegistered && !p.isMe && <span style={{fontSize:9,color:"#CAFF4D",fontWeight:700,flexShrink:0}}>✓</span>}
+                          <button onClick={()=>switchTeam(p.id)} style={{background:"transparent",border:`1px solid ${team.color}55`,borderRadius:6,color:team.color,fontSize:10,fontWeight:700,cursor:"pointer",padding:"3px 7px",flexShrink:0,fontFamily:"Inter"}}>
+                            {team.id==="A"?"→B":"←A"}
+                          </button>
+                          {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:16,padding:2,lineHeight:1,flexShrink:0}} onClick={()=>removePlayer(p.id)}>×</button>}
+                        </div>
+                        {!p.isMe && focusedPlayerId===p.id && (playerSuggestions[p.id]||[]).length>0 && (
+                          <div style={{position:"absolute",left:0,right:0,top:"100%",zIndex:50,background:"#1A1B1E",border:"1px solid #333",borderRadius:8,overflow:"hidden",boxShadow:"0 8px 24px rgba(0,0,0,.6)"}}>
+                            <div style={{padding:"6px 12px 4px",fontSize:9,fontWeight:700,letterSpacing:".1em",color:"#555761",textTransform:"uppercase",borderBottom:"1px solid #222327"}}>Usuaris registrats</div>
+                            {(playerSuggestions[p.id]||[]).map((s,si)=>(
+                              <div key={si} onMouseDown={()=>selectSuggestion(p.id,s)}
+                                style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer",borderBottom:si<(playerSuggestions[p.id].length-1)?"1px solid #1a1a1f":"none"}}
+                                onMouseEnter={e=>e.currentTarget.style.background="#222327"}
+                                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                <div style={{width:32,height:32,borderRadius:"50%",background:PLAYER_COLORS[pi],display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{s.initials}</div>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{fontSize:13,fontWeight:600}}>{s.name}</div>
+                                  {s.club && <div style={{fontSize:10,color:"#555761"}}>{s.club}</div>}
+                                </div>
+                                <span style={{fontSize:9,color:"#CAFF4D",fontWeight:700,flexShrink:0}}>✓</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1308,32 +1332,31 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
               <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",background:"#1A1B1E",border:"1px solid #222327",borderRadius:8}}>
                 <div style={{width:10,height:10,borderRadius:"50%",background:PLAYER_COLORS[i],flexShrink:0}} />
                 <input className="inp" style={{flex:1,minWidth:0,padding:"6px 0",fontSize:14,background:"transparent",border:"none",borderBottom:"1px solid #222327",borderRadius:0,color:"#fff"}}
-                  placeholder={p.isMe ? "El teu nom" : "Cerca jugador o escriu nom..."}
+                  placeholder={p.isMe ? "El teu nom" : "Cerca jugador registrat..."}
                   value={p.name}
                   onChange={e=>{updateName(p.id,e.target.value);if(!p.isMe)searchPlayers(p.id,e.target.value);}}
-                  onFocus={e=>{setFocusedPlayerId(p.id);}}
-                  onBlur={()=>setTimeout(()=>setFocusedPlayerId(null),150)}
+                  onFocus={()=>{setFocusedPlayerId(p.id);if(!p.isMe)searchPlayers(p.id,p.name||"");}}
+                  onBlur={()=>setTimeout(()=>setFocusedPlayerId(null),200)}
                   autoFocus={!p.isMe && i===players.length-1}
                 />
                 {p.isMe && <span style={{fontSize:10,color:"#555761",fontWeight:600,flexShrink:0}}>TU</span>}
-                {p.isRegistered && !p.isMe && <span style={{fontSize:7,color:"#CAFF4D",fontWeight:700,flexShrink:0,letterSpacing:".06em"}}>●</span>}
+                {p.isRegistered && !p.isMe && <span style={{fontSize:9,color:"#CAFF4D",fontWeight:700,flexShrink:0}}>✓</span>}
                 {!p.isMe && <button style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:18,padding:4,lineHeight:1,flexShrink:0}} onClick={()=>removePlayer(p.id)}>×</button>}
               </div>
               {!p.isMe && focusedPlayerId===p.id && (playerSuggestions[p.id]||[]).length>0 && (
-                <div style={{position:"absolute",left:0,right:0,top:"100%",zIndex:50,background:"#1A1B1E",border:"1px solid #333",borderRadius:8,overflow:"hidden",boxShadow:"0 4px 16px rgba(0,0,0,.5)"}}>
+                <div style={{position:"absolute",left:0,right:0,top:"100%",zIndex:50,background:"#1A1B1E",border:"1px solid #333",borderRadius:8,overflow:"hidden",boxShadow:"0 8px 24px rgba(0,0,0,.6)"}}>
+                  <div style={{padding:"6px 12px 4px",fontSize:9,fontWeight:700,letterSpacing:".1em",color:"#555761",textTransform:"uppercase",borderBottom:"1px solid #222327"}}>Usuaris registrats</div>
                   {(playerSuggestions[p.id]||[]).map((s,si)=>(
                     <div key={si} onMouseDown={()=>selectSuggestion(p.id,s)}
-                      style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",borderBottom:si<(playerSuggestions[p.id].length-1)?"1px solid #222327":"none"}}
+                      style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer",borderBottom:si<(playerSuggestions[p.id].length-1)?"1px solid #1a1a1f":"none"}}
                       onMouseEnter={e=>e.currentTarget.style.background="#222327"}
                       onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                      <div style={{width:28,height:28,borderRadius:"50%",background:PLAYER_COLORS[i],display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{s.initials}</div>
-                      <div>
-                        <div style={{fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
-                          {s.isRegistered && <span style={{fontSize:8,color:"#CAFF4D"}}>●</span>}
-                          {s.name}
-                        </div>
+                      <div style={{width:32,height:32,borderRadius:"50%",background:PLAYER_COLORS[i],display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{s.initials}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:600}}>{s.name}</div>
                         {s.club && <div style={{fontSize:10,color:"#555761"}}>{s.club}</div>}
                       </div>
+                      <span style={{fontSize:9,color:"#CAFF4D",fontWeight:700,flexShrink:0}}>✓</span>
                     </div>
                   ))}
                 </div>

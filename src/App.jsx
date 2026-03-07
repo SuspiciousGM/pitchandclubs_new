@@ -1573,15 +1573,18 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
     ? [...players, ...(liveRemote.players||[]).filter(rp => !players.find(p => p.id === rp.id))]
     : players;
 
-  // mergedScores: local host scores + remote joined-player scores merged together
+  // mergedScores: host's local scores + remote scores from ALL non-me players (existing or newly joined)
   const mergedScores = scores.map((h, i) => {
     if (!liveRemote?.scores?.[i]) return h;
-    const extra = {};
+    const remotePs = liveRemote.scores[i].playerScores || {};
+    const ps = { ...h.playerScores };
+    // Merge remote scores for existing non-me players (they're scoring from their own device)
+    players.forEach(p => { if (!p.isMe && remotePs[p.id] != null) ps[p.id] = remotePs[p.id]; });
+    // Also add brand-new players who joined remotely
     (liveRemote.players||[]).forEach(rp => {
-      if (!players.find(p => p.id === rp.id))
-        extra[rp.id] = liveRemote.scores[i].playerScores?.[rp.id] ?? null;
+      if (!players.find(p => p.id === rp.id)) ps[rp.id] = remotePs[rp.id] ?? null;
     });
-    return Object.keys(extra).length ? { ...h, playerScores: { ...h.playerScores, ...extra } } : h;
+    return { ...h, playerScores: ps };
   });
 
   const hole = mergedScores[curHole];
@@ -1602,11 +1605,11 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
     // Push live update: merge with remote scores so joined players' data is preserved
     const merged = next.map((h,i) => {
       if (!liveRemote?.scores?.[i]) return h;
-      const extra = {};
-      (liveRemote.players||[]).forEach(rp => {
-        if (!players.find(p=>p.id===rp.id)) extra[rp.id] = liveRemote.scores[i].playerScores?.[rp.id]??null;
-      });
-      return Object.keys(extra).length ? {...h,playerScores:{...h.playerScores,...extra}} : h;
+      const remotePs = liveRemote.scores[i].playerScores || {};
+      const ps = { ...h.playerScores };
+      players.forEach(p => { if (!p.isMe && remotePs[p.id] != null && ps[p.id] == null) ps[p.id] = remotePs[p.id]; });
+      (liveRemote.players||[]).forEach(rp => { if (!players.find(p=>p.id===rp.id)) ps[rp.id] = remotePs[rp.id]??null; });
+      return { ...h, playerScores: ps };
     });
     if (onLiveUpdate) onLiveUpdate(merged, curHole);
   };
@@ -1624,7 +1627,15 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
     setCurHole(ni);
     localStorage.setItem('pc_curHole', ni);
     setActivePid(players[0].id);
-    if (onLiveUpdate) onLiveUpdate(next, ni);
+    // Merge remote scores for non-me players before pushing
+    const toSync = liveRemote ? next.map((h,i) => {
+      const remotePs = liveRemote.scores?.[i]?.playerScores || {};
+      const ps = { ...h.playerScores };
+      players.forEach(p => { if (!p.isMe && remotePs[p.id] != null && ps[p.id] == null) ps[p.id] = remotePs[p.id]; });
+      (liveRemote.players||[]).forEach(rp => { if (!players.find(p=>p.id===rp.id)) ps[rp.id] = remotePs[rp.id]??null; });
+      return { ...h, playerScores: ps };
+    }) : next;
+    if (onLiveUpdate) onLiveUpdate(toSync, ni);
   };
 
   const allDone = allPlayers.every(p=>hole.playerScores[p.id]!=null);
@@ -3434,6 +3445,15 @@ function SharedGameView({ game, token, joinedPid, onJoinClick }) {
   const me = joinedPid ? players.find(p => p.id === joinedPid) : null;
   const pph = Math.round((game.par||18) / (game.holes||18));
 
+  // Auto-advance joined player's view to host's current hole (if they haven't scored yet)
+  useEffect(() => {
+    const hostHole = Math.max(0, (game.current_hole||1) - 1);
+    setCurHole(prev => {
+      const myScore = (game.scores||[])[prev]?.playerScores?.[joinedPid];
+      return myScore == null ? hostHole : prev;
+    });
+  }, [game.current_hole]);
+
   const scDiff = (sc, pid) => {
     let d = 0;
     scores.forEach(h => { const v = h.playerScores?.[pid]; if (v != null) d += v - h.par; });
@@ -3441,12 +3461,14 @@ function SharedGameView({ game, token, joinedPid, onJoinClick }) {
   };
   const diffColor = d => d < -1 ? "#FBBF24" : d === -1 ? "#60A5FA" : d === 0 ? "#CAFF4D" : "#EF4444";
 
+  const [saveErr, setSaveErr] = useState(null);
   const updateScore = async (holeIdx, score) => {
-    setSaving(true);
+    setSaving(true); setSaveErr(null);
     const newScores = scores.map((h, i) => i === holeIdx
       ? { ...h, playerScores: { ...h.playerScores, [joinedPid]: score } }
       : h);
-    await supabase.from("games").update({ scores: newScores }).eq("share_token", token);
+    const { error } = await supabase.from("games").update({ scores: newScores }).eq("share_token", token);
+    if (error) setSaveErr("No s'ha pogut guardar. Comprova la connexió.");
     setSaving(false);
   };
 
@@ -3546,6 +3568,7 @@ function SharedGameView({ game, token, joinedPid, onJoinClick }) {
                 {curHole < scores.length-1 && <button onClick={()=>setCurHole(h=>h+1)} style={{flex:1,padding:"10px",borderRadius:10,border:"none",background:"#CAFF4D",color:"#0A0A0B",fontWeight:700,fontSize:12,cursor:"pointer"}}>Forat {curHole+2} →</button>}
               </div>
               {saving && <div style={{textAlign:"center",fontSize:10,color:"#555761",marginTop:8}}>Guardant…</div>}
+              {saveErr && <div style={{textAlign:"center",fontSize:11,color:"#EF4444",marginTop:8}}>⚠ {saveErr}</div>}
             </>
           )}
         </div>
@@ -3575,11 +3598,18 @@ function SharedGameView({ game, token, joinedPid, onJoinClick }) {
 
 /* ─── Join game screen ─── */
 function JoinGameScreen({ game, token, onJoin, onBack }) {
+  const [addNew, setAddNew]   = useState(false);
   const [name, setName]       = useState("");
   const [joining, setJoining] = useState(false);
   const [err, setErr]         = useState("");
 
-  const handleJoin = async () => {
+  // Pick an existing player — no DB write needed, just store the ID
+  const handlePickExisting = (player) => {
+    onJoin(player.id);
+  };
+
+  // Add a brand-new player not in the host's list
+  const handleAddNew = async () => {
     if (!name.trim()) { setErr("Escriu el teu nom"); return; }
     setJoining(true);
     const pid = crypto.randomUUID();
@@ -3591,37 +3621,50 @@ function JoinGameScreen({ game, token, onJoin, onBack }) {
     const { error } = await supabase.from("games").update({
       players: updatedPlayers, scores: updatedScores
     }).eq("share_token", token);
-    if (error) { setErr(error.message); setJoining(false); return; }
+    if (error) { setErr("Error: " + error.message); setJoining(false); return; }
     onJoin(pid);
   };
 
   return (
     <div style={{minHeight:"100dvh",background:"#0A0A0B",fontFamily:"Inter,sans-serif",maxWidth:430,margin:"0 auto",display:"flex",flexDirection:"column",justifyContent:"center",padding:24}}>
       <button onClick={onBack} style={{alignSelf:"flex-start",background:"none",border:"none",color:"#555761",fontSize:13,cursor:"pointer",marginBottom:24,padding:0}}>← Tornar</button>
-      <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:".04em",marginBottom:4}}>UNEIX-TE A LA PARTIDA</div>
+      <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:".04em",marginBottom:4}}>QUI ETS?</div>
       <div style={{fontSize:12,color:"#787C8A",marginBottom:24}}>{game.course_name} · {game.holes||18} forats</div>
-      <div style={{marginBottom:8}}>
-        <div style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#555761",marginBottom:6}}>El teu nom</div>
-        <input
-          className="inp" placeholder="Marc Puig" value={name} autoFocus
-          onChange={e=>{setName(e.target.value);setErr("");}}
-          onKeyDown={e=>e.key==="Enter"&&handleJoin()}/>
-      </div>
-      {err && <div style={{fontSize:12,color:"#EF4444",marginBottom:8}}>⚠ {err}</div>}
-      <div style={{marginBottom:16}}>
-        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",marginBottom:6}}>Jugadors actuals</div>
-        {(game.players||[]).map((p,i)=>(
-          <div key={p.id||i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid #111214"}}>
-            <div style={{width:22,height:22,borderRadius:"50%",background:PLAYER_COLORS[i]||"#555",display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>
-              {(p.name||"P")[0].toUpperCase()}
-            </div>
-            <span style={{fontSize:12,color:"#787C8A"}}>{p.name}</span>
-          </div>
-        ))}
-      </div>
-      <button className="btn btn-primary" onClick={handleJoin} disabled={joining}>
-        {joining ? "Unint-se…" : "Uneix-te a la partida →"}
-      </button>
+
+      {!addNew ? (
+        <>
+          <div style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#555761",marginBottom:10}}>Selecciona el teu nom</div>
+          {(game.players||[]).map((p, i) => (
+            <button key={p.id} onClick={() => handlePickExisting(p)}
+              style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"13px 14px",background:"#1A1B1E",borderRadius:12,border:"1px solid #222327",color:"#fff",cursor:"pointer",marginBottom:8,textAlign:"left"}}>
+              <div style={{width:36,height:36,borderRadius:"50%",background:PLAYER_COLORS[i]||"#CAFF4D",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>
+                {(p.name||"P").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase()||"P"}
+              </div>
+              <span style={{fontWeight:600,fontSize:15}}>{p.name}</span>
+            </button>
+          ))}
+          <button onClick={() => setAddNew(true)}
+            style={{width:"100%",padding:"12px",borderRadius:12,border:"1px dashed #333",background:"transparent",color:"#555761",cursor:"pointer",fontSize:13,marginTop:4}}>
+            + No estic a la llista
+          </button>
+        </>
+      ) : (
+        <>
+          <div style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#555761",marginBottom:6}}>El teu nom</div>
+          <input className="inp" placeholder="Marc Puig" value={name} autoFocus
+            onChange={e=>{setName(e.target.value);setErr("");}}
+            onKeyDown={e=>e.key==="Enter"&&handleAddNew()}
+            style={{marginBottom:8}}/>
+          {err && <div style={{fontSize:12,color:"#EF4444",marginBottom:8}}>⚠ {err}</div>}
+          <button className="btn btn-primary" onClick={handleAddNew} disabled={joining} style={{marginBottom:8}}>
+            {joining ? "Unint-se…" : "Uneix-te a la partida →"}
+          </button>
+          <button onClick={() => { setAddNew(false); setErr(""); }}
+            style={{background:"none",border:"none",color:"#555761",fontSize:13,cursor:"pointer",padding:"8px 0"}}>
+            ← Tornar
+          </button>
+        </>
+      )}
     </div>
   );
 }

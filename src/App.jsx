@@ -1053,41 +1053,50 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
 
   const searchPlayers = (playerId, query) => {
     clearTimeout(searchDebounce.current[playerId]);
-    const delay = query.length === 0 ? 0 : 300;
+    const delay = query.length === 0 ? 0 : 200;
     searchDebounce.current[playerId] = setTimeout(async () => {
-      // Query recent games to discover registered users (no profiles table needed)
-      const { data } = await supabase
-        .from('games')
-        .select('user_id, players')
-        .not('user_id', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(200);
-      if (!data) return;
-      const q = query.toLowerCase();
-      const seen = new Set();
-      // Exclude current user and already-added players
-      if (user?.id) seen.add(user.id);
-      players.forEach(p => { if (p.userId) seen.add(p.userId); });
-      const results = [];
-      for (const g of data) {
-        if (results.length >= 6) break;
-        // The game owner = isMe player
-        if (!seen.has(g.user_id)) {
-          seen.add(g.user_id);
-          const me = (g.players || []).find(p => p.isMe);
-          if (me?.name && (q === "" || me.name.toLowerCase().includes(q))) {
-            const initials = me.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
-            results.push({ name: me.name, userId: g.user_id, club: me.club || "", initials, isRegistered: true });
-          }
-        }
-        // Also check any linked registered players in this game
-        for (const p of (g.players || [])) {
-          if (results.length >= 6) break;
-          if (!p.isMe && p.userId && !seen.has(p.userId) && p.name &&
-              (q === "" || p.name.toLowerCase().includes(q))) {
-            seen.add(p.userId);
-            const initials = p.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
-            results.push({ name: p.name, userId: p.userId, club: p.club || "", initials, isRegistered: true });
+      const q = query.trim().toLowerCase();
+      const excludedIds = new Set();
+      if (user?.id) excludedIds.add(user.id);
+      players.forEach(p => { if (p.userId) excludedIds.add(p.userId); });
+
+      // Try profiles table first (fast, reliable)
+      let results = [];
+      const profileQuery = supabase.from('profiles').select('id, name, club').limit(8);
+      const { data: profileData, error: profileError } = q
+        ? await profileQuery.ilike('name', `%${q}%`)
+        : await profileQuery.order('name');
+
+      if (!profileError && profileData?.length) {
+        results = profileData
+          .filter(p => !excludedIds.has(p.id))
+          .slice(0, 6)
+          .map(p => ({
+            name: p.name,
+            userId: p.id,
+            club: p.club || "",
+            initials: p.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase(),
+            isRegistered: true,
+          }));
+      } else {
+        // Fallback: scan recent games
+        const { data } = await supabase
+          .from('games').select('user_id, players')
+          .not('user_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(300);
+        if (data) {
+          const seen = new Set(excludedIds);
+          for (const g of data) {
+            if (results.length >= 6) break;
+            if (!seen.has(g.user_id)) {
+              seen.add(g.user_id);
+              const me = (g.players || []).find(p => p.isMe);
+              if (me?.name && (q === "" || me.name.toLowerCase().includes(q))) {
+                const initials = me.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+                results.push({ name: me.name, userId: g.user_id, club: me.club || "", initials, isRegistered: true });
+              }
+            }
           }
         }
       }
@@ -2956,6 +2965,7 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
       hcp: isNaN(hcpVal) ? null : hcpVal,
       license: editLicense.trim(),
     }});
+    supabase.from("profiles").upsert({ id: user.id, name: editName.trim(), club: editClub.trim() }, { onConflict: "id" }).then(() => {});
     if (setUser) setUser(prev => ({ ...prev, name: editName.trim(), club: editClub.trim(), hcp: isNaN(hcpVal) ? null : hcpVal, license: editLicense.trim() }));
     setSaving(false);
     setEditMode(false);
@@ -3777,7 +3787,10 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const u = session.user;
-        setUser({ id: u.id, name: u.user_metadata?.name || u.user_metadata?.full_name || u.email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", hcp: u.user_metadata?.hcp ?? null, license: u.user_metadata?.license || "", avatarUrl: u.user_metadata?.avatar_url || u.user_metadata?.picture || null });
+        const uName = u.user_metadata?.name || u.user_metadata?.full_name || u.email.split("@")[0];
+        setUser({ id: u.id, name: uName, email: u.email, club: u.user_metadata?.club || "", hcp: u.user_metadata?.hcp ?? null, license: u.user_metadata?.license || "", avatarUrl: u.user_metadata?.avatar_url || u.user_metadata?.picture || null });
+        // Keep profiles table in sync so player search works
+        supabase.from("profiles").upsert({ id: u.id, name: uName, club: u.user_metadata?.club || "" }, { onConflict: "id" }).then(() => {});
         supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false })
           .then(({ data, error }) => {
             console.log("P&C history load — user:", u.id, "games:", data?.length, "error:", error?.message);

@@ -3150,6 +3150,32 @@ function AuthModal({ onClose, onAuth, lang, initialMode="register" }) {
           {loading?(lang==="en"?"Loading...":lang==="es"?"Cargando...":"Carregant..."):(mode==="register"?tl("auth_register_btn"):tl("auth_login_btn"))}
         </button>
 
+        {/* Divider */}
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+          <div style={{flex:1,height:1,background:"#1A1B1E"}}/>
+          <span style={{fontSize:11,color:"#555761",fontWeight:500}}>{lang==="en"?"or":lang==="es"?"o":"o"}</span>
+          <div style={{flex:1,height:1,background:"#1A1B1E"}}/>
+        </div>
+
+        {/* Google OAuth */}
+        <button
+          onClick={async()=>{
+            await supabase.auth.signInWithOAuth({
+              provider:"google",
+              options:{ redirectTo: window.location.origin }
+            });
+          }}
+          style={{width:"100%",padding:"12px",borderRadius:12,border:"1px solid #2a2a30",background:"#1A1B1E",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:14}}>
+          {/* Google "G" logo */}
+          <svg width="16" height="16" viewBox="0 0 18 18">
+            <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+            <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+            <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z"/>
+            <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+          </svg>
+          {lang==="en"?"Continue with Google":lang==="es"?"Continuar con Google":"Continua amb Google"}
+        </button>
+
         <div style={{textAlign:"center",fontSize:12,color:"#555761"}}>
           {mode==="register"
             ? <>{tl("auth_to_login")} <span style={{color:"#CAFF4D",cursor:"pointer",fontWeight:700}} onClick={()=>{setMode("login");setErr("");}}>{tl("auth_to_login_link")}</span></>
@@ -3244,7 +3270,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const u = session.user;
-        setUser({ id: u.id, name: u.user_metadata?.name || u.email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", avatarUrl: u.user_metadata?.avatar_url || null });
+        setUser({ id: u.id, name: u.user_metadata?.name || u.user_metadata?.full_name || u.email.split("@")[0], email: u.email, club: u.user_metadata?.club || "", avatarUrl: u.user_metadata?.avatar_url || u.user_metadata?.picture || null });
         supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false })
           .then(({ data, error }) => {
             console.log("P&C history load — user:", u.id, "games:", data?.length, "error:", error?.message);

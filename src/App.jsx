@@ -320,6 +320,13 @@ input,button,select,textarea{outline:none;font-family:'Inter',sans-serif;}
 .app{
   background:#0A0A0B;
   background-image:
+    repeating-linear-gradient(
+      135deg,
+      rgba(202,255,77,0.018) 0px,
+      rgba(202,255,77,0.018) 1px,
+      transparent 1px,
+      transparent 8px
+    ),
     radial-gradient(ellipse at 20% 50%, rgba(34,85,34,0.04) 0%, transparent 60%),
     radial-gradient(ellipse at 80% 20%, rgba(20,60,20,0.03) 0%, transparent 50%),
     radial-gradient(ellipse at 60% 80%, rgba(40,90,40,0.03) 0%, transparent 55%);

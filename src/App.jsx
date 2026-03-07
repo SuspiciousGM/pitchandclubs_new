@@ -2695,7 +2695,6 @@ function LiveGameCard({ game, compact, onClick }) {
 function LiveScreen({ user, openAuth, lang, liveGames, onSelectGame, follows, onFollow }) {
   const games = (liveGames && liveGames.length) ? liveGames : MOCK_LIVE_GAMES;
   const liveNow = games.filter(g => g.is_live);
-  const recent = games.filter(g => !g.is_live);
   const handleCardClick = (game) => {
     if (!user) { openAuth(); return; }
     if (onSelectGame) onSelectGame(game);
@@ -2742,15 +2741,7 @@ function LiveScreen({ user, openAuth, lang, liveGames, onSelectGame, follows, on
         </div>
       )}
 
-      {/* Recent games */}
-      {recent.length > 0 && (
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:8}}>PARTIDES RECENTS</div>
-          {recent.map(g=><LiveGameCard key={g.id} game={g} onClick={handleCardClick}/>)}
-        </div>
-      )}
-
-      {liveNow.length === 0 && recent.length === 0 && (
+      {liveNow.length === 0 && (
         <div className="card" style={{textAlign:"center",padding:"32px 16px"}}>
           <div style={{display:"flex",justifyContent:"center",marginBottom:10,color:"#555761"}}><Flag size={32}/></div>
           <div style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:".04em",marginBottom:6}}>Sense partides ara mateix</div>
@@ -3599,8 +3590,8 @@ export default function App() {
         if (data) setActivityFeed(data.map(mapGameToFeedItem));
       });
 
-    // Fetch recent games (live + finished) for Live screen
-    supabase.from("games").select("*").order("created_at", { ascending: false }).limit(20)
+    // Fetch only active live games for Live screen
+    supabase.from("games").select("*").eq("is_live", true).order("created_at", { ascending: false }).limit(20)
       .then(({ data }) => {
         if (data?.length) setLiveGames(data);
       });
@@ -3610,10 +3601,15 @@ export default function App() {
       .channel("games-feed")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "games" }, (payload) => {
         setActivityFeed(prev => [mapGameToFeedItem(payload.new), ...prev].slice(0, 20));
-        setLiveGames(prev => [payload.new, ...prev].slice(0, 20));
+        if (payload.new.is_live) setLiveGames(prev => [payload.new, ...prev].slice(0, 20));
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games" }, (payload) => {
-        setLiveGames(prev => prev.map(g => g.id === payload.new.id ? payload.new : g));
+        // Remove from live list if game was just finished
+        if (!payload.new.is_live) {
+          setLiveGames(prev => prev.filter(g => g.id !== payload.new.id));
+        } else {
+          setLiveGames(prev => prev.map(g => g.id === payload.new.id ? payload.new : g));
+        }
       })
       .subscribe();
 
@@ -3890,20 +3886,8 @@ export default function App() {
       }
     }
     setLastGame({...game, supabaseId: dbGameId});
-    // Add finished game to live feed immediately (for "recent" section)
-    const me2 = game.players.find(p => p.isMe);
-    setLiveGames(prev => [{
-      id: dbGameId || game.id,
-      player_name: me2?.name || "",
-      course_name: game.course,
-      holes: game.scores.length,
-      par: gameData.course.par,
-      score_total: me2?.diff ?? 0,
-      is_live: false,
-      players: game.players,
-      current_hole: game.scores.length,
-      created_at: new Date().toISOString(),
-    }, ...prev].slice(0, 20));
+    // Remove from live list now that game is finished
+    if (liveGameId) setLiveGames(prev => prev.filter(g => g.id !== liveGameId));
 
     localStorage.removeItem('pc_gameData');
     localStorage.removeItem('pc_scores');

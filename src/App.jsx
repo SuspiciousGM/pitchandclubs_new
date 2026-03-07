@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { supabase } from "./supabaseClient";
-import ShareCardScreen from "./screens/ShareCardScreen";
 
 /* ─── i18n ───────────────────────────────────────────────────── */
 const T = {
@@ -597,7 +596,7 @@ function AppHeader({ screen, setScreen, user, openAuth, onSignOut, userPts, lang
   const [showLang, setShowLang] = useState(false);
   const tl = (k) => t(lang, k);
   const tier = getTier(userPts);
-  const isGameFlow = screen==="game-setup"||screen==="scorecard"||screen==="summary"||screen==="share-card";
+  const isGameFlow = screen==="game-setup"||screen==="scorecard"||screen==="summary";
   return (
     <header className="app-header">
       <div className="header-logo" onClick={()=>setScreen("home")}>P<em>&</em>C</div>
@@ -1989,42 +1988,45 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
   const tl = (k,v={}) => t(lang,k,v);
   const me = game.players.find(p => p.isMe);
   const [sharing, setSharing] = useState(false);
+  const [shareSheet, setShareSheet] = useState(false);
+  const [shareBlob, setShareBlob] = useState(null);
 
   const captureCard = async () => {
     if (!shareCardRef?.current) return null;
     try {
-      const canvas = await html2canvas(shareCardRef.current, { scale: 0.5, useCORS: true, backgroundColor: null });
+      const canvas = await html2canvas(shareCardRef.current, { scale: 1, useCORS: true, backgroundColor: null });
       return canvas;
     } catch(e) { console.error("html2canvas:", e); return null; }
   };
 
-  const handleShareStories = async () => {
+  const handleShare = async () => {
     setSharing(true);
     const canvas = await captureCard();
     if (!canvas) { setSharing(false); return; }
     canvas.toBlob(async (blob) => {
       if (!blob) { setSharing(false); return; }
       const file = new File([blob], "pitchandclubs-round.png", { type: "image/png" });
-      if (navigator.share && navigator.canShare({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: "La meva partida a Pitch & Clubs" }); }
-        catch(e) { if (e.name !== "AbortError") console.error(e); }
-      } else {
-        // Fallback: download
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a"); a.href = url; a.download = "pitchandclubs-round.png"; a.click();
-        URL.revokeObjectURL(url);
+      const appUrl = "https://pitchandclubs.cat";
+      const shareText = `He jugat a ${game.course} — pitchandclubs.cat`;
+      // 1. Try native share with image file (iOS/Android opens full share sheet)
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: "La meva partida a Pitch & Clubs", text: shareText });
+          setSharing(false); return;
+        } catch(e) { if (e.name === "AbortError") { setSharing(false); return; } }
       }
+      // 2. Try URL-only share (most modern browsers)
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: "La meva partida a Pitch & Clubs", text: shareText, url: appUrl });
+          setSharing(false); return;
+        } catch(e) { if (e.name === "AbortError") { setSharing(false); return; } }
+      }
+      // 3. Fallback: show bottom sheet with options
+      setShareBlob(blob);
+      setShareSheet(true);
       setSharing(false);
     }, "image/png");
-  };
-
-  const handleDownload = async () => {
-    setSharing(true);
-    const canvas = await captureCard();
-    if (!canvas) { setSharing(false); return; }
-    const url = canvas.toDataURL("image/png");
-    const a = document.createElement("a"); a.href = url; a.download = "pitchandclubs-round.png"; a.click();
-    setSharing(false);
   };
   const diff = me?.diff ?? 0;
   const tierNow = getTier(userPts);
@@ -2199,17 +2201,48 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
         );
       })()}
 
-      {/* Share to Stories */}
-      <div style={{marginBottom:16,display:"flex",gap:8}}>
-        <button onClick={() => setScreen("share-card")}
-          style={{flex:1,padding:"13px",borderRadius:12,border:"1px solid rgba(202,255,77,.4)",background:"rgba(202,255,77,.08)",color:"#CAFF4D",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          <Share2 size={14}/>Compartir Targeta
-        </button>
-        <button onClick={handleDownload} disabled={sharing}
-          style={{padding:"13px 14px",borderRadius:12,border:"1px solid #222327",background:"#1A1B1E",color:"#787C8A",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:sharing?.6:1}}>
-          <Download size={14}/>
-        </button>
-      </div>
+      {/* Share */}
+      <button onClick={handleShare} disabled={sharing}
+        style={{width:"100%",marginBottom:16,padding:"13px",borderRadius:12,border:"1px solid rgba(202,255,77,.4)",background:"rgba(202,255,77,.08)",color:"#CAFF4D",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:sharing?.6:1}}>
+        <Share2 size={14}/>{sharing ? "Generant..." : "Compartir Partida"}
+      </button>
+
+      {/* Share bottom sheet (fallback for non-native-share browsers) */}
+      {shareSheet && (
+        <div style={{position:"fixed",inset:0,zIndex:9999,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setShareSheet(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.65)"}}/>
+          <div style={{position:"relative",background:"#1A1B1E",borderRadius:"20px 20px 0 0",padding:"20px 20px 40px"}}>
+            <div style={{width:40,height:4,background:"#333",borderRadius:2,margin:"0 auto 18px"}}/>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:".12em",color:"#555761",marginBottom:14,textAlign:"center"}}>COMPARTIR</div>
+            {/* WhatsApp */}
+            <button onClick={()=>{
+              window.open(`https://wa.me/?text=${encodeURIComponent("La meva partida a Pitch & Clubs — https://pitchandclubs.cat")}`, "_blank");
+            }} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"13px 14px",background:"#222327",borderRadius:12,border:"none",color:"#fff",cursor:"pointer",marginBottom:8,fontSize:14,fontWeight:600}}>
+              <div style={{width:36,height:36,borderRadius:10,background:"#25D366",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:16,flexShrink:0}}>W</div>
+              WhatsApp
+            </button>
+            {/* Copy link */}
+            <button onClick={async()=>{
+              await navigator.clipboard.writeText("https://pitchandclubs.cat");
+              setShareSheet(false);
+            }} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"13px 14px",background:"#222327",borderRadius:12,border:"none",color:"#fff",cursor:"pointer",marginBottom:8,fontSize:14,fontWeight:600}}>
+              <div style={{width:36,height:36,borderRadius:10,background:"#333",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>🔗</div>
+              Copiar link
+            </button>
+            {/* Download image */}
+            <button onClick={()=>{
+              if (!shareBlob) return;
+              const url = URL.createObjectURL(shareBlob);
+              const a = document.createElement("a"); a.href = url; a.download = "pitchandclubs-round.png"; a.click();
+              URL.revokeObjectURL(url);
+              setShareSheet(false);
+            }} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"13px 14px",background:"#222327",borderRadius:12,border:"none",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:600}}>
+              <div style={{width:36,height:36,borderRadius:10,background:"#333",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Download size={16}/></div>
+              Descarregar imatge
+            </button>
+          </div>
+        </div>
+      )}
 
       <button className="btn btn-primary" style={{marginBottom:8,fontSize:15}} onClick={()=>setScreen("home")}>
         Tornar a l'inici
@@ -3956,7 +3989,7 @@ export default function App() {
   };
 
   const setScreenSafe = (s) => { setScreen(s); window.scrollTo(0,0); };
-  const isGameFlow = screen==="game-setup"||screen==="scorecard"||screen==="summary"||screen==="share-card";
+  const isGameFlow = screen==="game-setup"||screen==="scorecard"||screen==="summary";
 
   // Public share route: /game/:token
   const sharedGameToken = window.location.pathname.match(/^\/game\/([^/]+)/)?.[1];
@@ -3990,20 +4023,6 @@ export default function App() {
           }, 1500);
         }}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} shareCardRef={shareCardRef} roundPhoto={roundPhotoUrl}/>}
-        {screen==="share-card" && lastGame && (() => {
-          const scGame = {
-            course: lastGame.course,
-            date: lastGame.date,
-            players: lastGame.players.map(p => ({
-              name: p.name,
-              diff: p.diff ?? 0,
-              pts: p.points ?? 0,
-              scores: lastGame.scores.map(h => h.playerScores?.[p.id] ?? h.par),
-              pars: lastGame.scores.map(h => h.par),
-            })),
-          };
-          return <ShareCardScreen game={scGame} onBack={() => setScreenSafe("summary")} />;
-        })()}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang} follows={follows} onFollow={handleFollow}/>}
         {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null} follows={follows} onFollow={handleFollow}/>}
         {screen==="live" && selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth} follows={follows} onFollow={handleFollow}/>}

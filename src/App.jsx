@@ -1675,85 +1675,96 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
   const allHolesDone = scores.every(h=>players.every(p=>h.playerScores[p.id]!=null)); // only require original players to finish
 
   /* ── Targeta completa (full scorecard) ── */
-  if (showFull) return (
-    <div style={{position:'fixed',top:0,bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:430,background:'#0A0A0B',display:'flex',flexDirection:'column',overflow:'hidden',fontFamily:'Inter,sans-serif'}}>
-      <div style={{padding:'12px 14px',borderBottom:'1px solid #1a1a1f',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
-        <div>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:'.06em',color:'#CAFF4D'}}>{lang==='en'?'Full Scorecard':lang==='es'?'Tarjeta completa':'Targeta Completa'}</div>
-          <div style={{fontSize:9,color:'#555',fontWeight:600}}>{course.name} · Par {course.par}</div>
+  if (showFull) {
+    const ballBg  = d => d==null?'transparent':d<=-1?'transparent':d===0?'rgba(202,255,77,.12)':d===1?'rgba(208,208,208,.1)':'rgba(239,68,68,.15)';
+    const ballCol = d => d==null?'#2A2B30':d<=-2?'#FBBF24':d===-1?'#60A5FA':d===0?'#CAFF4D':d===1?'#d0d0d0':d===2?'#EF4444':'#9f1414';
+    const ballBorder = (d, isActive, v) => {
+      if (d==null) return isActive ? '1.5px dashed rgba(202,255,77,.4)' : '1px solid #1E2025';
+      return 'none';
+    };
+    const ballRadius = d => (d==null||d<0) ? '50%' : '7px';
+    const totColor  = d => d==null?'#555':d<0?'#CAFF4D':d===0?'#fff':'#EF4444';
+    return (
+      <div style={{position:'fixed',top:0,bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:430,background:'#0A0A0B',display:'flex',flexDirection:'column',overflow:'hidden',fontFamily:'Inter,sans-serif'}}>
+        {/* Header */}
+        <div style={{padding:'12px 14px',borderBottom:'1px solid #1a1a1f',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+          <div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:'.06em',color:'#CAFF4D'}}>{lang==='en'?'Full Scorecard':lang==='es'?'Tarjeta completa':'Targeta Completa'}</div>
+            <div style={{fontSize:9,color:'#555',fontWeight:600}}>{course.name} · Par {course.par}</div>
+          </div>
+          <button onClick={()=>setShowFull(false)} style={{padding:'6px 13px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#CAFF4D',fontSize:11,fontWeight:700,cursor:'pointer'}}>← {lang==='en'?'Back':lang==='es'?'Volver':'Tornar'}</button>
         </div>
-        <button onClick={()=>setShowFull(false)} style={{padding:'6px 13px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#CAFF4D',fontSize:11,fontWeight:700,cursor:'pointer'}}>← {lang==='en'?'Back':lang==='es'?'Volver':'Tornar'}</button>
-      </div>
-      <div style={{flex:1,overflowY:'auto',padding:'0 14px 24px'}}>
-        <table style={{width:'100%',borderCollapse:'collapse'}}>
-          <thead>
-            <tr style={{borderBottom:'2px solid #1a1a1f'}}>
-              <th style={{fontSize:8,color:'#555',fontWeight:700,padding:'8px 4px',textAlign:'left',letterSpacing:'.1em',textTransform:'uppercase'}}>{lang==='en'?'H':lang==='es'?'H':'F'}</th>
-              <th style={{fontSize:8,color:'#555',fontWeight:700,padding:'8px 4px',textAlign:'center'}}>Par</th>
-              {allPlayers.map((p,i)=><th key={p.id} style={{fontSize:8,color:PLAYER_COLORS[i],fontWeight:700,padding:'8px 4px',textAlign:'center'}}>{p.name.split(' ')[0].slice(0,4).toUpperCase()}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {[0,1].map(hi=>(
-              <React.Fragment key={hi}>
-                {mergedScores.slice(hi*9,hi*9+9).map((h,i)=>{
-                  const idx=hi*9+i;
-                  return (
-                    <tr key={idx} onClick={()=>{commitParAndGo(idx);setShowFull(false);}} style={{cursor:'pointer',background:idx===curHole?'rgba(202,255,77,.04)':'transparent',borderBottom:'1px solid #111'}}>
-                      <td style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:idx===curHole?'#CAFF4D':'#555',padding:'5px 4px'}}>{String(h.hole).padStart(2,'0')}{idx===curHole?' ▶':''}</td>
-                      <td style={{fontSize:9,color:'#444',padding:'5px 4px',textAlign:'center'}}>{h.par}</td>
-                      {allPlayers.map(p=>(
-                        <td key={p.id} style={{padding:'3px',textAlign:'center'}}>
-                          <div style={{display:'flex',justifyContent:'center'}}><ScoreSymbol v={h.playerScores[p.id]} par={h.par} size={28}/></div>
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-                <tr style={{background:'#111',borderTop:'1px solid #222',borderBottom:'1px solid #222'}}>
-                  <td colSpan={2} style={{fontSize:8,fontWeight:700,color:'#555',padding:'6px 4px',textTransform:'uppercase',letterSpacing:'.08em'}}>{hi===0?'OUT':'IN'}</td>
-                  {allPlayers.map((p,i)=>{
-                    let tt=0,cc=0; mergedScores.slice(hi*9,hi*9+9).forEach(h=>{const v=h.playerScores[p.id];if(v!=null){tt+=v-h.par;cc++;}});
-                    const d=cc?tt:null;
-                    return <td key={p.id} style={{padding:'6px 4px',textAlign:'center'}}><span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:scDiffColor(d)}}>{scFmtTotal(d)}</span></td>;
-                  })}
-                </tr>
-              </React.Fragment>
-            ))}
-            <tr style={{background:'#0f0f14',borderTop:'2px solid #222'}}>
-              <td colSpan={2} style={{fontSize:9,fontWeight:700,color:'#555',padding:'9px 4px',textTransform:'uppercase',letterSpacing:'.08em'}}>TOTAL</td>
-              {allPlayers.map(p=>{
-                const d=scPlayerTot(mergedScores,p.id);
-                return <td key={p.id} style={{padding:'9px 4px',textAlign:'center'}}><span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:scDiffColor(d)}}>{scFmtTotal(d)}</span></td>;
-              })}
-            </tr>
-          </tbody>
-        </table>
-        <div style={{marginTop:16,display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-          {allPlayers.map((p,i)=>{
-            const pts=scCalcPts(mergedScores,p.id),tot=scPlayerTot(mergedScores,p.id);
-            return (
-              <div key={p.id} style={{background:'#111',borderRadius:10,padding:'10px 12px',border:`1px solid ${PLAYER_COLORS[i]}22`}}>
-                <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:6}}>
-                  <div style={{width:22,height:22,borderRadius:'50%',background:PLAYER_COLORS[i],display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700,color:'#0A0A0B'}}>{p.name[0]}</div>
-                  <span style={{fontSize:11,fontWeight:700,color:'#fff'}}>{p.name.split(' ')[0]}</span>
+        <div style={{flex:1,overflowY:'auto',padding:'0 14px 24px'}}>
+          {/* Player header row */}
+          <div style={{display:'flex',alignItems:'center',padding:'10px 0 8px',borderBottom:'1px solid #1E2025'}}>
+            <div style={{width:36,flexShrink:0}}/>
+            <div style={{flex:1,display:'flex',justifyContent:'space-around'}}>
+              {allPlayers.map((p,i)=>(
+                <div key={p.id} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+                  <div style={{width:26,height:26,borderRadius:'50%',background:PLAYER_COLORS[i]+'33',border:`2px solid ${PLAYER_COLORS[i]}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:800,color:PLAYER_COLORS[i]}}>
+                    {(p.name||"?")[0].toUpperCase()}
+                  </div>
+                  <div style={{fontSize:8,fontWeight:700,color:PLAYER_COLORS[i],letterSpacing:'.04em'}}>{(p.name||"?").slice(0,5).toUpperCase()}</div>
                 </div>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
-                  <div><div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:scDiffColor(tot),lineHeight:1}}>{scFmtTotal(tot)}</div><div style={{fontSize:8,color:'#555',marginTop:1}}>{lang==='en'?'result':lang==='es'?'resultado':'resultat'}</div></div>
-                  <div style={{textAlign:'right'}}><div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:'#CAFF4D',lineHeight:1}}>{pts}</div><div style={{fontSize:8,color:'#555',marginTop:1}}>pts P&C</div></div>
+              ))}
+            </div>
+          </div>
+          {/* Hole rows */}
+          {mergedScores.map((h,idx)=>{
+            const isCur = idx===curHole;
+            return (
+              <div key={idx} onClick={()=>{commitParAndGo(idx);setShowFull(false);}}
+                style={{display:'flex',alignItems:'center',padding:'5px 0',cursor:'pointer',background:isCur?'rgba(202,255,77,.04)':'transparent',borderBottom:'1px solid #111115'}}>
+                {/* Hole label */}
+                <div style={{width:36,flexShrink:0}}>
+                  <div style={{fontWeight:700,fontSize:13,color:isCur?'#CAFF4D':'#fff',lineHeight:1}}>{h.hole}</div>
+                  <div style={{fontSize:8,color:'#2A2B30',marginTop:2}}>p{h.par}</div>
+                </div>
+                {/* Balls */}
+                <div style={{flex:1,display:'flex',justifyContent:'space-around',alignItems:'center'}}>
+                  {allPlayers.map((p)=>{
+                    const v = h.playerScores[p.id];
+                    const d = v!=null ? v-h.par : null;
+                    const col = ballCol(d);
+                    return (
+                      <div key={p.id} style={{
+                        width:30,height:30,
+                        borderRadius:ballRadius(d),
+                        background:ballBg(d),
+                        border:ballBorder(d,isCur,v),
+                        display:'flex',alignItems:'center',justifyContent:'center',
+                      }}>
+                        <span style={{fontWeight:800,fontSize:14,color:v!=null?col:'#2A2B30',lineHeight:1}}>{v!=null?v:'·'}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
           })}
+          {/* Total row */}
+          <div style={{display:'flex',alignItems:'center',padding:'10px 0 4px',borderTop:'1px solid #1E2025',marginTop:4}}>
+            <div style={{width:36,flexShrink:0,fontSize:8,fontWeight:700,color:'#555',textTransform:'uppercase',letterSpacing:'.1em'}}>TOT</div>
+            <div style={{flex:1,display:'flex',justifyContent:'space-around',alignItems:'center'}}>
+              {allPlayers.map(p=>{
+                const d = scPlayerTot(mergedScores,p.id);
+                return (
+                  <div key={p.id} style={{fontWeight:900,fontSize:18,color:totColor(d),lineHeight:1}}>
+                    {scFmtTotal(d)}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {allHolesDone && (
+            <button onClick={()=>onFinish(scores)} style={{width:'100%',marginTop:16,padding:'14px',borderRadius:12,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontWeight:700,fontSize:14,cursor:'pointer',letterSpacing:'.06em',textTransform:'uppercase'}}>
+              {tl('finish')}
+            </button>
+          )}
         </div>
-        {allHolesDone && (
-          <button onClick={()=>onFinish(scores)} style={{width:'100%',marginTop:16,padding:'14px',borderRadius:12,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontWeight:700,fontSize:14,cursor:'pointer',letterSpacing:'.06em',textTransform:'uppercase'}}>
-            {tl('finish')}
-          </button>
-        )}
       </div>
-    </div>
-  );
+    );
+  }
 
   /* ══ MAIN SCORING VIEW ══ */
   return (

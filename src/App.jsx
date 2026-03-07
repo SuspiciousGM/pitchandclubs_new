@@ -1756,15 +1756,21 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
               {lang==='en'?'H':lang==='es'?'H':'F'}<span style={{color:'#CAFF4D'}}>{curHole+1}</span>/{course.holes} · Par {par}
             </div>
           </div>
-          {liveShareToken && (
-            <button onClick={async()=>{
+          <button onClick={async()=>{
+            if (liveShareToken) {
               const url = `${window.location.origin}/game/${liveShareToken}`;
-              if (navigator.share) { try { await navigator.share({ title:"Segueix la meva partida en directe", url }); } catch(e){} }
+              const shareData = { title:"Segueix la meva partida en directe · Pitch & Clubs", text:"Uneix-te o segueix la partida en directe!", url };
+              if (navigator.share) { try { await navigator.share(shareData); } catch(e){} }
               else { await navigator.clipboard.writeText(url); alert("Link copiat!"); }
-            }} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(202,255,77,.35)',background:'rgba(202,255,77,.1)',color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
-              <Users size={11}/> Invita
-            </button>
-          )}
+            } else {
+              const url = "https://pitchandclubs.cat";
+              const shareData = { title:"Pitch & Clubs — Marcador digital", text:"Estic jugant a Pitch & Clubs! Uneix-te: " + url, url };
+              if (navigator.share) { try { await navigator.share(shareData); } catch(e){} }
+              else { await navigator.clipboard.writeText(url); alert("Link copiat!"); }
+            }
+          }} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(202,255,77,.35)',background:'rgba(202,255,77,.1)',color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+            <Share2 size={11}/> Invita
+          </button>
           <button onClick={()=>setShowFull(true)} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
             <Flag size={12}/>
           </button>
@@ -2064,11 +2070,17 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
   return (
     <div className="page-scroll ani-up">
       {/* Hero */}
-      <div style={{textAlign:"center",padding:"8px 0 24px"}}>
+      <div style={{textAlign:"center",padding:"8px 0 16px"}}>
         <div style={{fontSize:56,marginBottom:8}}>{diff<=-2?"🔥":diff<0?"🎉":diff===0?"✅":"👊"}</div>
         <div style={{fontFamily:"'Bebas Neue'",fontSize:36,letterSpacing:".04em",marginBottom:4}}>Partida finalitzada</div>
         <div style={{fontSize:13,color:"#555761",fontWeight:400}}>{game.course} · {game.date}</div>
       </div>
+
+      {/* Share — prominent, right after hero */}
+      <button onClick={handleShare} disabled={sharing}
+        style={{width:"100%",marginBottom:20,padding:"13px",borderRadius:12,border:"none",background:"#CAFF4D",color:"#0A0A0B",fontWeight:700,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:sharing?.6:1}}>
+        <Share2 size={15}/>{sharing ? "Generant..." : "Compartir Partida"}
+      </button>
 
       {/* Parelles team result */}
       {game.mode === "parelles" && game.players.some(p=>p.teamId) && (() => {
@@ -2228,12 +2240,6 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
           </div>
         );
       })()}
-
-      {/* Share */}
-      <button onClick={handleShare} disabled={sharing}
-        style={{width:"100%",marginBottom:16,padding:"13px",borderRadius:12,border:"1px solid rgba(202,255,77,.4)",background:"rgba(202,255,77,.08)",color:"#CAFF4D",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:sharing?.6:1}}>
-        <Share2 size={14}/>{sharing ? "Generant..." : "Compartir Partida"}
-      </button>
 
       {/* Share bottom sheet (fallback for non-native-share browsers) */}
       {shareSheet && (

@@ -2822,7 +2822,7 @@ function LiveGameCard({ game, compact, onClick }) {
   );
 }
 
-function LiveScreen({ user, openAuth, lang, liveGames, onSelectGame, follows, onFollow, setScreen }) {
+function LiveScreen({ user, openAuth, lang, liveGames, onSelectGame, setScreen }) {
   const tl = (k) => t(lang,k);
   const liveNow = (liveGames||[]).filter(g => g.is_live);
   const handleCardClick = (game) => {
@@ -3954,7 +3954,6 @@ export default function App() {
         supabase.from("profiles").upsert({ id: u.id, name: uName, club: u.user_metadata?.club || "" }, { onConflict: "id" }).then(() => {});
         supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false })
           .then(({ data, error }) => {
-            console.log("P&C history load — user:", u.id, "games:", data?.length, "error:", error?.message);
             if (error) return;
             if (data) {
               setHistory(data.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
@@ -4167,7 +4166,6 @@ export default function App() {
     if (me) { setPrevPts(userPts); setUserPts(p=>p+me.points); }
 
     let dbGameId = null;
-    console.log("P&C handleGameFinish — user.id:", user?.id, "liveGameId:", liveGameId);
     if (user?.id) {
       try {
         if (liveGameId) {
@@ -4189,7 +4187,6 @@ export default function App() {
             players: game.players,
             scores: game.scores,
           }).select();
-          console.log("P&C INSERT result — rows:", rows, "error:", error);
           if (error) throw error;
           dbGameId = rows?.[0]?.id || null;
         }
@@ -4270,7 +4267,7 @@ export default function App() {
         }}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} shareCardRef={shareCardRef} roundPhoto={roundPhotoUrl}/>}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang} follows={follows} onFollow={handleFollow}/>}
-        {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null} follows={follows} onFollow={handleFollow} setScreen={setScreenSafe}/>}
+        {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null} setScreen={setScreenSafe}/>}
         {screen==="live" && selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth} follows={follows} onFollow={handleFollow}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser} follows={follows} followsNames={followsNames} onFollow={handleFollow} enableNotifications={enableNotifications}/>}

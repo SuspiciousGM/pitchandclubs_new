@@ -3312,21 +3312,53 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
       )}
 
       {/* ── NOTIFICATIONS ── */}
-      {user && 'Notification' in window && (
-        <div className="card" style={{marginBottom:12,padding:"14px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div>
-              <div style={{fontWeight:600,fontSize:14,display:"flex",alignItems:"center",gap:6}}>
-                <Bell size={14} style={{color:"#CAFF4D"}}/> Notificacions push
+      {user && (() => {
+        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+        const hasNotification = 'Notification' in window;
+        const permission = hasNotification ? Notification.permission : null;
+        // iOS not in PWA mode → guide to add to home screen
+        if (isIOS && !isStandalone) return (
+          <div className="card" style={{marginBottom:12,padding:"14px"}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
+              <Bell size={20} style={{color:"#CAFF4D",flexShrink:0,marginTop:2}}/>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:600,fontSize:14,marginBottom:4}}>Notificacions push</div>
+                <div style={{fontSize:11,color:"#555761",lineHeight:1.5}}>
+                  Per rebre avisos a iOS, afegeix l'app a la <b style={{color:"#ccc"}}>pantalla d'inici</b>:{" "}
+                  toca <b style={{color:"#ccc"}}>Compartir</b> → <b style={{color:"#ccc"}}>Afegir a la pantalla d'inici</b> i torna a obrir-la des d'allà.
+                </div>
               </div>
-              <div style={{fontSize:11,color:"#555761",marginTop:3}}>Rep avisos quan els jugadors que segueixes acaben</div>
             </div>
-            <button onClick={enableNotifications} style={{padding:"7px 12px",borderRadius:8,border:"1px solid rgba(202,255,77,.3)",background:"rgba(202,255,77,.07)",color:"#CAFF4D",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
-              Activar
-            </button>
           </div>
-        </div>
-      )}
+        );
+        // Already granted
+        if (permission === 'granted') return (
+          <div className="card" style={{marginBottom:12,padding:"14px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <Bell size={14} style={{color:"#CAFF4D"}}/>
+              <div style={{flex:1,fontSize:13,fontWeight:600}}>Notificacions activades</div>
+              <span style={{fontSize:10,color:"#CAFF4D",background:"rgba(202,255,77,.1)",border:"1px solid rgba(202,255,77,.3)",borderRadius:6,padding:"3px 8px",fontWeight:700}}>✓ ON</span>
+            </div>
+          </div>
+        );
+        // Can request
+        return (
+          <div className="card" style={{marginBottom:12,padding:"14px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontWeight:600,fontSize:14,display:"flex",alignItems:"center",gap:6}}>
+                  <Bell size={14} style={{color:"#CAFF4D"}}/> Notificacions push
+                </div>
+                <div style={{fontSize:11,color:"#555761",marginTop:3}}>Rep avisos quan els jugadors que segueixes acaben</div>
+              </div>
+              <button onClick={enableNotifications} style={{padding:"7px 12px",borderRadius:8,border:"1px solid rgba(202,255,77,.3)",background:"rgba(202,255,77,.07)",color:"#CAFF4D",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
+                Activar
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       <button className="btn btn-ghost" style={{fontSize:13}} onClick={()=>setScreen("home")}>{tl("back")}</button>
     </div>

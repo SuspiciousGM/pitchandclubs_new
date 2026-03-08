@@ -14,6 +14,6 @@
   "categories": ["sports", "lifestyle"],
   "lang": "ca",
   "screenshots": [
-    { "src": "/og-image.jpg", "sizes": "1200x630", "type": "image/jpeg" }
+    { "src": "/og-image.png", "sizes": "630x599", "type": "image/png" }
   ]
 }

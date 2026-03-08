@@ -34,7 +34,7 @@ const T = {
     add_player:"Afegir",player_you:"Tu",player_name_ph:"Nom del jugador",live_share:"Retransmissió en directe",live_share_sub:"Els teus seguidors podran veure la partida",
     start_game:"Som-hi! →",guest_no_save:"Mode visitant · La partida no es guardarà automàticament",
     holes_label:"forats",prov_pts:"pts prov.",shots_label:"Cops",
-    legend_eagle:"Eagle+",legend_birdie:"Birdie",legend_par:"Par",legend_bogey:"Bogey",legend_bad:"Pena",
+    legend_eagle:"Hole in One",legend_birdie:"Birdie",legend_par:"Par",legend_bogey:"Bogey",legend_bad:"Pena",
     hole_next:"Forat {n} →",finish:"Finalitzar ✓",save_hint:"Mode visitant · {link} per guardar",scorecard_title:"Targeta de puntuació",total_row:"TOT",
     game_done:"PARTIDA ACABADA",level_up:"LEVEL UP! →",classification:"Classificació",score_label:"Score",pts_earned:"Punts guanyats",total_accum:"Total acumulat",
     save_game_q:"Vols guardar aquesta partida?",save_game_desc:"Crea un compte gratuït per guardar l'historial i acumular {pts} punts al rànquing.",save_game_btn:"Crea un compte — és gratis →",
@@ -85,7 +85,7 @@ const T = {
     add_player:"Añadir",player_you:"Tú",player_name_ph:"Nombre del jugador",live_share:"Retransmisión en directo",live_share_sub:"Tus seguidores podrán ver la partida",
     start_game:"¡Vamos! →",guest_no_save:"Modo visitante · La partida no se guardará automáticamente",
     holes_label:"hoyos",prov_pts:"pts prov.",shots_label:"Golpes",
-    legend_eagle:"Eagle+",legend_birdie:"Birdie",legend_par:"Par",legend_bogey:"Bogey",legend_bad:"Penal",
+    legend_eagle:"Hole in One",legend_birdie:"Birdie",legend_par:"Par",legend_bogey:"Bogey",legend_bad:"Penal",
     hole_next:"Hoyo {n} →",finish:"Finalizar ✓",save_hint:"Modo visitante · {link} para guardar",scorecard_title:"Tarjeta de puntuación",total_row:"TOT",
     game_done:"PARTIDA TERMINADA",level_up:"LEVEL UP! →",classification:"Clasificación",score_label:"Score",pts_earned:"Puntos ganados",total_accum:"Total acumulado",
     save_game_q:"¿Quieres guardar esta partida?",save_game_desc:"Crea una cuenta gratuita para guardar el historial y acumular {pts} puntos en el ranking.",save_game_btn:"Crea una cuenta — es gratis →",
@@ -136,7 +136,7 @@ const T = {
     add_player:"Add",player_you:"You",player_name_ph:"Player name",live_share:"Live broadcast",live_share_sub:"Your followers can watch the round",
     start_game:"Let's go! →",guest_no_save:"Guest mode · Round won't be saved automatically",
     holes_label:"holes",prov_pts:"pts est.",shots_label:"Shots",
-    legend_eagle:"Eagle+",legend_birdie:"Birdie",legend_par:"Par",legend_bogey:"Bogey",legend_bad:"Penalty",
+    legend_eagle:"Hole in One",legend_birdie:"Birdie",legend_par:"Par",legend_bogey:"Bogey",legend_bad:"Penalty",
     hole_next:"Hole {n} →",finish:"Finish ✓",save_hint:"Guest mode · {link} to save",scorecard_title:"Scorecard",total_row:"TOT",
     game_done:"ROUND COMPLETE",level_up:"LEVEL UP! →",classification:"Leaderboard",score_label:"Score",pts_earned:"Points earned",total_accum:"Total accumulated",
     save_game_q:"Want to save this round?",save_game_desc:"Create a free account to save your history and earn {pts} points on the leaderboard.",save_game_btn:"Create an account — it's free →",
@@ -1572,8 +1572,8 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
   const scHolePts   = d => d==null?0:d<=-2?25:d===-1?12:d===0?6:d===1?2:0;
   const scCalcPts   = (sc,pid) => sc.reduce((s,h)=>{ const v=h.playerScores[pid]; return s+(v!=null?scHolePts(v-h.par):0); },0);
   const scPlayerTot = (sc,pid) => { let t=0,c=0; sc.forEach(h=>{const v=h.playerScores[pid];if(v!=null){t+=v-h.par;c++;}}); return c?t:null; };
-  const scDiffLabel = d => d==null?'—':d<=-2?(d===-2?'Eagle':'Hole in One'):d===-1?'Birdie':d===0?'Par':d===1?'Bogey':d===2?'Doble':'+'+d;
-  const scRowLabel  = (n,par) => { const d=n-par; const lbl=d<=-2?(d===-2?'Eagle':'HiO'):d===-1?'Birdie':d===0?'Par':d===1?'Bogey':d===2?'Doble':'Triple'; const sign=d===0?'':d>0?`+${d}`:`${d}`; return sign?`${sign} ${lbl}`:lbl; };
+  const scDiffLabel = d => d==null?'—':d<=-2?'Hole in One':d===-1?'Birdie':d===0?'Par':d===1?'Bogey':d===2?'Doble':'+'+d;
+  const scRowLabel  = (n,par) => { const d=n-par; const lbl=d<=-2?'HiO':d===-1?'Birdie':d===0?'Par':d===1?'Bogey':d===2?'Doble':'Triple'; const sign=d===0?'':d>0?`+${d}`:`${d}`; return sign?`${sign} ${lbl}`:lbl; };
   const scDiffBg    = d => d==null?'transparent':d<=-2?'rgba(251,191,36,.14)':d===-1?'rgba(96,165,250,.13)':d===0?'rgba(202,255,77,.10)':d===1?'rgba(255,255,255,.05)':d===2?'rgba(239,68,68,.13)':'rgba(127,29,29,.32)';
 
   /* ── State ── */
@@ -1634,7 +1634,7 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
     const next = scores.map((h,i)=>i===curHole?{...h,playerScores:{...h.playerScores,[pid]:v}}:h);
     setScores(next);
     localStorage.setItem('pc_scores', JSON.stringify(next));
-    setFlashInfo({pid,label:scDiffLabel(v-par),d:v-par});
+    if (v != null) setFlashInfo({pid,label:scDiffLabel(v-par),d:v-par});
     setTimeout(()=>setFlashInfo(null),1500);
     // Push live update: merge with remote scores so joined players' data is preserved
     const merged = next.map((h,i) => {
@@ -1648,19 +1648,19 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
     if (onLiveUpdate) onLiveUpdate(merged, curHole);
   };
 
-  const nudge = (pid,delta) => applyScore(pid, Math.max(1,(hole.playerScores[pid]??par)+delta));
+  const nudge = (pid, delta) => {
+    const cur = hole.playerScores[pid];
+    if (cur == null) { if (delta > 0) applyScore(pid, 1); return; }
+    const next = cur + delta;
+    if (next < 1) { applyScore(pid, null); return; } // reset to unscored
+    applyScore(pid, next);
+  };
 
   const commitParAndGo = (nextHole) => {
-    let next = scores;
-    if (next[curHole].playerScores[activePid] == null) {
-      next = next.map((h,i) => i===curHole ? {...h, playerScores:{...h.playerScores,[activePid]:h.par}} : h);
-      setScores(next);
-      localStorage.setItem('pc_scores', JSON.stringify(next));
-    }
+    const next = scores;
     const ni=Math.max(0,Math.min(course.holes-1,nextHole));
     setCurHole(ni);
     localStorage.setItem('pc_curHole', ni);
-    setActivePid(players[0].id);
     // Merge remote scores for non-me players before pushing
     const toSync = liveRemote ? next.map((h,i) => {
       const remotePs = liveRemote.scores?.[i]?.playerScores || {};
@@ -1697,7 +1697,7 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
         </div>
         <div style={{flex:1,overflowY:'auto',padding:'0 14px 24px'}}>
           {/* Player header row */}
-          <div style={{display:'flex',alignItems:'center',padding:'10px 0 8px',borderBottom:'1px solid #1E2025'}}>
+          <div style={{display:'flex',alignItems:'center',padding:'10px 0 8px',borderBottom:'2px solid #2A2B35'}}>
             <div style={{width:36,flexShrink:0}}/>
             <div style={{flex:1,display:'flex',justifyContent:'space-around'}}>
               {allPlayers.map((p,i)=>(
@@ -1715,11 +1715,11 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
             const isCur = idx===curHole;
             return (
               <div key={idx} onClick={()=>{commitParAndGo(idx);setShowFull(false);}}
-                style={{display:'flex',alignItems:'center',padding:'5px 0',cursor:'pointer',background:isCur?'rgba(202,255,77,.04)':'transparent',borderBottom:'1px solid #111115'}}>
+                style={{display:'flex',alignItems:'center',padding:'5px 0',cursor:'pointer',background:isCur?'rgba(202,255,77,.04)':'transparent',borderBottom:'1px solid #252630'}}>
                 {/* Hole label */}
                 <div style={{width:36,flexShrink:0}}>
                   <div style={{fontWeight:700,fontSize:13,color:isCur?'#CAFF4D':'#fff',lineHeight:1}}>{h.hole}</div>
-                  <div style={{fontSize:8,color:'#2A2B30',marginTop:2}}>p{h.par}</div>
+                  <div style={{fontSize:8,color:'#3A3B42',marginTop:2}}>p{h.par}</div>
                 </div>
                 {/* Balls */}
                 <div style={{flex:1,display:'flex',justifyContent:'space-around',alignItems:'center'}}>
@@ -1744,7 +1744,7 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
             );
           })}
           {/* Total row */}
-          <div style={{display:'flex',alignItems:'center',padding:'10px 0 4px',borderTop:'1px solid #1E2025',marginTop:4}}>
+          <div style={{display:'flex',alignItems:'center',padding:'10px 0 4px',borderTop:'2px solid #2A2B35',marginTop:4}}>
             <div style={{width:36,flexShrink:0,fontSize:8,fontWeight:700,color:'#555',textTransform:'uppercase',letterSpacing:'.1em'}}>TOT</div>
             <div style={{flex:1,display:'flex',justifyContent:'space-around',alignItems:'center'}}>
               {allPlayers.map(p=>{
@@ -1781,7 +1781,7 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:17,letterSpacing:'.06em',color:'#CAFF4D',lineHeight:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>
             <div style={{fontSize:10,color:'#555761',fontWeight:600,marginTop:1}}>
-              {lang==='en'?'H':lang==='es'?'H':'F'}<span style={{color:'#CAFF4D'}}>{curHole+1}</span>/{course.holes} · Par {par}
+              {lang==='en'?'H':lang==='es'?'H':'F'}<span style={{color:'#CAFF4D',fontSize:14,fontWeight:700}}>{curHole+1}</span>/{course.holes} · Par {par}
             </div>
           </div>
           <button onClick={()=>setShowInviteSheet(true)} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(202,255,77,.35)',background:'rgba(202,255,77,.1)',color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
@@ -1901,8 +1901,8 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
                             style={{cursor:'pointer',borderRadius:6,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:42,gap:1,transition:'all .15s',
                               border:isCur?`1.5px solid ${pcolor}70`:'1px solid #1e1e28',
                               background:isCur?`${pcolor}0d`:'#0c0c12'}}>
-                            <span style={{fontSize:9,color:isCur?pcolor:'#2a2a38',fontWeight:700,lineHeight:1}}>{h.hole}</span>
-                            <ScoreSymbol v={isCur&&hv==null?h.par:hv} par={h.par} size={28}/>
+                            <span style={{fontSize:11,color:isCur?pcolor:'#2a2a38',fontWeight:700,lineHeight:1}}>{h.hole}</span>
+                            <ScoreSymbol v={hv} par={h.par} size={28}/>
                           </div>
                         );
                       })}
@@ -1919,9 +1919,12 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
                     −
                   </button>
                   <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-                    <ScoreSymbol v={v??par} par={par} size={52}/>
-                    <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:scDiffColor(d),letterSpacing:'.1em',lineHeight:1,transition:'color .2s'}}>
-                      {v==null?'Par (default)':scRowLabel(v,par)}
+                    {v==null
+                      ? <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:52,color:'#2A2B35',lineHeight:1}}>—</span>
+                      : <ScoreSymbol v={v} par={par} size={52}/>
+                    }
+                    <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:v==null?'#333':scDiffColor(d),letterSpacing:'.1em',lineHeight:1,transition:'color .2s'}}>
+                      {v==null?'sense puntuació':scRowLabel(v,par)}
                     </span>
                   </div>
                   <button onClick={e=>{e.stopPropagation();nudge(p.id,1);}}
@@ -2073,7 +2076,7 @@ function ShareCard({ game, cardRef, photo }) {
             })}
           </div>
           <div style={{display:"flex",gap:16,marginTop:20,flexWrap:"wrap"}}>
-            {[["E","Eagle"],["B","Birdie"],["P","Par"],["BO","Bogey"],["D","Doble+"]].map(([k,l])=>(
+            {[["E","HiO"],["B","Birdie"],["P","Par"],["BO","Bogey"],["D","Doble+"]].map(([k,l])=>(
               <div key={k} style={{fontSize:24,color:"#555"}}>{l}: {game?.scores?.filter(h=>{const s=me?h.playerScores[me.id]:null;const d=s!=null?s-h.par:null;return k==="E"?d<=-2:k==="B"?d===-1:k==="P"?d===0:k==="BO"?d===1:d>=2}).length}</div>
             ))}
           </div>

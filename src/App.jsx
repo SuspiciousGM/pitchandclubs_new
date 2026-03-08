@@ -563,8 +563,9 @@ function Ticker({ lang }) {
 }
 
 /* ─── BOTTOM NAV ─────────────────────────────────────────────── */
-function BottomNav({ screen, setScreen, lang }) {
+function BottomNav({ screen, setScreen, lang, gameData }) {
   const isGame = screen==="game-setup"||screen==="scorecard"||screen==="summary";
+  const hasActiveGame = !!gameData;
   const lbl = (k) => t(lang,k);
   return (
     <nav className="bottom-nav">
@@ -574,13 +575,19 @@ function BottomNav({ screen, setScreen, lang }) {
       <button className={`nav-item${screen==="ranking"?" active":""}`} onClick={()=>setScreen("ranking")}>
         <BarChart2 size={21} strokeWidth={screen==="ranking"?2.5:1.8}/><span>{lbl("nav_ranking")}</span>
       </button>
-      <button onClick={()=>setScreen("game-setup")}
+      <button onClick={()=>setScreen(hasActiveGame?"scorecard":"game-setup")}
         style={{flex:"0 0 56px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",
           border:"none",background:"transparent",cursor:"pointer",padding:"4px 0",gap:3,paddingTop:2}}>
-        <div style={{width:48,height:48,background:"#CAFF4D",borderRadius:"50%",display:"flex",alignItems:"center",
-          justifyContent:"center",marginTop:-18,flexShrink:0,
-          boxShadow:"0 0 0 3px #111214, 0 6px 20px rgba(202,255,77,.45)"}}>
-          <Flag size={20} strokeWidth={2.5} color="#0A0A0B"/>
+        <div style={{position:"relative",width:48,height:48,flexShrink:0,marginTop:-18}}>
+          <div style={{width:48,height:48,background:"#CAFF4D",borderRadius:"50%",display:"flex",alignItems:"center",
+            justifyContent:"center",
+            boxShadow:"0 0 0 3px #111214, 0 6px 20px rgba(202,255,77,.45)"}}>
+            <Flag size={20} strokeWidth={2.5} color="#0A0A0B"/>
+          </div>
+          {hasActiveGame && !isGame && (
+            <span style={{position:"absolute",top:0,right:0,width:10,height:10,borderRadius:"50%",
+              background:"#EF4444",border:"2px solid #111214",display:"block"}}/>
+          )}
         </div>
         <span style={{fontSize:9,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",
           color:isGame?"#CAFF4D":"#555761"}}>{lbl("nav_game")}</span>
@@ -2649,6 +2656,7 @@ function LiveGameView({ game, liveGames, onClose, lang, user, openAuth, follows,
   const live = (liveGames && liveGames.find(g => g.id === game.id)) || game;
   const diff = live.score_total ?? 0;
   const scoreColor = diff < -1 ? "#FBBF24" : diff === -1 ? "#60A5FA" : diff === 0 ? "#CAFF4D" : "#EF4444";
+  const fmtDate = live.date ? live.date.replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1').slice(0,5) : "";
 
   return (
     <div className="page-scroll ani-up" style={{display:"flex",flexDirection:"column"}}>
@@ -2665,7 +2673,7 @@ function LiveGameView({ game, liveGames, onClose, lang, user, openAuth, follows,
             )}
           </div>
           <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:".04em",lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{live.player_name}</div>
-          <div style={{fontSize:11,color:"#787C8A",marginTop:1}}>{live.course_name} · {lang==="en"?"Hole":lang==="es"?"Hoyo":"Forat"} {live.current_hole||1}/{live.holes||18}</div>
+          <div style={{fontSize:11,color:"#787C8A",marginTop:1}}>{live.course_name} · {lang==="en"?"Hole":lang==="es"?"Hoyo":"Forat"} {live.current_hole||1}/{live.holes||18}{fmtDate ? ` · ${fmtDate}` : ""}</div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
           <div style={{textAlign:"right"}}>
@@ -2726,11 +2734,12 @@ function LiveGameView({ game, liveGames, onClose, lang, user, openAuth, follows,
               {/* Score rows — guests see only first 3 holes */}
               {live.scores.map((h, hi) => {
                 const isBlurred = !user && hi >= 3;
+                const isActiveHole = hi === (live.current_hole || 1) - 1;
                 return (
                   <React.Fragment key={hi}>
-                    <div style={{fontSize:10,color:"#555761",fontWeight:600,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",height:34,filter:isBlurred?"blur(4px)":"none",userSelect:isBlurred?"none":"auto"}}>{h.hole}</div>
+                    <div style={{fontSize:10,fontWeight:700,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",height:34,filter:isBlurred?"blur(4px)":"none",userSelect:isBlurred?"none":"auto",color:isActiveHole?"#CAFF4D":"#555761",borderRadius:isActiveHole?5:0,background:isActiveHole?"rgba(202,255,77,.08)":"transparent"}}>{h.hole}</div>
                     {(live.players||[{id:"0"}]).map((p, pi) => (
-                      <div key={p.id||pi} style={{display:"flex",alignItems:"center",justifyContent:"center",height:34,filter:isBlurred?"blur(5px)":"none",userSelect:isBlurred?"none":"auto"}}>
+                      <div key={p.id||pi} style={{display:"flex",alignItems:"center",justifyContent:"center",height:34,filter:isBlurred?"blur(5px)":"none",userSelect:isBlurred?"none":"auto",background:isActiveHole?"rgba(202,255,77,.04)":"transparent",borderRadius:isActiveHole?5:0}}>
                         <ScoreSymbol v={h.playerScores?.[p.id]} par={h.par} size={28}/>
                       </div>
                     ))}
@@ -3025,12 +3034,36 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
 
   const myGames = (history||[]).filter(g => g.players?.some(p => p.isMe));
   const hasRealGames = myGames.length > 0;
-  const myDiffs = myGames.map(g => g.players.find(p => p.isMe)?.diff).filter(d => d !== undefined && d !== null);
-  const bestDiff = myDiffs.length ? Math.min(...myDiffs) : null;
+  const myDiffs = myGames.map(g => g.players.find(p => p.isMe)?.diff).filter(d => d !== undefined && d !== null && !isNaN(parseFloat(d)));
+  const bestDiff = myDiffs.length ? Math.min(...myDiffs.map(d=>parseFloat(d))) : null;
   const trendData = myGames.slice(0, 10).reverse().map(g => ({
     date: g.date,
-    s: g.players.find(p => p.isMe)?.diff ?? 0,
+    s: parseFloat(g.players.find(p => p.isMe)?.diff) || 0,
   }));
+
+  // Real HCP history: avg diff per month (lower = better, as proxy for HCP evolution)
+  const realHcpHist = (() => {
+    if (!hasRealGames) return null;
+    const byMonth = {};
+    [...myGames].reverse().forEach(g => {
+      const me = g.players?.find(p => p.isMe);
+      const diff = parseFloat(me?.diff);
+      if (isNaN(diff)) return;
+      const d = new Date(g.date);
+      if (isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const mLabel = d.toLocaleDateString('ca-ES',{month:'short'}).replace('.','').slice(0,3);
+      if (!byMonth[key]) byMonth[key] = { m: mLabel, diffs: [] };
+      byMonth[key].diffs.push(diff);
+    });
+    const months = Object.keys(byMonth).sort().map(k => {
+      const {m, diffs} = byMonth[k];
+      const avg = diffs.reduce((a,b)=>a+b,0)/diffs.length;
+      return { m, v: Math.round(avg*10)/10 };
+    });
+    return months.length >= 2 ? months : null;
+  })();
+  const hcpHist = realHcpHist || profile.hcpHist;
   const courseMap = {};
   myGames.forEach(g => {
     const me = g.players.find(p => p.isMe);
@@ -3197,24 +3230,29 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
 
       {/* HCP Trend */}
       <div className="card" style={{marginBottom:12,padding:"14px"}}>
-        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:!hasRealGames?4:12}}>{tl("profile_hcp_trend")}</div>
-        {!hasRealGames && <div style={{fontSize:10,color:"#555761",fontStyle:"italic",marginBottom:8,textAlign:"center"}}>{noDataMsg}</div>}
-        <div style={{display:"flex",alignItems:"flex-end",gap:6,height:64,marginBottom:4}}>
-          {profile.hcpHist.map((pt,i)=>{
-            const vals=profile.hcpHist.map(x=>x.v);
-            const maxV=Math.max(...vals), minV=Math.min(...vals);
-            const range=maxV-minV||1;
-            const h=Math.round(((pt.v-minV)/range)*44)+8;
-            return (
-              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:2}}>
-                <div style={{fontSize:7,color:"#60A5FA",fontWeight:700}}>{pt.v}</div>
-                <div style={{width:"100%",background:"#60A5FA",borderRadius:"2px 2px 0 0",height:h,opacity:.7}}/>
-                <div style={{fontSize:7,color:"#555761"}}>{pt.m}</div>
-              </div>
-            );
-          })}
-        </div>
-        <div style={{fontSize:9,color:"#60A5FA",fontWeight:600,textAlign:"center",opacity:.7}}>↓ menor = millora</div>
+        <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:hcpHist.length<2?4:12}}>{tl("profile_hcp_trend")}</div>
+        {hcpHist.length < 2
+          ? <div style={{fontSize:11,color:"#555761",fontStyle:"italic",textAlign:"center",padding:"12px 0"}}>{hasRealGames ? (lang==="en"?"Play at least 2 rounds to see the trend":lang==="es"?"Juega al menos 2 rondas para ver la evolución":"Juga almenys 2 rondes per veure l'evolució") : noDataMsg}</div>
+          : <>
+            <div style={{display:"flex",alignItems:"flex-end",gap:6,height:64,marginBottom:4}}>
+              {hcpHist.map((pt,i)=>{
+                const vals=hcpHist.map(x=>x.v);
+                const maxV=Math.max(...vals), minV=Math.min(...vals);
+                const range=maxV-minV||1;
+                const h=Math.round(((maxV-pt.v)/range)*44)+8; // lower diff = taller bar (improvement = up)
+                const isLast=i===hcpHist.length-1;
+                return (
+                  <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:2}}>
+                    <div style={{fontSize:7,color:isLast?"#CAFF4D":"#60A5FA",fontWeight:700}}>{pt.v>0?`+${pt.v}`:pt.v===0?"E":pt.v}</div>
+                    <div style={{width:"100%",background:isLast?"#CAFF4D":"#60A5FA",borderRadius:"2px 2px 0 0",height:h,opacity:.7}}/>
+                    <div style={{fontSize:7,color:"#555761"}}>{pt.m}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{fontSize:9,color:"#60A5FA",fontWeight:600,textAlign:"center",opacity:.7}}>{lang==="en"?"↑ taller = better score":lang==="es"?"↑ más alto = mejor score":"↑ més alt = millor score"}</div>
+          </>
+        }
       </div>
 
       {/* Score distribution */}
@@ -3661,32 +3699,69 @@ function SharedGameView({ game, token, joinedPid, onJoinClick }) {
         </div>
       )}
 
-      {/* Joined player: scoring UI */}
+      {/* Joined player: full ScorecardScreen-like scoring UI */}
       {me && isLive && (
-        <div style={{margin:"0 16px 16px",border:"1px solid rgba(202,255,77,.25)",borderRadius:12,padding:"14px",background:"rgba(202,255,77,.04)"}}>
-          <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#CAFF4D",marginBottom:10}}>
-            La teva puntuació — Forat {curHole+1}
+        <div style={{margin:"0 16px 16px",border:"1px solid rgba(202,255,77,.3)",borderRadius:14,overflow:"hidden",background:"#0f0f13"}}>
+          {/* Hole strip */}
+          <div style={{padding:"10px 12px 8px",borderBottom:"1px solid #1a1a20"}}>
+            <div style={{fontSize:9,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#CAFF4D",marginBottom:6}}>La teva puntuació</div>
+            <div style={{display:"flex",gap:3,overflowX:"auto"}} className="noscroll">
+              {scores.map((h,i)=>{
+                const sv=h.playerScores[joinedPid];
+                const isCur=i===curHole;
+                const done=sv!=null;
+                return (
+                  <div key={i} onClick={()=>setCurHole(i)}
+                    style={{flexShrink:0,width:isCur?28:20,height:22,borderRadius:5,cursor:"pointer",transition:"all .2s",
+                      background:isCur?"#CAFF4D":done?"rgba(202,255,77,.28)":"#1a1a1f",
+                      display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:isCur?11:10,color:isCur?"#0A0A0B":done?"#CAFF4D":"#444"}}>{h.hole}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          {scores[curHole] && (
-            <>
-              <div style={{fontSize:11,color:"#787C8A",marginBottom:10}}>Par {scores[curHole].par}</div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:16,marginBottom:12}}>
-                <button onClick={()=>{const cur=scores[curHole].playerScores[joinedPid]??scores[curHole].par;if(cur>1)updateScore(curHole,cur-1);}}
-                  style={{width:44,height:44,borderRadius:"50%",border:"1px solid #333",background:"#1A1B1E",color:"#fff",fontSize:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:52,color:"#CAFF4D",lineHeight:1,minWidth:60,textAlign:"center"}}>
-                  {scores[curHole].playerScores[joinedPid] ?? "—"}
+          {/* Scoring controls */}
+          <div style={{padding:"14px"}}>
+            {scores[curHole] && (
+              <>
+                <div style={{fontSize:11,color:"#787C8A",marginBottom:10}}>Forat {curHole+1} · Par {scores[curHole].par}</div>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                  <button onClick={()=>{
+                    const cur=scores[curHole].playerScores[joinedPid];
+                    if(cur==null)return;
+                    if(cur<=1){updateScore(curHole,null);}else{updateScore(curHole,cur-1);}
+                  }}
+                    style={{width:46,height:46,borderRadius:12,border:"1px solid #2a2a35",background:"#1c1c26",color:"#9a9aaa",fontSize:24,fontWeight:300,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>−</button>
+                  <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                    {scores[curHole].playerScores[joinedPid]==null
+                      ? <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:52,color:"#2A2B35",lineHeight:1}}>—</span>
+                      : <ScoreSymbol v={scores[curHole].playerScores[joinedPid]} par={scores[curHole].par} size={52}/>
+                    }
+                    <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:"#555",letterSpacing:".1em",lineHeight:1}}>
+                      {(()=>{
+                        const v=scores[curHole].playerScores[joinedPid];
+                        if(v==null) return "sense puntuació";
+                        const d=v-scores[curHole].par;
+                        return d<=-2?"Hole in One":d===-1?"Birdie":d===0?"Par":d===1?"Bogey":d===2?"Doble":"+"+d;
+                      })()}
+                    </span>
+                  </div>
+                  <button onClick={()=>{
+                    const cur=scores[curHole].playerScores[joinedPid];
+                    updateScore(curHole,(cur??scores[curHole].par-1)+1);
+                  }}
+                    style={{width:46,height:46,borderRadius:12,border:"none",background:"#CAFF4D",color:"#0A0A0B",fontSize:24,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>+</button>
                 </div>
-                <button onClick={()=>{const cur=scores[curHole].playerScores[joinedPid]??scores[curHole].par;updateScore(curHole,cur+1);}}
-                  style={{width:44,height:44,borderRadius:"50%",border:"1px solid #333",background:"#1A1B1E",color:"#fff",fontSize:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-              </div>
-              <div style={{display:"flex",gap:8}}>
-                {curHole > 0 && <button onClick={()=>setCurHole(h=>h-1)} style={{flex:1,padding:"10px",borderRadius:10,border:"1px solid #222",background:"#1A1B1E",color:"#787C8A",fontWeight:700,fontSize:12,cursor:"pointer"}}>← Anterior</button>}
-                {curHole < scores.length-1 && <button onClick={()=>setCurHole(h=>h+1)} style={{flex:1,padding:"10px",borderRadius:10,border:"none",background:"#CAFF4D",color:"#0A0A0B",fontWeight:700,fontSize:12,cursor:"pointer"}}>Forat {curHole+2} →</button>}
-              </div>
-              {saving && <div style={{textAlign:"center",fontSize:10,color:"#555761",marginTop:8}}>Guardant…</div>}
-              {saveErr && <div style={{textAlign:"center",fontSize:11,color:"#EF4444",marginTop:8}}>⚠ {saveErr}</div>}
-            </>
-          )}
+                <div style={{display:"flex",gap:8}}>
+                  {curHole > 0 && <button onClick={()=>setCurHole(h=>h-1)} style={{flex:1,padding:"11px",borderRadius:12,border:"1px solid #222",background:"#1A1B1E",color:"#787C8A",fontWeight:700,fontSize:12,cursor:"pointer"}}>← F{String(curHole).padStart(2,"0")}</button>}
+                  {curHole < scores.length-1 && <button onClick={()=>setCurHole(h=>h+1)} style={{flex:2,padding:"11px",borderRadius:12,border:"none",background:"#CAFF4D",color:"#0A0A0B",fontWeight:700,fontSize:13,cursor:"pointer"}}>F{String(curHole+2).padStart(2,"0")} →</button>}
+                </div>
+                {saving && <div style={{textAlign:"center",fontSize:10,color:"#555761",marginTop:8}}>Guardant…</div>}
+                {saveErr && <div style={{textAlign:"center",fontSize:11,color:"#EF4444",marginTop:8}}>⚠ {saveErr}</div>}
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -4198,7 +4273,7 @@ export default function App() {
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser} follows={follows} followsNames={followsNames} onFollow={handleFollow} enableNotifications={enableNotifications}/>}
 
-        {!isGameFlow && <BottomNav screen={screen} setScreen={setScreenSafe} lang={lang}/>}
+        {!isGameFlow && <BottomNav screen={screen} setScreen={setScreenSafe} lang={lang} gameData={gameData}/>}
 
         {/* Hidden ShareCard for Stories export */}
         {lastGame && <ShareCard game={lastGame} cardRef={shareCardRef} photo={roundPhotoUrl}/>}

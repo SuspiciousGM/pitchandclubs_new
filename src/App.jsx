@@ -979,37 +979,6 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
         ))}
       </div>
 
-      {/* ── PROPERS TORNEJOS ── */}
-      <div style={{marginBottom:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
-          <div>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:4}}>{tl("sec_tournaments")}</div>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(20px,5vw,30px)",letterSpacing:".04em",lineHeight:1}}>{tl("sec_next_tournaments")}</div>
-          </div>
-          <button style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#CAFF4D",cursor:"pointer",border:"none",background:"none",display:"flex",alignItems:"center",gap:4}} onClick={()=>setScreen("tournaments")}>
-            {lang==="en"?"All":tl("cat_all")} <ChevronRight size={13}/>
-          </button>
-        </div>
-        {TOURNAMENTS_DATA.filter(x=>x.status==="open").slice(0,2).map(tourn=>{
-          const mt=TIERS.find(x=>x.id===tourn.minTier);
-          return (
-            <div key={tourn.id} className="card card-press" style={{padding:"13px 15px",marginBottom:8}}>
-              <div style={{display:"flex",justifyContent:"space-between",gap:10,marginBottom:8}}>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:".04em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tourn.name}</div>
-                  <div style={{fontSize:11,color:"#787C8A",marginTop:2,display:"flex",alignItems:"center",gap:4}}><MapPin size={9}/>{tourn.course} · {tourn.location}</div>
-                </div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:"#CAFF4D",flexShrink:0,lineHeight:1}}>{tourn.dateS}</div>
-              </div>
-              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                <span className="pill" style={{fontSize:9,display:"flex",alignItems:"center",gap:3}}><Activity size={8}/>{tourn.format}</span>
-                <span className="pill" style={{fontSize:9,color:mt?.color,borderColor:mt?.border}}>{lang==="en"?"Min:":"Min:"} {mt?.emoji} {mt?.name}</span>
-                <span className="pill" style={{fontSize:9,display:"flex",alignItems:"center",gap:3}}><Award size={8}/>{tourn.fee}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
 
 
 
@@ -2853,7 +2822,8 @@ function LiveGameCard({ game, compact, onClick }) {
   );
 }
 
-function LiveScreen({ user, openAuth, lang, liveGames, onSelectGame, follows, onFollow }) {
+function LiveScreen({ user, openAuth, lang, liveGames, onSelectGame, follows, onFollow, setScreen }) {
+  const tl = (k) => t(lang,k);
   const liveNow = (liveGames||[]).filter(g => g.is_live);
   const handleCardClick = (game) => {
     if (!user) { openAuth(); return; }
@@ -2908,6 +2878,38 @@ function LiveScreen({ user, openAuth, lang, liveGames, onSelectGame, follows, on
           <div style={{fontSize:12,color:"#555761"}}>Activa la retransmissió en directe quan juguis</div>
         </div>
       )}
+
+      {/* ── PROPERS TORNEJOS ── */}
+      <div style={{marginTop:24,marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:4}}>{tl("sec_tournaments")}</div>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(20px,5vw,30px)",letterSpacing:".04em",lineHeight:1}}>{tl("sec_next_tournaments")}</div>
+          </div>
+          <button style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#CAFF4D",cursor:"pointer",border:"none",background:"none",display:"flex",alignItems:"center",gap:4}} onClick={()=>setScreen("tournaments")}>
+            {lang==="en"?"All":tl("cat_all")} <ChevronRight size={13}/>
+          </button>
+        </div>
+        {TOURNAMENTS_DATA.filter(x=>x.status==="open").slice(0,2).map(tourn=>{
+          const mt=TIERS.find(x=>x.id===tourn.minTier);
+          return (
+            <div key={tourn.id} className="card card-press" style={{padding:"13px 15px",marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:10,marginBottom:8}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:".04em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tourn.name}</div>
+                  <div style={{fontSize:11,color:"#787C8A",marginTop:2,display:"flex",alignItems:"center",gap:4}}><MapPin size={9}/>{tourn.course} · {tourn.location}</div>
+                </div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:"#CAFF4D",flexShrink:0,lineHeight:1}}>{tourn.dateS}</div>
+              </div>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                <span className="pill" style={{fontSize:9,display:"flex",alignItems:"center",gap:3}}><Activity size={8}/>{tourn.format}</span>
+                <span className="pill" style={{fontSize:9,color:mt?.color,borderColor:mt?.border}}>{lang==="en"?"Min:":"Min:"} {mt?.emoji} {mt?.name}</span>
+                <span className="pill" style={{fontSize:9,display:"flex",alignItems:"center",gap:3}}><Award size={8}/>{tourn.fee}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {!user && (
         <div style={{background:"rgba(202,255,77,.06)",border:"1px solid rgba(202,255,77,.2)",borderRadius:10,padding:"13px 14px",marginTop:8}}>
@@ -4268,7 +4270,7 @@ export default function App() {
         }}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} shareCardRef={shareCardRef} roundPhoto={roundPhotoUrl}/>}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang} follows={follows} onFollow={handleFollow}/>}
-        {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null} follows={follows} onFollow={handleFollow}/>}
+        {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null} follows={follows} onFollow={handleFollow} setScreen={setScreenSafe}/>}
         {screen==="live" && selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth} follows={follows} onFollow={handleFollow}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser} follows={follows} followsNames={followsNames} onFollow={handleFollow} enableNotifications={enableNotifications}/>}

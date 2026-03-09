@@ -1995,7 +1995,7 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
 
             {/* Option 2: Watch live → share link only */}
             <button onClick={async()=>{
-              const url = liveShareToken ? `${window.location.origin}/game/${liveShareToken}` : 'https://pitchandclubs.cat';
+              const url = liveShareToken ? `${window.location.origin}/game/${liveShareToken}?watch=1` : 'https://pitchandclubs.cat';
               const data = {title:'Pitch & Clubs — En directe',text:'Segueix la partida en directe!',url};
               if(navigator.share){try{await navigator.share(data);}catch(e){}}
               else{navigator.clipboard.writeText(url);setShowInviteSheet(false);}
@@ -3563,6 +3563,7 @@ function SharedGameRoute({ token }) {
   const [notFound, setNotFound] = useState(false);
   const [view, setView]       = useState("watch"); // "watch" | "join"
   const [joinedPid, setJoinedPid] = useState(() => localStorage.getItem(`pc_join_${token}`) || null);
+  const watchOnly = new URLSearchParams(window.location.search).get("watch") === "1";
 
   useEffect(() => {
     let cancelled = false;
@@ -3615,11 +3616,11 @@ function SharedGameRoute({ token }) {
     }}/>
   );
 
-  return <SharedViewer game={game} token={token} onJoinClick={() => setView("join")}/>;
+  return <SharedViewer game={game} token={token} watchOnly={watchOnly} onJoinClick={() => setView("join")}/>;
 }
 
 /* ─── Shared game: standalone LiveGameView-style page for viewers ─── */
-function SharedViewer({ game, token, onJoinClick }) {
+function SharedViewer({ game, token, watchOnly, onJoinClick }) {
   const isLive = game.is_live;
   const players = game.players || [];
   const scores  = game.scores  || [];
@@ -3632,37 +3633,52 @@ function SharedViewer({ game, token, onJoinClick }) {
   };
   const diffColor = d => d < -1 ? "#FBBF24" : d === -1 ? "#60A5FA" : d === 0 ? "#CAFF4D" : "#EF4444";
 
+  // Primary player (first / host)
+  const primaryPlayer = players[0];
+  const primaryDiff = primaryPlayer ? scDiff(primaryPlayer.id) : 0;
+  const primaryColor = diffColor(primaryDiff);
+
   return (
     <div style={{minHeight:"100dvh",background:"#0A0A0B",fontFamily:"Inter,sans-serif",maxWidth:430,margin:"0 auto",display:"flex",flexDirection:"column"}}>
-      {/* Header */}
-      <div style={{padding:"14px 16px 10px",borderBottom:"1px solid #1A1B1E",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-        <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:"#CAFF4D",letterSpacing:".08em"}}>PITCH&CLUBS</div>
+      {/* Top bar — P&C brand */}
+      <div style={{padding:"12px 16px",borderBottom:"1px solid #1A1B1E",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:"#CAFF4D",letterSpacing:".08em"}}>PITCH&CLUBS</div>
         {isLive ? (
-          <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(239,68,68,.15)",color:"#EF4444",border:"1px solid rgba(239,68,68,.3)",borderRadius:3,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}>
+          <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(239,68,68,.15)",color:"#EF4444",border:"1px solid rgba(239,68,68,.3)",borderRadius:3,padding:"2px 7px",display:"flex",alignItems:"center",gap:4}}>
             <span style={{width:4,height:4,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/> EN DIRECTE
           </span>
         ) : (
-          <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(85,87,97,.15)",color:"#555761",border:"1px solid #222327",borderRadius:3,padding:"3px 8px"}}>PARTIDA ACABADA</span>
+          <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(85,87,97,.15)",color:"#555761",border:"1px solid #222327",borderRadius:3,padding:"2px 7px"}}>PARTIDA ACABADA</span>
         )}
       </div>
 
-      {/* Course info */}
-      <div style={{padding:"14px 16px 0",flexShrink:0}}>
-        <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:".04em",lineHeight:1,marginBottom:3}}>{game.course_name}</div>
-        <div style={{fontSize:11,color:"#787C8A"}}>
-          {fmtDate && `${fmtDate} · `}{game.holes||18} forats · Par {game.par||18}
-          {isLive && ` · Forat ${game.current_hole||1}/${game.holes||18}`}
+      {/* Header — matches LiveGameView layout */}
+      <div style={{padding:"14px 16px 12px",borderBottom:"1px solid #1A1B1E",display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexShrink:0}}>
+        <div style={{flex:1,minWidth:0}}>
+          {primaryPlayer && (
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:".04em",lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>
+              {players.length === 1 ? primaryPlayer.name : game.course_name}
+            </div>
+          )}
+          <div style={{fontSize:11,color:"#787C8A"}}>
+            {game.course_name}{isLive ? ` · Forat ${game.current_hole||1}/${game.holes||18}` : ` · ${game.holes||18} forats`}{fmtDate ? ` · ${fmtDate}` : ""}
+          </div>
         </div>
+        {players.length === 1 && (
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:32,color:primaryColor,lineHeight:1,flexShrink:0,marginLeft:12}}>
+            {primaryDiff>0?`+${primaryDiff}`:primaryDiff===0?"E":primaryDiff}
+          </div>
+        )}
       </div>
 
-      {/* Players */}
+      {/* Players — matches LiveGameView player rows */}
       {players.length > 0 && (
-        <div style={{margin:"12px 16px 0",border:"1px solid #1A1B1E",borderRadius:12,overflow:"hidden",flexShrink:0}}>
+        <div style={{padding:"12px 16px",borderBottom:"1px solid #1A1B1E",flexShrink:0}}>
           {players.map((p, i) => {
             const d = scDiff(p.id);
             const pc = PLAYER_COLORS[i] || "#CAFF4D";
             return (
-              <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 13px",borderBottom:i<players.length-1?"1px solid #111214":"none"}}>
+              <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:i<players.length-1?"1px solid #111214":"none"}}>
                 <div style={{width:28,height:28,borderRadius:"50%",background:pc,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
                   {p.avatarUrl
                     ? <img src={p.avatarUrl} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
@@ -3670,7 +3686,7 @@ function SharedViewer({ game, token, onJoinClick }) {
                   }
                 </div>
                 <div style={{flex:1,fontWeight:600,fontSize:13}}>{p.name}</div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:diffColor(d)}}>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:diffColor(d)}}>
                   {d>0?`+${d}`:d===0?"E":d}
                 </div>
               </div>
@@ -3679,36 +3695,40 @@ function SharedViewer({ game, token, onJoinClick }) {
         </div>
       )}
 
-      {/* Scorecard grid */}
-      {scores.length > 0 && (
-        <div style={{flex:1,overflowY:"auto",padding:"14px 16px"}}>
-          <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:10}}>Forat a forat</div>
-          <div style={{display:"grid",gridTemplateColumns:`40px repeat(${Math.min(players.length||1,4)},1fr)`,gap:4}}>
-            <div style={{fontSize:9,color:"#555761",fontWeight:700,textAlign:"center",paddingBottom:4}}>F.</div>
-            {players.slice(0,4).map((p,i)=>(
-              <div key={p.id} style={{fontSize:9,color:PLAYER_COLORS[i]||"#CAFF4D",fontWeight:700,textAlign:"center",paddingBottom:4}}>
-                {(p.name||"P").split(" ")[0].slice(0,4).toUpperCase()}
-              </div>
-            ))}
-            {scores.map((h, hi) => {
-              const isActive = hi === (game.current_hole || 1) - 1;
-              return (
-                <React.Fragment key={hi}>
-                  <div style={{fontSize:10,fontWeight:700,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",height:34,color:isActive?"#CAFF4D":"#555761",borderRadius:isActive?5:0,background:isActive?"rgba(202,255,77,.08)":"transparent"}}>{h.hole}</div>
-                  {players.slice(0,4).map((p) => (
-                    <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"center",height:34,background:isActive?"rgba(202,255,77,.04)":"transparent",borderRadius:isActive?5:0}}>
-                      <ScoreSymbol v={h.playerScores?.[p.id]} par={h.par} size={28}/>
-                    </div>
-                  ))}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Scorecard grid — matches LiveGameView grid */}
+      <div style={{flex:1,overflowY:"auto",padding:"12px 16px"}}>
+        {scores.length > 0 ? (
+          <>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:10}}>Forat a forat</div>
+            <div style={{display:"grid",gridTemplateColumns:`40px repeat(${Math.min(players.length||1,4)},1fr)`,gap:4}}>
+              <div style={{fontSize:9,color:"#555761",fontWeight:700,textAlign:"center",paddingBottom:4}}>F.</div>
+              {players.slice(0,4).map((p,i)=>(
+                <div key={p.id} style={{fontSize:9,color:PLAYER_COLORS[i]||"#CAFF4D",fontWeight:700,textAlign:"center",paddingBottom:4}}>
+                  {(p.name||"P").split(" ")[0].slice(0,4).toUpperCase()}
+                </div>
+              ))}
+              {scores.map((h, hi) => {
+                const isActive = isLive && hi === (game.current_hole || 1) - 1;
+                return (
+                  <React.Fragment key={hi}>
+                    <div style={{fontSize:10,fontWeight:700,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",height:34,color:isActive?"#CAFF4D":"#555761",borderRadius:isActive?5:0,background:isActive?"rgba(202,255,77,.08)":"transparent"}}>{h.hole}</div>
+                    {players.slice(0,4).map((p) => (
+                      <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"center",height:34,background:isActive?"rgba(202,255,77,.04)":"transparent",borderRadius:isActive?5:0}}>
+                        <ScoreSymbol v={h.playerScores?.[p.id]} par={h.par} size={28}/>
+                      </div>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div style={{textAlign:"center",padding:"32px 16px",color:"#555761",fontSize:13}}>Sense puntuació encara</div>
+        )}
+      </div>
 
-      {/* CTA: join as player */}
-      {game.share_mode === "play" && isLive && (
+      {/* CTA: join as player — only if NOT watch-only link */}
+      {!watchOnly && game.share_mode === "play" && isLive && (
         <div style={{margin:"0 16px 16px",border:"1px solid rgba(202,255,77,.25)",borderRadius:12,padding:"16px",textAlign:"center",flexShrink:0}}>
           <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>Uneix-te com a jugador</div>
           <div style={{fontSize:12,color:"#787C8A",marginBottom:12}}>Registra la teva puntuació en temps real</div>

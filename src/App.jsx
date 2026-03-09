@@ -3605,89 +3605,71 @@ function SharedGameRoute({ token }) {
       onBack={() => setView("watch")}/>
   );
 
-  return (
-    <SharedGameView game={game} token={token} joinedPid={joinedPid}
-      onJoinClick={() => setView("join")}/>
+  if (joinedPid) return (
+    <GuestScorecard game={game} token={token} joinedPid={joinedPid} onLeave={() => {
+      localStorage.removeItem(`pc_join_${token}`);
+      localStorage.removeItem(`pc_guest_init_${token}`);
+      localStorage.removeItem('pc_scores');
+      localStorage.removeItem('pc_curHole');
+      setJoinedPid(null);
+    }}/>
   );
+
+  return <SharedViewer game={game} token={token} onJoinClick={() => setView("join")}/>;
 }
 
-/* ─── Shared game: viewer + joined player scoring ─── */
-function SharedGameView({ game, token, joinedPid, onJoinClick }) {
+/* ─── Shared game: standalone LiveGameView-style page for viewers ─── */
+function SharedViewer({ game, token, onJoinClick }) {
   const isLive = game.is_live;
   const players = game.players || [];
   const scores  = game.scores  || [];
-  const [curHole, setCurHole] = useState(() => Math.max(0, (game.current_hole||1) - 1));
-  const [saving,  setSaving]  = useState(false);
+  const fmtDate = game.date ? game.date.replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1').slice(0,5) : "";
 
-  const me = joinedPid ? players.find(p => p.id === joinedPid) : null;
-  const pph = Math.round((game.par||18) / (game.holes||18));
-
-  // Auto-advance joined player's view to host's current hole (if they haven't scored yet)
-  useEffect(() => {
-    const hostHole = Math.max(0, (game.current_hole||1) - 1);
-    setCurHole(prev => {
-      const myScore = (game.scores||[])[prev]?.playerScores?.[joinedPid];
-      return myScore == null ? hostHole : prev;
-    });
-  }, [game.current_hole]);
-
-  const scDiff = (sc, pid) => {
+  const scDiff = (pid) => {
     let d = 0;
     scores.forEach(h => { const v = h.playerScores?.[pid]; if (v != null) d += v - h.par; });
     return d;
   };
   const diffColor = d => d < -1 ? "#FBBF24" : d === -1 ? "#60A5FA" : d === 0 ? "#CAFF4D" : "#EF4444";
 
-  const [saveErr, setSaveErr] = useState(null);
-  const updateScore = async (holeIdx, score) => {
-    setSaving(true); setSaveErr(null);
-    const newScores = scores.map((h, i) => i === holeIdx
-      ? { ...h, playerScores: { ...h.playerScores, [joinedPid]: score } }
-      : h);
-    const { error } = await supabase.from("games").update({ scores: newScores }).eq("share_token", token);
-    if (error) setSaveErr("No s'ha pogut guardar. Comprova la connexió.");
-    setSaving(false);
-  };
-
   return (
-    <div style={{minHeight:"100dvh",background:"#0A0A0B",fontFamily:"Inter,sans-serif",maxWidth:430,margin:"0 auto",paddingBottom:40}}>
-      {/* Top bar */}
-      <div style={{padding:"14px 16px 10px",borderBottom:"1px solid #1A1B1E",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+    <div style={{minHeight:"100dvh",background:"#0A0A0B",fontFamily:"Inter,sans-serif",maxWidth:430,margin:"0 auto",display:"flex",flexDirection:"column"}}>
+      {/* Header */}
+      <div style={{padding:"14px 16px 10px",borderBottom:"1px solid #1A1B1E",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
         <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:"#CAFF4D",letterSpacing:".08em"}}>PITCH&CLUBS</div>
-        <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          {isLive ? (
-            <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(239,68,68,.15)",color:"#EF4444",border:"1px solid rgba(239,68,68,.3)",borderRadius:3,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}>
-              <span style={{width:4,height:4,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/> EN DIRECTE
-            </span>
-          ) : (
-            <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(85,87,97,.15)",color:"#555761",border:"1px solid #222327",borderRadius:3,padding:"3px 8px"}}>ACABADA</span>
-          )}
-        </div>
+        {isLive ? (
+          <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(239,68,68,.15)",color:"#EF4444",border:"1px solid rgba(239,68,68,.3)",borderRadius:3,padding:"3px 8px",display:"flex",alignItems:"center",gap:4}}>
+            <span style={{width:4,height:4,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/> EN DIRECTE
+          </span>
+        ) : (
+          <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(85,87,97,.15)",color:"#555761",border:"1px solid #222327",borderRadius:3,padding:"3px 8px"}}>PARTIDA ACABADA</span>
+        )}
       </div>
 
-      {/* Course / header */}
-      <div style={{padding:"14px 16px 10px"}}>
+      {/* Course info */}
+      <div style={{padding:"14px 16px 0",flexShrink:0}}>
         <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:".04em",lineHeight:1,marginBottom:3}}>{game.course_name}</div>
         <div style={{fontSize:11,color:"#787C8A"}}>
-          {game.date} · {game.holes||18} forats · Par {game.par||18}
+          {fmtDate && `${fmtDate} · `}{game.holes||18} forats · Par {game.par||18}
           {isLive && ` · Forat ${game.current_hole||1}/${game.holes||18}`}
         </div>
       </div>
 
       {/* Players */}
       {players.length > 0 && (
-        <div style={{margin:"0 16px 12px",border:"1px solid #1A1B1E",borderRadius:12,overflow:"hidden"}}>
+        <div style={{margin:"12px 16px 0",border:"1px solid #1A1B1E",borderRadius:12,overflow:"hidden",flexShrink:0}}>
           {players.map((p, i) => {
-            const d = scDiff(scores, p.id);
-            const isJoined = p.id === joinedPid;
+            const d = scDiff(p.id);
+            const pc = PLAYER_COLORS[i] || "#CAFF4D";
             return (
-              <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 13px",borderBottom:i<players.length-1?"1px solid #111214":"none",background:isJoined?"rgba(202,255,77,.04)":"transparent"}}>
-                <div style={{width:28,height:28,borderRadius:"50%",background:PLAYER_COLORS[i]||"#CAFF4D",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>
-                  {(p.name||"P").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase()||"P"}
+              <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 13px",borderBottom:i<players.length-1?"1px solid #111214":"none"}}>
+                <div style={{width:28,height:28,borderRadius:"50%",background:pc,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
+                  {p.avatarUrl
+                    ? <img src={p.avatarUrl} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+                    : (p.name||"P").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase() || "P"
+                  }
                 </div>
-                <div style={{flex:1,fontWeight:600,fontSize:13}}>
-                  {p.name}{isJoined&&<span style={{fontSize:9,color:"#CAFF4D",marginLeft:5,fontWeight:700}}>TU</span>}
-                </div>
+                <div style={{flex:1,fontWeight:600,fontSize:13}}>{p.name}</div>
                 <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:diffColor(d)}}>
                   {d>0?`+${d}`:d===0?"E":d}
                 </div>
@@ -3697,101 +3679,38 @@ function SharedGameView({ game, token, joinedPid, onJoinClick }) {
         </div>
       )}
 
-      {/* Score grid */}
+      {/* Scorecard grid */}
       {scores.length > 0 && (
-        <div style={{padding:"0 16px",marginBottom:16}}>
-          <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:8}}>Forat a forat</div>
-          <div style={{display:"grid",gridTemplateColumns:`40px repeat(${Math.min(players.length||1,4)},1fr)`,gap:3}}>
+        <div style={{flex:1,overflowY:"auto",padding:"14px 16px"}}>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:10}}>Forat a forat</div>
+          <div style={{display:"grid",gridTemplateColumns:`40px repeat(${Math.min(players.length||1,4)},1fr)`,gap:4}}>
             <div style={{fontSize:9,color:"#555761",fontWeight:700,textAlign:"center",paddingBottom:4}}>F.</div>
             {players.slice(0,4).map((p,i)=>(
               <div key={p.id} style={{fontSize:9,color:PLAYER_COLORS[i]||"#CAFF4D",fontWeight:700,textAlign:"center",paddingBottom:4}}>
                 {(p.name||"P").split(" ")[0].slice(0,4).toUpperCase()}
               </div>
             ))}
-            {scores.map((h, hi) => (
-              <React.Fragment key={hi}>
-                <div style={{fontSize:10,color:"#555761",fontWeight:600,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",height:32}}>{h.hole}</div>
-                {players.slice(0,4).map((p, pi) => (
-                  <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"center",height:32}}>
-                    <ScoreSymbol v={h.playerScores?.[p.id]} par={h.par} size={26}/>
-                  </div>
-                ))}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Joined player: full ScorecardScreen-like scoring UI */}
-      {me && isLive && (
-        <div style={{margin:"0 16px 16px",border:"1px solid rgba(202,255,77,.3)",borderRadius:14,overflow:"hidden",background:"#0f0f13"}}>
-          {/* Hole strip */}
-          <div style={{padding:"10px 12px 8px",borderBottom:"1px solid #1a1a20"}}>
-            <div style={{fontSize:9,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#CAFF4D",marginBottom:6}}>La teva puntuació</div>
-            <div style={{display:"flex",gap:3,overflowX:"auto"}} className="noscroll">
-              {scores.map((h,i)=>{
-                const sv=h.playerScores[joinedPid];
-                const isCur=i===curHole;
-                const done=sv!=null;
-                return (
-                  <div key={i} onClick={()=>setCurHole(i)}
-                    style={{flexShrink:0,width:isCur?28:20,height:22,borderRadius:5,cursor:"pointer",transition:"all .2s",
-                      background:isCur?"#CAFF4D":done?"rgba(202,255,77,.28)":"#1a1a1f",
-                      display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:isCur?11:10,color:isCur?"#0A0A0B":done?"#CAFF4D":"#444"}}>{h.hole}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          {/* Scoring controls */}
-          <div style={{padding:"14px"}}>
-            {scores[curHole] && (
-              <>
-                <div style={{fontSize:11,color:"#787C8A",marginBottom:10}}>Forat {curHole+1} · Par {scores[curHole].par}</div>
-                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-                  <button onClick={()=>{
-                    const cur=scores[curHole].playerScores[joinedPid];
-                    if(cur==null)return;
-                    if(cur<=1){updateScore(curHole,null);}else{updateScore(curHole,cur-1);}
-                  }}
-                    style={{width:46,height:46,borderRadius:12,border:"1px solid #2a2a35",background:"#1c1c26",color:"#9a9aaa",fontSize:24,fontWeight:300,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>−</button>
-                  <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                    {scores[curHole].playerScores[joinedPid]==null
-                      ? <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:52,color:"#2A2B35",lineHeight:1}}>—</span>
-                      : <ScoreSymbol v={scores[curHole].playerScores[joinedPid]} par={scores[curHole].par} size={52}/>
-                    }
-                    <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:"#555",letterSpacing:".1em",lineHeight:1}}>
-                      {(()=>{
-                        const v=scores[curHole].playerScores[joinedPid];
-                        if(v==null) return "sense puntuació";
-                        const d=v-scores[curHole].par;
-                        return d<=-2?"Hole in One":d===-1?"Birdie":d===0?"Par":d===1?"Bogey":d===2?"Doble":"+"+d;
-                      })()}
-                    </span>
-                  </div>
-                  <button onClick={()=>{
-                    const cur=scores[curHole].playerScores[joinedPid];
-                    updateScore(curHole,(cur??scores[curHole].par-1)+1);
-                  }}
-                    style={{width:46,height:46,borderRadius:12,border:"none",background:"#CAFF4D",color:"#0A0A0B",fontSize:24,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>+</button>
-                </div>
-                <div style={{display:"flex",gap:8}}>
-                  {curHole > 0 && <button onClick={()=>setCurHole(h=>h-1)} style={{flex:1,padding:"11px",borderRadius:12,border:"1px solid #222",background:"#1A1B1E",color:"#787C8A",fontWeight:700,fontSize:12,cursor:"pointer"}}>← F{String(curHole).padStart(2,"0")}</button>}
-                  {curHole < scores.length-1 && <button onClick={()=>setCurHole(h=>h+1)} style={{flex:2,padding:"11px",borderRadius:12,border:"none",background:"#CAFF4D",color:"#0A0A0B",fontWeight:700,fontSize:13,cursor:"pointer"}}>F{String(curHole+2).padStart(2,"0")} →</button>}
-                </div>
-                {saving && <div style={{textAlign:"center",fontSize:10,color:"#555761",marginTop:8}}>Guardant…</div>}
-                {saveErr && <div style={{textAlign:"center",fontSize:11,color:"#EF4444",marginTop:8}}>⚠ {saveErr}</div>}
-              </>
-            )}
+            {scores.map((h, hi) => {
+              const isActive = hi === (game.current_hole || 1) - 1;
+              return (
+                <React.Fragment key={hi}>
+                  <div style={{fontSize:10,fontWeight:700,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",height:34,color:isActive?"#CAFF4D":"#555761",borderRadius:isActive?5:0,background:isActive?"rgba(202,255,77,.08)":"transparent"}}>{h.hole}</div>
+                  {players.slice(0,4).map((p) => (
+                    <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"center",height:34,background:isActive?"rgba(202,255,77,.04)":"transparent",borderRadius:isActive?5:0}}>
+                      <ScoreSymbol v={h.playerScores?.[p.id]} par={h.par} size={28}/>
+                    </div>
+                  ))}
+                </React.Fragment>
+              );
+            })}
           </div>
         </div>
       )}
 
       {/* CTA: join as player */}
-      {!joinedPid && game.share_mode === "play" && isLive && (
-        <div style={{margin:"0 16px 16px",border:"1px solid rgba(202,255,77,.25)",borderRadius:12,padding:"16px",textAlign:"center"}}>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:6}}>Uneix-te com a jugador</div>
+      {game.share_mode === "play" && isLive && (
+        <div style={{margin:"0 16px 16px",border:"1px solid rgba(202,255,77,.25)",borderRadius:12,padding:"16px",textAlign:"center",flexShrink:0}}>
+          <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>Uneix-te com a jugador</div>
           <div style={{fontSize:12,color:"#787C8A",marginBottom:12}}>Registra la teva puntuació en temps real</div>
           <button onClick={onJoinClick} style={{width:"100%",padding:"12px",borderRadius:10,border:"none",background:"#CAFF4D",color:"#0A0A0B",fontWeight:700,fontSize:13,cursor:"pointer"}}>
             Uneix-te →
@@ -3799,14 +3718,54 @@ function SharedGameView({ game, token, joinedPid, onJoinClick }) {
         </div>
       )}
 
-      {/* P&C footer */}
-      <div style={{padding:"20px 16px",textAlign:"center",borderTop:"1px solid #1A1B1E",marginTop:8}}>
+      {/* Footer */}
+      <div style={{padding:"20px 16px",textAlign:"center",borderTop:"1px solid #1A1B1E",flexShrink:0}}>
         <div style={{fontFamily:"'Bebas Neue'",fontSize:16,color:"#555761",letterSpacing:".1em",marginBottom:8}}>PITCH&CLUBS</div>
         <a href="/" style={{display:"inline-block",padding:"10px 20px",borderRadius:100,background:"#CAFF4D",color:"#0A0A0B",fontWeight:700,fontSize:12,textDecoration:"none"}}>
           Registra't gratis →
         </a>
       </div>
     </div>
+  );
+}
+
+/* ─── Shared game: guest scorer — full ScorecardScreen ─── */
+function GuestScorecard({ game, token, joinedPid, onLeave }) {
+  // Initialize localStorage SYNCHRONOUSLY so ScorecardScreen reads correct data on first render
+  const initRef = useRef(false);
+  if (!initRef.current) {
+    initRef.current = true;
+    const initKey = `pc_guest_init_${token}`;
+    if (!localStorage.getItem(initKey) && (game.scores || []).length) {
+      localStorage.setItem('pc_scores', JSON.stringify(game.scores));
+      localStorage.setItem('pc_curHole', String(Math.max(0, (game.current_hole || 1) - 1)));
+      localStorage.setItem(initKey, '1');
+    }
+  }
+
+  const gameData = {
+    course: { name: game.course_name, holes: game.holes || 18, par: game.par || 18 },
+    players: game.players || [],
+    date: game.date,
+    gameMode: game.game_mode || 'stableford',
+  };
+
+  const handleLiveUpdate = async (scores, curHole) => {
+    await supabase.from('games').update({ scores, current_hole: curHole + 1 }).eq('share_token', token);
+  };
+
+  return (
+    <ScorecardScreen
+      gameData={gameData}
+      onFinish={onLeave}
+      onDelete={onLeave}
+      user={null}
+      openAuth={() => {}}
+      lang="ca"
+      liveGameId={game.id}
+      onLiveUpdate={handleLiveUpdate}
+      liveShareToken={token}
+    />
   );
 }
 

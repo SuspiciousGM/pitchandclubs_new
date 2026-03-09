@@ -1145,7 +1145,11 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
     if (gameMode === "parelles") {
       playersWithTeam = players.map(p => ({...p, teamId: getPlayerTeam(p.id)}));
     }
-    onStart({ course:activeCourse, date, gameMode, players:playersWithTeam });
+    // 9-hole courses are played twice (18 holes total)
+    const effectiveCourse = activeCourse.holes === 9
+      ? { ...activeCourse, holes: 18, par: activeCourse.par * 2 }
+      : activeCourse;
+    onStart({ course: effectiveCourse, date, gameMode, players: playersWithTeam });
   };
 
   return (
@@ -1187,7 +1191,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
               {filtered.map(c=>(
                 <div key={c.id} className="sdrop-item" onClick={()=>{setSelCourse(c);setCustomCourse(null);setCourseQ(c.name);setShowDrop(false);}}>
                   <div style={{fontWeight:600,fontSize:14}}>{c.name}</div>
-                  <div style={{fontSize:11,color:"#555761",marginTop:2,fontWeight:400}}>📍 {c.location}, {c.province} · {c.holes}H · Par {c.par}</div>
+                  <div style={{fontSize:11,color:"#555761",marginTop:2,fontWeight:400}}>📍 {c.location}, {c.province} · {c.holes===9?`18H (2×9) · Par ${c.par*2}`:`${c.holes}H · Par ${c.par}`}</div>
                 </div>
               ))}
               {filtered.length===0 && <div className="sdrop-item" style={{color:"#555761",fontStyle:"italic"}}>No trobat — configura'l manualment ↓</div>}
@@ -1198,7 +1202,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
           <div style={{marginTop:6,display:"flex",alignItems:"center",gap:7}}>
             <span style={{color:"#CAFF4D",fontSize:14}}>✓</span>
             <span style={{fontWeight:600,fontSize:13}}>{activeCourse.name}</span>
-            <span className="pill" style={{fontSize:10}}>{activeCourse.holes}H · Par {activeCourse.par}</span>
+            <span className="pill" style={{fontSize:10}}>{activeCourse.holes===9?`18H (2×9) · Par ${activeCourse.par*2}`:`${activeCourse.holes}H · Par ${activeCourse.par}`}</span>
           </div>
         )}
 
@@ -1758,7 +1762,9 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
             ←
           </button>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:17,letterSpacing:'.06em',color:'#CAFF4D',lineHeight:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{course.name}</div>
+            {(()=>{ const short=course.name.replace(/\s*Pitch\s*[&i]+\s*Putt/gi,'').replace(/\s*P&P/gi,'').replace(/\s*Golf\s*i\s*Pitch.*/gi,' Golf').replace(/\s+/g,' ').trim()||course.name; return (
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:short.length>18?15:18,letterSpacing:'.05em',color:'#CAFF4D',lineHeight:1.1,maxWidth:180}}>{short}</div>
+            );})()}
             <div style={{fontSize:10,color:'#555761',fontWeight:600,marginTop:1}}>
               {lang==='en'?'H':lang==='es'?'H':'F'}<span style={{color:'#CAFF4D',fontSize:14,fontWeight:700}}>{curHole+1}</span>/{course.holes} · Par {par}
             </div>
@@ -2359,7 +2365,9 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
 function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
   const tl = (k,v={}) => t(lang,k,v);
   const [liveRanking, setLiveRanking] = useState(null);
+  const [courseLeaders, setCourseLeaders] = useState([]);
   const [loading, setLoading]         = useState(true);
+  const [activeTab, setActiveTab]     = useState("global");
   const goProfile = () => setScreen("profile");
 
   useEffect(() => {
@@ -2370,7 +2378,7 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
         // Global: aggregate points per user from games table
         const { data: gamesData } = await supabase
           .from("games")
-          .select("user_id, players, scores, created_at");
+          .select("user_id, players, scores, created_at, course_name, date");
 
         if (gamesData && !cancelled) {
           const userMap = {};
@@ -2398,6 +2406,25 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
               color: ["#CAFF4D","#60A5FA","#A78BFA","#F472B6","#34D399","#FBBF24"][i%6],
             }));
           if (global.length) setLiveRanking(global);
+
+          // Club: best score per course
+          const courseMap = {};
+          gamesData.forEach(g => {
+            const me = (g.players||[]).find(p => p.isMe);
+            if (!me || !g.user_id || !g.course_name) return;
+            const d = me.diff;
+            if (typeof d !== "number" || isNaN(d)) return;
+            const cn = g.course_name;
+            if (!courseMap[cn]) courseMap[cn] = { course: cn, best: null, bestPlayer: "", bestAvatar: "", date: "", games: 0 };
+            courseMap[cn].games++;
+            if (courseMap[cn].best === null || d < courseMap[cn].best) {
+              courseMap[cn].best = d;
+              courseMap[cn].bestPlayer = me.name;
+              courseMap[cn].bestAvatar = me.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+              courseMap[cn].date = g.date || "";
+            }
+          });
+          if (!cancelled) setCourseLeaders(Object.values(courseMap).sort((a,b) => (a.best??999) - (b.best??999)));
         }
       } catch(e) {
         console.warn("P&C: Could not load ranking from Supabase:", e.message);
@@ -2437,7 +2464,53 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
           </div>
         </div>
       </div>
+
+      {/* ── TABS */}
+      <div style={{display:"flex",gap:6,marginBottom:16}}>
+        {[{id:"global",label:lang==="en"?"Global":lang==="es"?"Global":"Global"},{id:"club",label:"Club"}].map(tab => (
+          <button key={tab.id} onClick={()=>setActiveTab(tab.id)}
+            style={{padding:"7px 18px",borderRadius:100,border:`1px solid ${activeTab===tab.id?"#CAFF4D":"#222327"}`,background:activeTab===tab.id?"rgba(202,255,77,.1)":"transparent",color:activeTab===tab.id?"#CAFF4D":"#555761",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"Inter",letterSpacing:".04em"}}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── CLUB LEADERBOARD */}
+      {activeTab === "club" && (
+        <div className="card" style={{overflow:"hidden",padding:0,marginBottom:16}}>
+          <div style={{padding:"10px 14px",borderBottom:"1px solid #1A1B1E"}}>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:".06em",color:"#CAFF4D"}}>MILLOR RESULTAT PER CAMP</div>
+            <div style={{fontSize:10,color:"#555761",marginTop:1}}>Rècord de cada camp registrat a P&C</div>
+          </div>
+          {courseLeaders.length === 0 ? (
+            <div style={{padding:"32px",textAlign:"center",color:"#555761",fontSize:13}}>
+              {loading ? "Carregant…" : "Encara no hi ha resultats registrats"}
+            </div>
+          ) : courseLeaders.map((row, i) => {
+            const diffFmt = row.best == null ? "—" : row.best > 0 ? `+${row.best}` : row.best === 0 ? "E" : `${row.best}`;
+            const diffCol = row.best == null ? "#555761" : row.best < -1 ? "#FBBF24" : row.best === -1 ? "#60A5FA" : row.best === 0 ? "#CAFF4D" : "#EF4444";
+            const colors = ["#CAFF4D","#60A5FA","#A78BFA","#F472B6","#34D399","#FBBF24"];
+            const fmtDate = row.date ? row.date.replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1').slice(0,5) : "";
+            const shortName = row.course.replace(/\s*Pitch\s*[&i]+\s*Putt/gi,"").replace(/\s*P&P/gi,"").replace(/\s*Golf\s*i\s*Pitch.*/gi," Golf").replace(/\s+/g," ").trim();
+            return (
+              <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",borderBottom:"1px solid #111214"}}>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:13,color:"#2A2B30",width:22,flexShrink:0}}>{String(i+1).padStart(2,"0")}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{shortName || row.course}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2}}>
+                    <div style={{width:16,height:16,borderRadius:"50%",background:colors[i%6],display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{row.bestAvatar}</div>
+                    <div style={{fontSize:10,color:"#787C8A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.bestPlayer}{fmtDate ? ` · ${fmtDate}` : ""}{row.games > 1 ? ` · ${row.games} partides` : ""}</div>
+                  </div>
+                </div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:diffCol,flexShrink:0}}>{diffFmt}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* ── LEADERBOARD */}
+      {activeTab === "global" && (<>
       <div className="card" style={{overflow:"hidden",padding:0,marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 44px 32px",padding:"7px 13px",borderBottom:"1px solid #1A1B1E",fontSize:9,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761"}}>
           <span>#</span><span>{lang==="en"?"Player":lang==="es"?"Jugador":"Jugador"}</span><span style={{textAlign:"center"}}>{lang==="en"?"Best":lang==="es"?"Mejor":"Millor"}</span><span style={{textAlign:"right"}}>Pts</span><span/>
@@ -2528,6 +2601,7 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
           </div>
         </div>
       </div>
+      </>)}
 
     </div>
   );
@@ -3064,7 +3138,7 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
     s: parseFloat(g.players.find(p => p.isMe)?.diff) || 0,
   }));
 
-  // Real HCP history: avg diff per month (lower = better, as proxy for HCP evolution)
+  // Real HCP history: avg diff per month, or per-game if all in same month
   const realHcpHist = (() => {
     if (!hasRealGames) return null;
     const byMonth = {};
@@ -3072,7 +3146,9 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
       const me = g.players?.find(p => p.isMe);
       const diff = parseFloat(me?.diff);
       if (isNaN(diff)) return;
-      const d = new Date(g.date);
+      const dateStr = g.date || "";
+      // Support YYYY-MM-DD and DD/MM/YYYY
+      const d = new Date(dateStr.includes('/') ? dateStr.split('/').reverse().join('-') : dateStr);
       if (isNaN(d.getTime())) return;
       const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
       const mLabel = d.toLocaleDateString('ca-ES',{month:'short'}).replace('.','').slice(0,3);
@@ -3081,10 +3157,23 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
     });
     const months = Object.keys(byMonth).sort().map(k => {
       const {m, diffs} = byMonth[k];
-      const avg = diffs.reduce((a,b)=>a+b,0)/diffs.length;
-      return { m, v: Math.round(avg*10)/10 };
+      return { m, v: Math.round((diffs.reduce((a,b)=>a+b,0)/diffs.length)*10)/10 };
     });
-    return months.length >= 2 ? months : null;
+    if (months.length >= 2) return months;
+    // Fall back to per-game points (up to 8, chronological)
+    const perGame = [...myGames].reverse()
+      .filter(g => { const me = g.players?.find(p=>p.isMe); return me && !isNaN(parseFloat(me.diff)); })
+      .slice(-8)
+      .map((g, i) => {
+        const me = g.players.find(p=>p.isMe);
+        const dateStr = g.date || "";
+        const d = new Date(dateStr.includes('/') ? dateStr.split('/').reverse().join('-') : dateStr);
+        const label = !isNaN(d.getTime())
+          ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`
+          : `P${i+1}`;
+        return { m: label, v: Math.round(parseFloat(me.diff)*10)/10 };
+      });
+    return perGame.length >= 1 ? perGame : null;
   })();
   const hcpHist = realHcpHist || profile.hcpHist;
   const courseMap = {};

@@ -1562,8 +1562,11 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
   });
   const [curHole,    setCurHole]    = useState(() => { const s=localStorage.getItem('pc_curHole'); return s?parseInt(s):0; });
   const [activePid,  setActivePid]  = useState(players[0].id);
-  const [showFull,       setShowFull]       = useState(false);
+  const [showFull,        setShowFull]        = useState(false);
   const [showInviteSheet, setShowInviteSheet] = useState(false);
+  const [showCodePanel,   setShowCodePanel]   = useState(false);
+  const [codeCopied,      setCodeCopied]      = useState(false);
+  const gameCode = liveShareToken ? 'PC-' + liveShareToken.slice(0,4).toUpperCase() : null;
   const [flashInfo,  setFlashInfo]  = useState(null);
   const [liveRemote, setLiveRemote] = useState(null); // remote game state (joined players + their scores)
   const stripRef = useRef(null);
@@ -1760,8 +1763,8 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
               {lang==='en'?'H':lang==='es'?'H':'F'}<span style={{color:'#CAFF4D',fontSize:14,fontWeight:700}}>{curHole+1}</span>/{course.holes} · Par {par}
             </div>
           </div>
-          <button onClick={()=>setShowInviteSheet(true)} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(202,255,77,.35)',background:'rgba(202,255,77,.1)',color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
-            <Share2 size={11}/> Invita
+          <button onClick={()=>{setShowInviteSheet(true);setShowCodePanel(false);}} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(202,255,77,.35)',background:'rgba(202,255,77,.1)',color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+            <Share2 size={12}/> Invita
           </button>
           <button onClick={()=>setShowFull(true)} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
             <Flag size={12}/>
@@ -1945,46 +1948,64 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
       {/* Invite sheet */}
       {showInviteSheet && (
         <div style={{position:'fixed',inset:0,zIndex:9999,display:'flex',flexDirection:'column',justifyContent:'flex-end'}}>
-          <div onClick={()=>setShowInviteSheet(false)} style={{position:'absolute',inset:0,background:'rgba(0,0,0,.65)'}}/>
+          <div onClick={()=>{setShowInviteSheet(false);setShowCodePanel(false);}} style={{position:'absolute',inset:0,background:'rgba(0,0,0,.7)'}}/>
           <div style={{position:'relative',background:'#1A1B1E',borderRadius:'20px 20px 0 0',padding:'20px 20px 40px'}}>
             <div style={{width:40,height:4,background:'#333',borderRadius:2,margin:'0 auto 18px'}}/>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:'.12em',color:'#555761',marginBottom:14,textAlign:'center'}}>COMPARTIR PARTIDA</div>
-            {/* Join as player */}
-            <button onClick={async()=>{
-              setShowInviteSheet(false);
-              const url = liveShareToken ? `${window.location.origin}/game/${liveShareToken}` : 'https://pitchandclubs.cat';
-              const text = liveShareToken
-                ? `Uneix-te a la meva partida i puntua en temps real! Pitch & Clubs`
-                : `Estic jugant a Pitch & Clubs! Uneix-te: `;
-              const shareData = { title:'Pitch & Clubs — Uneix-te', text, url };
-              if (navigator.share) { try { await navigator.share(shareData); } catch(e){} }
-              else { await navigator.clipboard.writeText(url); alert('Link copiat!'); }
-            }} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'14px',background:'#222327',borderRadius:12,border:'1px solid rgba(202,255,77,.25)',color:'#fff',cursor:'pointer',marginBottom:10,textAlign:'left'}}>
-              <div style={{width:40,height:40,borderRadius:10,background:'rgba(202,255,77,.12)',border:'1px solid rgba(202,255,77,.4)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:'.12em',color:'#555761',marginBottom:16,textAlign:'center'}}>COMPARTIR PARTIDA</div>
+
+            {/* Option 1: Join game → expands code panel */}
+            <button onClick={()=>setShowCodePanel(v=>!v)}
+              style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'14px',background:'#111214',borderRadius:12,border:`1px solid ${showCodePanel?'rgba(202,255,77,.4)':'rgba(202,255,77,.2)'}`,color:'#fff',cursor:'pointer',marginBottom:showCodePanel?0:10,textAlign:'left'}}>
+              <div style={{width:40,height:40,borderRadius:10,background:'rgba(202,255,77,.1)',border:'1px solid rgba(202,255,77,.35)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                 <Users size={18} color='#CAFF4D'/>
               </div>
-              <div>
-                <div style={{fontSize:14,fontWeight:700,color:'#CAFF4D'}}>Invita un jugador</div>
-                <div style={{fontSize:11,color:'#555761',marginTop:2}}>Pot puntuar des del seu mòbil en temps real</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontWeight:700,color:'#CAFF4D'}}>Uneix-te a la partida</div>
+                <div style={{fontSize:11,color:'#555761',marginTop:2}}>Comparteix el codi per jugar</div>
               </div>
+              <ChevronRight size={16} color='#555761' style={{transform:showCodePanel?'rotate(90deg)':'none',transition:'transform .2s'}}/>
             </button>
-            {/* Watch as viewer */}
+
+            {/* Code panel */}
+            {showCodePanel && (
+              <div style={{background:'#111214',borderRadius:'0 0 12px 12px',padding:'14px 14px 16px',marginBottom:10,borderTop:'1px solid #1A1B1E'}}>
+                {gameCode ? <>
+                  <div style={{fontSize:9,color:'#555761',fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:10}}>Codi de partida</div>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+                    <div style={{fontFamily:"'Bebas Neue'",fontSize:40,color:'#CAFF4D',letterSpacing:'.25em',flex:1,lineHeight:1}}>{gameCode}</div>
+                    <button onClick={()=>{
+                      navigator.clipboard.writeText(gameCode).then(()=>{setCodeCopied(true);setTimeout(()=>setCodeCopied(false),2000);});
+                    }} style={{padding:'8px 14px',borderRadius:8,border:'1px solid rgba(202,255,77,.3)',background:codeCopied?'rgba(202,255,77,.15)':'transparent',color:codeCopied?'#CAFF4D':'#787C8A',fontSize:11,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
+                      {codeCopied?<><Check size={12}/>Copiat!</>:<>Copiar</>}
+                    </button>
+                  </div>
+                  <button onClick={async()=>{
+                    const url=`${window.location.origin}/game/${liveShareToken}`;
+                    const data={title:'Pitch & Clubs',text:`Uneix-te! Codi: ${gameCode}`,url};
+                    if(navigator.share){try{await navigator.share(data);}catch(e){}}
+                    else{navigator.clipboard.writeText(url);setCodeCopied(true);setTimeout(()=>setCodeCopied(false),2000);}
+                  }} style={{width:'100%',padding:'11px',borderRadius:10,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                    <Share2 size={14}/> Compartir link
+                  </button>
+                </> : (
+                  <div style={{fontSize:12,color:'#555761',textAlign:'center',padding:'8px 0'}}>Inicia la partida en directe per obtenir un codi</div>
+                )}
+              </div>
+            )}
+
+            {/* Option 2: Watch live → share link only */}
             <button onClick={async()=>{
-              setShowInviteSheet(false);
               const url = liveShareToken ? `${window.location.origin}/game/${liveShareToken}` : 'https://pitchandclubs.cat';
-              const text = liveShareToken
-                ? `Segueix la meva partida en directe a Pitch & Clubs`
-                : `Mira com juco a Pitch & Clubs — `;
-              const shareData = { title:'Pitch & Clubs — Segueix en directe', text, url };
-              if (navigator.share) { try { await navigator.share(shareData); } catch(e){} }
-              else { await navigator.clipboard.writeText(url); alert('Link copiat!'); }
-            }} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'14px',background:'#222327',borderRadius:12,border:'1px solid #333',color:'#fff',cursor:'pointer',textAlign:'left'}}>
-              <div style={{width:40,height:40,borderRadius:10,background:'#1a1a1f',border:'1px solid #333',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              const data = {title:'Pitch & Clubs — En directe',text:'Segueix la partida en directe!',url};
+              if(navigator.share){try{await navigator.share(data);}catch(e){}}
+              else{navigator.clipboard.writeText(url);setShowInviteSheet(false);}
+            }} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'14px',background:'#111214',borderRadius:12,border:'1px solid #222327',color:'#fff',cursor:'pointer',textAlign:'left'}}>
+              <div style={{width:40,height:40,borderRadius:10,background:'#1a1a1f',border:'1px solid #2a2a35',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                 <Play size={18} color='#787C8A'/>
               </div>
               <div>
-                <div style={{fontSize:14,fontWeight:700}}>Compartir per seguir</div>
-                <div style={{fontSize:11,color:'#555761',marginTop:2}}>Pot veure els scores en directe, sense participar</div>
+                <div style={{fontSize:14,fontWeight:700}}>Seguir en directe</div>
+                <div style={{fontSize:11,color:'#555761',marginTop:2}}>Veure la partida sense participar</div>
               </div>
             </button>
           </div>

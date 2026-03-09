@@ -1029,7 +1029,10 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
 
   const searchPlayers = (playerId, query) => {
     clearTimeout(searchDebounce.current[playerId]);
-    const delay = query.length === 0 ? 0 : 200;
+    if (!query || query.trim().length < 1) {
+      setPlayerSuggestions(ps => ({...ps, [playerId]: []}));
+      return;
+    }
     searchDebounce.current[playerId] = setTimeout(async () => {
       const q = query.trim().toLowerCase();
       const excludedIds = new Set();
@@ -1275,7 +1278,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
                             placeholder={p.isMe?"El teu nom":"Cerca jugador registrat..."}
                             value={p.name}
                             onChange={e=>{updateName(p.id,e.target.value);if(!p.isMe)searchPlayers(p.id,e.target.value);}}
-                            onFocus={()=>{setFocusedPlayerId(p.id);if(!p.isMe)searchPlayers(p.id,p.name||"");}}
+                            onFocus={()=>{setFocusedPlayerId(p.id);if(!p.isMe&&p.name?.trim().length>=1)searchPlayers(p.id,p.name);}}
                             onBlur={()=>setTimeout(()=>setFocusedPlayerId(null),200)}/>
                           {p.isMe && <span style={{fontSize:9,color:"#555761",fontWeight:600,flexShrink:0}}>TU</span>}
                           {p.isRegistered && !p.isMe && <span style={{fontSize:9,color:"#CAFF4D",fontWeight:700,flexShrink:0}}>✓</span>}
@@ -1325,7 +1328,7 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
                   placeholder={p.isMe ? "El teu nom" : "Cerca jugador registrat..."}
                   value={p.name}
                   onChange={e=>{updateName(p.id,e.target.value);if(!p.isMe)searchPlayers(p.id,e.target.value);}}
-                  onFocus={()=>{setFocusedPlayerId(p.id);if(!p.isMe)searchPlayers(p.id,p.name||"");}}
+                  onFocus={()=>{setFocusedPlayerId(p.id);if(!p.isMe&&p.name?.trim().length>=1)searchPlayers(p.id,p.name);}}
                   onBlur={()=>setTimeout(()=>setFocusedPlayerId(null),200)}
                   autoFocus={!p.isMe && i===players.length-1}
                 />

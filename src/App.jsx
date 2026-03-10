@@ -51,7 +51,7 @@ const T = {
     shop_soon_desc:"La botiga oficial de P&C obrirà aviat. Kits de clubs, gear exclusiu P&C i molt més. El 10% de cada compra va al teu club.",
     shop_soon_btn_user:"Avisa'm quan obri →",shop_soon_btn_guest:"Crea un compte per ser el primer →",shop_preview:"Avantvisualització",
     shop_club_title:"El teu club cobra el 10%",shop_club_desc:"Cada compra al kit oficial del teu club li aporta un 10% directament. Suport real, no màrqueting.",
-    profile_title:"Perfil",profile_score_trend:"Evolució de scores — últims 10 rounds",profile_hcp_trend:"Evolució Handicap",
+    profile_title:"Perfil",profile_score_trend:"Evolució de scores — últims 10 rounds",profile_hcp_trend:"HCP de rendiment",
     profile_hcp_current:"HCP actual: {v} · millora de {d} des de novembre",profile_dist:"Distribució de resultats",profile_best_courses:"Millors camps",
     profile_played:"partides",profile_tournaments:"Tornejos",profile_pts_month:"Pts aquest mes",profile_win:"1 victòria",profile_no_win:"Cap victòria",
     auth_register_title:"UNEIX-TE A P&C",auth_login_title:"ENTRAR",auth_register_sub:"Gratuït · Sense targeta de crèdit",auth_login_sub:"Benvingut de nou",
@@ -102,7 +102,7 @@ const T = {
     shop_soon_desc:"La tienda oficial de P&C abrirá pronto. Kits de clubs, gear exclusivo P&C y mucho más. El 10% de cada compra va a tu club.",
     shop_soon_btn_user:"Avísame cuando abra →",shop_soon_btn_guest:"Crea una cuenta para ser el primero →",shop_preview:"Previsualización",
     shop_club_title:"Tu club cobra el 10%",shop_club_desc:"Cada compra en el kit oficial de tu club le aporta un 10% directamente. Apoyo real, no marketing.",
-    profile_title:"Perfil",profile_score_trend:"Evolución de scores — últimos 10 rounds",profile_hcp_trend:"Evolución Hándicap",
+    profile_title:"Perfil",profile_score_trend:"Evolución de scores — últimos 10 rounds",profile_hcp_trend:"HCP de rendimiento",
     profile_hcp_current:"HCP actual: {v} · mejora de {d} desde noviembre",profile_dist:"Distribución de resultados",profile_best_courses:"Mejores campos",
     profile_played:"partidas",profile_tournaments:"Torneos",profile_pts_month:"Pts este mes",profile_win:"1 victoria",profile_no_win:"Sin victorias",
     auth_register_title:"ÚNETE A P&C",auth_login_title:"ENTRAR",auth_register_sub:"Gratis · Sin tarjeta de crédito",auth_login_sub:"Bienvenido de nuevo",
@@ -153,7 +153,7 @@ const T = {
     shop_soon_desc:"The official P&C shop is opening soon. Club kits, exclusive P&C gear and more. 10% of every purchase goes to your club.",
     shop_soon_btn_user:"Notify me when open →",shop_soon_btn_guest:"Create an account to be first →",shop_preview:"Preview",
     shop_club_title:"Your club gets 10%",shop_club_desc:"Every purchase from your club's official kit gives them 10% directly. Real support, not marketing.",
-    profile_title:"Profile",profile_score_trend:"Score evolution — last 10 rounds",profile_hcp_trend:"Handicap evolution",
+    profile_title:"Profile",profile_score_trend:"Score evolution — last 10 rounds",profile_hcp_trend:"Performance HCP",
     profile_hcp_current:"Current HCP: {v} · improved {d} since November",profile_dist:"Score distribution",profile_best_courses:"Best courses",
     profile_played:"rounds",profile_tournaments:"Tournaments",profile_pts_month:"Pts this month",profile_win:"1 win",profile_no_win:"No wins",
     auth_register_title:"JOIN P&C",auth_login_title:"SIGN IN",auth_register_sub:"Free · No credit card",auth_login_sub:"Welcome back",
@@ -2150,6 +2150,27 @@ function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang
         <div style={{fontSize:13,color:"#555761",fontWeight:400}}>{game.course} · {game.date}</div>
       </div>
 
+      {/* Fraud disclaimer */}
+      {game.fraudFlags?.length > 0 && (() => {
+        const msgs = game.fraudFlags.map(f => {
+          if (f.code === 'SPEED') return lang==="en"?`Game too fast (${f.detail}) — minimum 40 min for 18 holes`:lang==="es"?`Partida demasiado rápida (${f.detail}) — mínimo 40 min para 18 hoyos`:`Partida massa ràpida (${f.detail}) — mínim 40 min per 18 forats`;
+          if (f.code === 'SCORE') return lang==="en"?`Unusual score (${f.detail})`:lang==="es"?`Puntuación inusual (${f.detail})`:`Puntuació inusual (${f.detail})`;
+          if (f.code === 'SOLO_DAY') return lang==="en"?"Solo play limit reached (1/day)":lang==="es"?"Límite de partida solitaria alcanzado (1/día)":"Límit de partida en solitari assolit (1/dia)";
+          if (f.code === 'SOLO_WEEK') return lang==="en"?"Solo play limit reached (2/week)":lang==="es"?"Límite semanal alcanzado (2/semana)":"Límit setmanal assolit (2/setmana)";
+          return f.code;
+        });
+        return (
+          <div style={{marginBottom:14,background:"rgba(239,68,68,.06)",border:"1px solid rgba(239,68,68,.3)",borderRadius:12,padding:"14px 16px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <div style={{fontSize:16}}>⚠️</div>
+              <div style={{fontSize:12,fontWeight:700,color:"#EF4444"}}>{lang==="en"?"Points not counted":lang==="es"?"Puntos no contabilizados":"Punts no comptabilitzats"}</div>
+            </div>
+            {msgs.map((m,i) => <div key={i} style={{fontSize:11,color:"#9CA3AF",marginBottom:3,paddingLeft:24}}>· {m}</div>)}
+            <div style={{fontSize:10,color:"#555761",marginTop:8,fontStyle:"italic",paddingLeft:24}}>{lang==="en"?"The game is saved but no ranking points are awarded.":lang==="es"?"La partida se guarda pero no se otorgan puntos de ranking.":"La partida es guarda però no s'atorguen punts de rànquing."}</div>
+          </div>
+        );
+      })()}
+
       {/* Share — prominent, right after hero */}
       <button onClick={handleShare} disabled={sharing}
         style={{width:"100%",marginBottom:20,padding:"13px",borderRadius:12,border:"none",background:"#CAFF4D",color:"#0A0A0B",fontWeight:700,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:sharing?.6:1}}>
@@ -3152,42 +3173,29 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
     s: parseFloat(g.players.find(p => p.isMe)?.diff) || 0,
   }));
 
-  // Real HCP history: avg diff per month, or per-game if all in same month
+  // Real HCP history: running performance HCP via EMA
+  // Playing worse than current HCP → HCP worsens faster (alpha 0.35)
+  // Playing better than current HCP → HCP improves slower (alpha 0.15)
   const realHcpHist = (() => {
     if (!hasRealGames) return null;
-    const byMonth = {};
-    [...myGames].reverse().forEach(g => {
-      const me = g.players?.find(p => p.isMe);
-      const diff = parseFloat(me?.diff);
-      if (isNaN(diff)) return;
+    const games = [...myGames].reverse() // oldest first
+      .filter(g => { const me = g.players?.find(p=>p.isMe); return me && !isNaN(parseFloat(me?.diff)); });
+    if (!games.length) return null;
+    // Seed from declared HCP or first game diff
+    const firstDiff = parseFloat(games[0].players.find(p=>p.isMe).diff);
+    let running = user?.hcp != null ? user.hcp : firstDiff;
+    return games.slice(-10).map((g, i) => {
+      const me = g.players.find(p=>p.isMe);
+      const diff = parseFloat(me.diff);
+      const alpha = diff > running ? 0.35 : 0.15; // penalize worsening more
+      running = Math.round((running * (1 - alpha) + diff * alpha) * 10) / 10;
       const dateStr = g.date || "";
-      // Support YYYY-MM-DD and DD/MM/YYYY
       const d = new Date(dateStr.includes('/') ? dateStr.split('/').reverse().join('-') : dateStr);
-      if (isNaN(d.getTime())) return;
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-      const mLabel = d.toLocaleDateString('ca-ES',{month:'short'}).replace('.','').slice(0,3);
-      if (!byMonth[key]) byMonth[key] = { m: mLabel, diffs: [] };
-      byMonth[key].diffs.push(diff);
+      const label = !isNaN(d.getTime())
+        ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`
+        : `P${i+1}`;
+      return { m: label, v: running };
     });
-    const months = Object.keys(byMonth).sort().map(k => {
-      const {m, diffs} = byMonth[k];
-      return { m, v: Math.round((diffs.reduce((a,b)=>a+b,0)/diffs.length)*10)/10 };
-    });
-    if (months.length >= 2) return months;
-    // Fall back to per-game points (up to 8, chronological)
-    const perGame = [...myGames].reverse()
-      .filter(g => { const me = g.players?.find(p=>p.isMe); return me && !isNaN(parseFloat(me.diff)); })
-      .slice(-8)
-      .map((g, i) => {
-        const me = g.players.find(p=>p.isMe);
-        const dateStr = g.date || "";
-        const d = new Date(dateStr.includes('/') ? dateStr.split('/').reverse().join('-') : dateStr);
-        const label = !isNaN(d.getTime())
-          ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`
-          : `P${i+1}`;
-        return { m: label, v: Math.round(parseFloat(me.diff)*10)/10 };
-      });
-    return perGame.length >= 1 ? perGame : null;
   })();
   const hcpHist = realHcpHist || profile.hcpHist;
   const courseMap = {};
@@ -3376,7 +3384,7 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
                 );
               })}
             </div>
-            <div style={{fontSize:9,color:"#60A5FA",fontWeight:600,textAlign:"center",opacity:.7}}>{lang==="en"?"↑ taller = better score":lang==="es"?"↑ más alto = mejor score":"↑ més alt = millor score"}</div>
+            <div style={{fontSize:9,color:"#60A5FA",fontWeight:600,textAlign:"center",opacity:.7}}>{lang==="en"?"Running performance HCP · consistent bad rounds raise it":lang==="es"?"HCP de rendimiento · rondas malas lo suben":"HCP de rendiment · rondes dolentes el pugen"}</div>
           </>
         }
       </div>
@@ -4153,6 +4161,7 @@ export default function App() {
     localStorage.removeItem('pc_screen');
     localStorage.removeItem('pc_liveGameId');
     localStorage.removeItem('pc_liveShareToken');
+    localStorage.removeItem('pc_gameStartedAt');
     setGameData(null);
     setScreen("home");
     window.scrollTo(0, 0);
@@ -4221,6 +4230,7 @@ export default function App() {
   const handleGameStart = async (data) => {
     localStorage.setItem('pc_gameData', JSON.stringify(data));
     localStorage.setItem('pc_screen', 'scorecard');
+    localStorage.setItem('pc_gameStartedAt', String(Date.now()));
     setGameData(data);
     setScreen("scorecard");
 
@@ -4261,14 +4271,53 @@ export default function App() {
   const handleGameFinish = async (scores, saveAndExit=false) => {
     if (!gameData) return;
     if (saveAndExit) {
-      // Save scores to localStorage and go home, keeping game alive
       localStorage.setItem('pc_scores', JSON.stringify(scores));
       setScreen("home");
       return;
     }
+
+    // ── Anti-fraud checks ──────────────────────────────────────────
+    const fraudFlags = [];
+
+    // Rule 1: Minimum game duration — 18 holes must take ≥ 40 min
+    const startedAt = parseInt(localStorage.getItem('pc_gameStartedAt') || '0');
+    const elapsedMin = startedAt ? (Date.now() - startedAt) / 60000 : 999;
+    if (startedAt && elapsedMin < 40) {
+      fraudFlags.push({ code: 'SPEED', detail: `${Math.round(elapsedMin)}m` });
+    }
+
+    // Crazy score: flag if avg diff/hole < -1.5 (≈ all hole-in-ones, physically impossible)
+    const mePre = gameData.players.find(p => p.isMe);
+    if (mePre) {
+      const holesScored = scores.filter(h => h.playerScores[mePre.id] != null).length;
+      const rawDiff = scores.reduce((a,h) => { const s=h.playerScores[mePre.id]; return s!=null?a+(s-h.par):a; }, 0);
+      if (holesScored >= 3 && rawDiff / holesScored < -1.5) {
+        fraudFlags.push({ code: 'SCORE', detail: `${rawDiff} en ${holesScored} forats` });
+      }
+    }
+
+    // Rule 2: Solo play limits — max 1 solo/day, max 2 solo/week (logged-in only)
+    const hasRegisteredCoPlayer = gameData.players.some(p => !p.isMe && p.isRegistered);
+    if (user?.id && !hasRegisteredCoPlayer) {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().slice(0, 10);
+        const { data: recentGames } = await supabase
+          .from('games').select('date, players').eq('user_id', user.id)
+          .eq('is_live', false).gte('date', weekAgo);
+        const soloGames = (recentGames||[]).filter(g => !g.players?.some(p => !p.isMe && p.isRegistered));
+        const soloToday = soloGames.filter(g => g.date === today).length;
+        if (soloToday >= 1) fraudFlags.push({ code: 'SOLO_DAY', detail: `${soloToday+1} partides sol·les avui` });
+        else if (soloGames.length >= 2) fraudFlags.push({ code: 'SOLO_WEEK', detail: `${soloGames.length+1} partides sol·les aquesta setmana` });
+      } catch(e) { /* non-blocking */ }
+    }
+
+    const pointsBlocked = fraudFlags.length > 0;
+    // ──────────────────────────────────────────────────────────────
+
     const totalPar = gameData.course.par;
     const players = gameData.players.map(p => {
-      const pPts = scores.reduce((a,h) => { const s=h.playerScores[p.id]; return a+(s!==null?calcPCPoints(s,h.par):0); },0) + 8;
+      const pPts = pointsBlocked ? 0 : scores.reduce((a,h) => { const s=h.playerScores[p.id]; return a+(s!==null?calcPCPoints(s,h.par):0); },0) + 8;
       const pScore = scores.reduce((a,h)=>a+(h.playerScores[p.id]??h.par),0);
       return {...p, score:pScore, diff:pScore-totalPar, points:pPts, hcp: p.isMe ? (user?.hcp ?? null) : (p.hcp ?? null)};
     });
@@ -4329,7 +4378,7 @@ export default function App() {
         alert("Error guardant la partida:\n" + (e.message || JSON.stringify(e)));
       }
     }
-    setLastGame({...game, supabaseId: dbGameId});
+    setLastGame({...game, supabaseId: dbGameId, fraudFlags});
     // Remove from live list + clear active game state
     setLiveGames(prev => prev.filter(g => g.id !== liveGameId));
     setGameData(null);
@@ -4340,6 +4389,7 @@ export default function App() {
     localStorage.removeItem('pc_screen');
     localStorage.removeItem('pc_liveGameId');
     localStorage.removeItem('pc_liveShareToken');
+    localStorage.removeItem('pc_gameStartedAt');
     setScreen("summary");
   };
 

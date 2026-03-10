@@ -1040,47 +1040,27 @@ function GameSetupScreen({ user, openAuth, onStart, lang }) {
       players.forEach(p => { if (p.userId) excludedIds.add(p.userId); });
 
       // Try profiles table first (fast, reliable)
-      let results = [];
-      const profileQuery = supabase.from('profiles').select('id, name, club').limit(8);
-      const { data: profileData, error: profileError } = q
-        ? await profileQuery.ilike('name', `%${q}%`)
-        : await profileQuery.order('name');
+      // Search registered users by name from games table (server-side ilike filter)
+      const { data: gamesData } = await supabase
+        .from('games')
+        .select('user_id, player_name')
+        .not('user_id', 'is', null)
+        .ilike('player_name', `%${q}%`)
+        .order('created_at', { ascending: false })
+        .limit(80);
 
-      if (!profileError && profileData?.length) {
-        results = profileData
-          .filter(p => !excludedIds.has(p.id))
-          .slice(0, 6)
-          .map(p => ({
-            name: p.name,
-            userId: p.id,
-            club: p.club || "",
-            initials: p.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase(),
-            isRegistered: true,
-          }));
-      } else {
-        // Fallback: scan recent games
-        const { data } = await supabase
-          .from('games').select('user_id, players')
-          .not('user_id', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(300);
-        if (data) {
-          const seen = new Set(excludedIds);
-          for (const g of data) {
-            if (results.length >= 6) break;
-            if (!seen.has(g.user_id)) {
-              seen.add(g.user_id);
-              const me = (g.players || []).find(p => p.isMe);
-              if (me?.name && (q === "" || me.name.toLowerCase().includes(q))) {
-                const initials = me.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
-                results.push({ name: me.name, userId: g.user_id, club: me.club || "", initials, isRegistered: true });
-              }
-            }
-          }
+      const seen = new Set(excludedIds);
+      const results = [];
+      for (const g of (gamesData || [])) {
+        if (results.length >= 6) break;
+        if (!seen.has(g.user_id) && g.player_name) {
+          seen.add(g.user_id);
+          const initials = g.player_name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+          results.push({ name: g.player_name, userId: g.user_id, initials, isRegistered: true });
         }
       }
       setPlayerSuggestions(ps=>({...ps,[playerId]:results}));
-    }, delay);
+    }, 300);
   };
 
   // Sync player 1 name when user auth resolves after mount

@@ -2920,8 +2920,19 @@ function LiveGameCard({ game, compact, onClick }) {
   );
 }
 
-function LiveScreen({ user, openAuth, lang, liveGames, onSelectGame, setScreen }) {
+function LiveScreen({ user, openAuth, lang, liveGames, setLiveGames, onSelectGame, setScreen }) {
   const tl = (k) => t(lang,k);
+
+  // Re-fetch live games on mount and every 30s (Realtime fallback)
+  useEffect(() => {
+    const fetch = () => supabase.from("games").select("*").eq("is_live", true)
+      .order("created_at", { ascending: false }).limit(20)
+      .then(({ data }) => { if (data) setLiveGames(data); });
+    fetch();
+    const iv = setInterval(fetch, 30000);
+    return () => clearInterval(iv);
+  }, []);
+
   const liveNow = (liveGames||[]).filter(g => g.is_live);
   const handleCardClick = (game) => {
     if (!user) { openAuth(); return; }
@@ -4036,6 +4047,15 @@ export default function App() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // Re-fetch live games whenever the user navigates to the live screen
+  useEffect(() => {
+    if (screen === "live") {
+      supabase.from("games").select("*").eq("is_live", true)
+        .order("created_at", { ascending: false }).limit(20)
+        .then(({ data }) => { if (data) setLiveGames(data); });
+    }
+  }, [screen]);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
@@ -4359,7 +4379,7 @@ export default function App() {
         }}/>}
         {screen==="summary"    && lastGame && <SummaryScreen   game={lastGame} userPts={userPts} prevPts={prevPts} setScreen={setScreenSafe} openAuth={openAuth} user={user} lang={lang} shareCardRef={shareCardRef} roundPhoto={roundPhotoUrl}/>}
         {screen==="ranking"    && <RankingScreen    user={user} openAuth={openAuth} setScreen={setScreenSafe} lang={lang} follows={follows} onFollow={handleFollow}/>}
-        {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} onSelectGame={user?setSelectedLiveGame:null} setScreen={setScreenSafe}/>}
+        {screen==="live" && !selectedLiveGame && <LiveScreen user={user} openAuth={openAuth} lang={lang} liveGames={liveGames} setLiveGames={setLiveGames} onSelectGame={user?setSelectedLiveGame:null} setScreen={setScreenSafe}/>}
         {screen==="live" && selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth} follows={follows} onFollow={handleFollow}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser} follows={follows} followsNames={followsNames} onFollow={handleFollow} enableNotifications={enableNotifications}/>}

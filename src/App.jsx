@@ -3148,10 +3148,14 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
   const hasRealGames = myGames.length > 0;
   const myDiffs = myGames.map(g => g.players.find(p => p.isMe)?.diff).filter(d => d !== undefined && d !== null && !isNaN(parseFloat(d)));
   const bestDiff = myDiffs.length ? Math.min(...myDiffs.map(d=>parseFloat(d))) : null;
-  const trendData = myGames.slice(0, 10).reverse().map(g => ({
-    date: g.date,
-    s: parseFloat(g.players.find(p => p.isMe)?.diff) || 0,
-  }));
+  const trendData = myGames.slice(0, 10).reverse().map(g => {
+    const dateStr = g.date || "";
+    const d = new Date(dateStr.includes('/') ? dateStr.split('/').reverse().join('-') : dateStr);
+    const label = !isNaN(d.getTime())
+      ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`
+      : dateStr.slice(0,5);
+    return { date: label, s: parseFloat(g.players.find(p => p.isMe)?.diff) || 0 };
+  });
 
   // Real HCP history: running performance HCP via EMA
   // Playing worse than current HCP → HCP worsens faster (alpha 0.35)
@@ -3322,22 +3326,20 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
         <div style={{fontSize:10,color:"#555761",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:!hasRealGames?4:12}}>{tl("profile_score_trend")}</div>
         {!hasRealGames && <div style={{fontSize:10,color:"#555761",fontStyle:"italic",marginBottom:8,textAlign:"center"}}>{noDataMsg}</div>}
         {scoreTrend.length >= 2 && <>
-          <div style={{display:"flex",alignItems:"flex-end",gap:5,height:56,marginBottom:6}}>
+          <div style={{display:"flex",alignItems:"flex-end",gap:5,height:64,marginBottom:4}}>
             {scoreTrend.map((r,i) => {
               const worst = Math.max(...scoreTrend.map(x=>x.s));
               const best  = Math.min(...scoreTrend.map(x=>x.s));
               const range = worst - best || 1;
-              const h = Math.round(((worst-r.s)/range)*44)+8;
-              const c = r.s<=-2?"#FBBF24":r.s<0?"#60A5FA":r.s===0?"#CAFF4D":"#9CA3AF";
+              const h = Math.round(((r.s - best) / range) * 44) + 8; // higher diff = taller bar
+              const isBest = r.s === best;
+              const c = isBest ? "#CAFF4D" : "#60A5FA";
               return <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:2}}>
-                <div style={{fontSize:8,color:c,fontWeight:700,letterSpacing:".04em"}}>{r.s>0?`+${r.s}`:r.s===0?"E":r.s}</div>
-                <div style={{width:"100%",background:c,borderRadius:"2px 2px 0 0",height:h,opacity:.9}}/>
+                <div style={{fontSize:7,color:c,fontWeight:700}}>{r.s>0?`+${r.s}`:r.s===0?"E":r.s}</div>
+                <div style={{width:"100%",background:c,borderRadius:"2px 2px 0 0",height:h,opacity:.85}}/>
+                <div style={{fontSize:7,color:"#555761"}}>{r.date}</div>
               </div>;
             })}
-          </div>
-          <div style={{display:"flex",justifyContent:"space-between"}}>
-            <div style={{fontSize:8,color:"#555761"}}>{scoreTrend[0].date}</div>
-            <div style={{fontSize:8,color:"#555761"}}>{scoreTrend[scoreTrend.length-1].date}</div>
           </div>
         </>}
       </div>
@@ -3353,12 +3355,12 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
                 const vals=hcpHist.map(x=>x.v);
                 const maxV=Math.max(...vals), minV=Math.min(...vals);
                 const range=maxV-minV||1;
-                const h=Math.round(((maxV-pt.v)/range)*44)+8; // lower diff = taller bar (improvement = up)
-                const isLast=i===hcpHist.length-1;
+                const h=Math.round(((pt.v-minV)/range)*44)+8; // higher HCP = taller bar
+                const isBest=pt.v===minV;
                 return (
                   <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:2}}>
-                    <div style={{fontSize:7,color:isLast?"#CAFF4D":"#60A5FA",fontWeight:700}}>{pt.v>0?`+${pt.v}`:pt.v===0?"E":pt.v}</div>
-                    <div style={{width:"100%",background:isLast?"#CAFF4D":"#60A5FA",borderRadius:"2px 2px 0 0",height:h,opacity:.7}}/>
+                    <div style={{fontSize:7,color:isBest?"#CAFF4D":"#60A5FA",fontWeight:700}}>{pt.v>0?`+${pt.v}`:pt.v===0?"E":pt.v}</div>
+                    <div style={{width:"100%",background:isBest?"#CAFF4D":"#60A5FA",borderRadius:"2px 2px 0 0",height:h,opacity:.75}}/>
                     <div style={{fontSize:7,color:"#555761"}}>{pt.m}</div>
                   </div>
                 );

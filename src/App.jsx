@@ -4341,16 +4341,17 @@ export default function App() {
           setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
         }
         showToast("Partida guardada! ✓");
-        // Save copies for other registered players
+        // Save copies for other registered players via secure RPC
+        // (direct cross-user INSERT is blocked by RLS; the function validates the host)
         const otherRegistered = gameData.players.filter(p => !p.isMe && p.userId);
         for (const rp of otherRegistered) {
-          await supabase.from("games").insert({
-            user_id: rp.userId,
-            course_name: game.course,
-            date: game.date,
-            game_mode: game.mode,
-            players: game.players,
-            scores: game.scores,
+          await supabase.rpc('save_linked_game', {
+            p_user_id:   rp.userId,
+            p_course:    game.course,
+            p_date:      game.date,
+            p_game_mode: game.mode,
+            p_players:   game.players,
+            p_scores:    game.scores,
           }).then(({error}) => { if (error) console.warn("P&C: linked player save error:", error.message); });
         }
         // Notify followers

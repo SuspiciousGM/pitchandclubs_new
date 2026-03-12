@@ -80,7 +80,7 @@ ALTER TABLE games
   ADD CONSTRAINT games_score_sane
     CHECK (score_total IS NULL OR score_total BETWEEN -54 AND 300),
   ADD CONSTRAINT games_mode_valid
-    CHECK (game_mode IS NULL OR game_mode IN ('stableford','strokeplay','match','parelles')),
+    CHECK (game_mode IS NULL OR game_mode IN ('stableford','strokeplay','match','parelles','medal')),
   ADD CONSTRAINT games_player_name_nonempty
     CHECK (player_name IS NULL OR length(trim(player_name)) > 0);
 

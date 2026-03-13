@@ -781,6 +781,77 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
   const bestGame = myScores.length ? Math.min(...myScores) : null;
   const tl = (k,v={}) => t(lang,k,v);
 
+  // ── GUEST LANDING PAGE ──
+  if (!user) return (
+    <div className="page-scroll ani-up" style={{padding:0,overflow:"hidden"}}>
+      {/* Hero — background photo */}
+      <div style={{
+        position:"relative",
+        background:`url('/Frame 8.png') center/cover no-repeat`,
+        minHeight:"100vh",
+        display:"flex",flexDirection:"column",alignItems:"center",
+        padding:"60px 28px 48px",
+        textAlign:"center",
+      }}>
+        {/* Overlays */}
+        <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.55)",zIndex:0}}/>
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,rgba(0,0,0,.2) 0%,rgba(0,0,0,.8) 100%)",zIndex:0}}/>
+
+        {/* Content */}
+        <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:420}}>
+          {/* Golf ball + Logo */}
+          <img src="/icon-512.png" alt="golf ball" style={{width:72,height:72,objectFit:"contain",marginBottom:16,filter:"drop-shadow(0 4px 12px rgba(0,0,0,.6))"}}/>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(48px,13vw,80px)",lineHeight:.9,letterSpacing:".02em",marginBottom:12}}>
+            PITCH<span style={{color:"#CAFF4D"}}>&#38;</span>CLUBS
+          </div>
+          <div style={{fontSize:15,fontWeight:600,color:"#fff",marginBottom:16,letterSpacing:".01em"}}>
+            {lang==="en"?"Your golfers' community.":lang==="es"?"Tu comunidad de jugadores.":"La teva comunitat de jugadors."}
+          </div>
+          <div style={{height:1,background:"#CAFF4D",opacity:.5,marginBottom:20}}/>
+          <div style={{fontSize:13,color:"rgba(255,255,255,.65)",lineHeight:1.7,marginBottom:32}}>
+            {lang==="en"?"Record every round, improve your swing and boost your club.":lang==="es"?"Registra cada partida, mejora tu swing e impulsa tu club.":"Registra cada partida, millora el teu swing i impulsa el teu club."}
+          </div>
+
+          {/* CTA Buttons */}
+          <button className="btn btn-primary" style={{marginBottom:12,fontSize:15,borderRadius:100}}
+            onClick={()=>setScreen("game-setup")}>
+            <Flag size={18} strokeWidth={2.5}/>{tl("cta_new_game")}
+          </button>
+          <button className="btn btn-ghost" style={{marginBottom:12,fontSize:14,borderRadius:100,display:"flex",alignItems:"center",justifyContent:"center",gap:7}} onClick={openAuth}>
+            <User size={15}/>{tl("cta_create_account")}
+          </button>
+          {/* Google sign-in */}
+          <button
+            onClick={async()=>{ await supabase.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: window.location.origin } }); }}
+            style={{width:"100%",padding:"13px",borderRadius:100,border:"none",background:"rgba(255,255,255,.9)",color:"#111",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+            <svg width="16" height="16" viewBox="0 0 18 18">
+              <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+              <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+              <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z"/>
+              <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+            </svg>
+            {lang==="en"?"Sign in with Google":lang==="es"?"Entrar con Google":"Entra amb Google"}
+          </button>
+        </div>
+      </div>
+
+      {/* Feature sections */}
+      <div style={{background:"#0A0A0B",padding:"48px 28px 100px"}}>
+        {[
+          { icon:<Flag size={32} strokeWidth={1.5}/>, title:tl("step1_t"), desc:tl("step1_d") },
+          { icon:<TrendingUp size={32} strokeWidth={1.5}/>, title:tl("step2_t"), desc:tl("step2_d") },
+          { icon:<ShoppingBag size={32} strokeWidth={1.5}/>, title:tl("step3_t"), desc:tl("step3_d") },
+        ].map((f,i,arr)=>(
+          <div key={i} style={{textAlign:"center",padding:"36px 0",borderBottom:i<arr.length-1?"1px solid rgba(202,255,77,.15)":"none"}}>
+            <div style={{color:"#CAFF4D",display:"flex",justifyContent:"center",marginBottom:16}}>{f.icon}</div>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:22,letterSpacing:".1em",marginBottom:10}}>{f.title}</div>
+            <div style={{fontSize:13,color:"rgba(255,255,255,.55)",lineHeight:1.7,maxWidth:280,margin:"0 auto"}}>{f.desc}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="page-scroll ani-up">
 
@@ -858,12 +929,6 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
         onClick={()=>setScreen("game-setup")}>
         <Flag size={18} strokeWidth={2.5}/>{tl("cta_new_game")}
       </button>
-      {!user && (
-        <button className="btn btn-ghost" style={{marginBottom:16,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:6}} onClick={openAuth}>
-          <User size={14}/>{tl("cta_create_account")}
-        </button>
-      )}
-
       {/* ── QUICK STATS ── */}
       {myGames.length > 0 && (
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
@@ -902,15 +967,6 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
               </div>
             );
           })}
-        </div>
-      )}
-
-      {myGames.length===0 && !user && (
-        <div className="card" style={{textAlign:"center",padding:"28px 16px",marginBottom:16}}>
-          <div style={{display:"flex",justifyContent:"center",marginBottom:10,color:"#2A2B30"}}><Flag size={40} strokeWidth={1}/></div>
-          <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:".04em",marginBottom:6}}>{tl("no_games")}</div>
-          <div style={{fontSize:12,color:"#555761",lineHeight:1.6,marginBottom:14}}>{tl("no_games_sub")}</div>
-          <button className="btn btn-ghost btn-sm" style={{width:"auto",margin:"0 auto"}} onClick={()=>setScreen("game-setup")}>{tl("cta_register_now")}</button>
         </div>
       )}
 

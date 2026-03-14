@@ -1050,7 +1050,7 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
               ? "Every round feeds your game. Track your first round today and start building your story."
               : lang==="es"
               ? "Cada partida nutre tu juego. Registra la primera hoy y empieza a construir tu historial."
-              : "Cada partida nodreix el teu joc. Registra la primera avui i comença a construir la teva història."}
+              : "Cada partida millora el teu joc. Registra la primera avui i comença a construir la teva història."}
           </div>
           <button className="btn btn-primary" style={{width:"auto",margin:"0 auto",padding:"14px 28px",fontSize:14}} onClick={()=>setScreen("game-setup")}>
             {tl("cta_new_game")} →

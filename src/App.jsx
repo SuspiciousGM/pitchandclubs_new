@@ -2505,9 +2505,10 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
       setLoading(true);
       try {
         // Global: aggregate points per user from games table
-        const { data: gamesData } = await supabase
+        const { data: gamesData, error: gamesError } = await supabase
           .from("games")
-          .select("user_id, players, scores, created_at, course_name, date, avatar_url");
+          .select("user_id, players, scores, created_at, course_name, date");
+        if (gamesError) console.warn("P&C ranking query error:", gamesError.message);
 
         if (gamesData && !cancelled) {
           const userMap = {};
@@ -3088,7 +3089,7 @@ function LiveScreen({ user, openAuth, lang, liveGames, setLiveGames, onSelectGam
   useEffect(() => {
     const load = async () => {
       const { data } = await supabase.from("games")
-        .select("id,user_id,player_name,avatar_url,color,course,date,scores,players,created_at")
+        .select("id,user_id,player_name,course_name,date,scores,players,created_at")
         .eq("is_live", false)
         .not("scores", "is", null)
         .order("created_at", { ascending: false })
@@ -3197,7 +3198,7 @@ function LiveScreen({ user, openAuth, lang, liveGames, setLiveGames, onSelectGam
                 </div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:12,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.player_name||"—"}</div>
-                  <div style={{fontSize:10,color:"#555761",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.course} · {daysAgo}</div>
+                  <div style={{fontSize:10,color:"#555761",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.course_name||g.course} · {daysAgo}</div>
                 </div>
                 <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:diffColor,lineHeight:1,flexShrink:0}}>{diffLabel}</div>
               </div>

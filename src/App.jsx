@@ -1863,10 +1863,10 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
     <div style={{position:'fixed',top:0,bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:430,background:'#0A0A0B',display:'flex',flexDirection:'column',overflow:'hidden',fontFamily:'Inter,sans-serif',paddingBottom:'env(safe-area-inset-bottom)'}}>
 
       {/* TOP BAR — compact 2-row */}
-      <div style={{padding:'8px 12px 6px',borderBottom:'1px solid #1a1a1f',flexShrink:0}}>
+      <div style={{padding:'8px 12px 6px',borderBottom:'1px solid #1a1a1f',flexShrink:0,background:'#0D0E12'}}>
         {/* Row 1: save | course + hole | invite + exit */}
         <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
-          <button onClick={()=>onFinish(scores,true)} style={{padding:'5px 9px',borderRadius:100,border:'1px solid #222327',background:'#1A1B1E',color:'#555761',fontSize:10,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
+          <button onClick={()=>onFinish(scores,true)} style={{padding:'5px 11px',borderRadius:100,border:'1px solid #333',background:'#1A1B1E',color:'#ccc',fontSize:13,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
             ←
           </button>
           <div style={{flex:1,minWidth:0}}>
@@ -1880,11 +1880,11 @@ function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, l
           <button onClick={()=>{setShowInviteSheet(true);setShowCodePanel(false);}} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(202,255,77,.35)',background:'rgba(202,255,77,.1)',color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
             <Share2 size={12}/> Invita
           </button>
-          <button onClick={()=>setShowFull(true)} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
-            <Flag size={12}/>
+          <button onClick={()=>setShowFull(true)} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #333',background:'#1a1a1f',color:'#999',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
+            <Flag size={13}/>
           </button>
-          <button onClick={()=>{ if(window.confirm(lang==='en'?'Abandon?':lang==='es'?'¿Abandonar?':'Abandonar?')) onDelete(); }} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#555',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
-            <X size={12}/>
+          <button onClick={()=>{ if(window.confirm(lang==='en'?'Abandon?':lang==='es'?'¿Abandonar?':'Abandonar?')) onDelete(); }} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #333',background:'#1a1a1f',color:'#999',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
+            <X size={13}/>
           </button>
         </div>
 
@@ -3048,6 +3048,7 @@ function LiveGameCard({ game, compact, onClick }) {
 
 function LiveScreen({ user, openAuth, lang, liveGames, setLiveGames, onSelectGame, setScreen }) {
   const tl = (k) => t(lang,k);
+  const [recentGames, setRecentGames] = useState([]);
 
   // Re-fetch live games on mount and every 30s (Realtime fallback)
   useEffect(() => {
@@ -3057,6 +3058,17 @@ function LiveScreen({ user, openAuth, lang, liveGames, setLiveGames, onSelectGam
     fetch();
     const iv = setInterval(fetch, 30000);
     return () => clearInterval(iv);
+  }, []);
+
+  // Fetch 10 most recent finished games
+  useEffect(() => {
+    supabase.from("games")
+      .select("id,player_name,avatar_url,color,course,date,scores,players,created_at")
+      .eq("is_live", false)
+      .not("scores", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .then(({ data }) => { if (data) setRecentGames(data); });
   }, []);
 
   const liveNow = (liveGames||[]).filter(g => g.is_live);
@@ -3114,37 +3126,51 @@ function LiveScreen({ user, openAuth, lang, liveGames, setLiveGames, onSelectGam
         </div>
       )}
 
-      {/* ── PROPERS TORNEJOS ── */}
-      <div style={{marginTop:24,marginBottom:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
-          <div>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:4}}>{tl("sec_tournaments")}</div>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(20px,5vw,30px)",letterSpacing:".04em",lineHeight:1}}>{tl("sec_next_tournaments")}</div>
-          </div>
-          <button style={{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#CAFF4D",cursor:"pointer",border:"none",background:"none",display:"flex",alignItems:"center",gap:4}} onClick={()=>setScreen("tournaments")}>
-            {lang==="en"?"All":tl("cat_all")} <ChevronRight size={13}/>
-          </button>
-        </div>
-        {TOURNAMENTS_DATA.filter(x=>x.status==="open").slice(0,2).map(tourn=>{
-          const mt=TIERS.find(x=>x.id===tourn.minTier);
-          return (
-            <div key={tourn.id} className="card card-press" style={{padding:"13px 15px",marginBottom:8}}>
-              <div style={{display:"flex",justifyContent:"space-between",gap:10,marginBottom:8}}>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:".04em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tourn.name}</div>
-                  <div style={{fontSize:11,color:"#787C8A",marginTop:2,display:"flex",alignItems:"center",gap:4}}><MapPin size={9}/>{tourn.course} · {tourn.location}</div>
-                </div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:"#CAFF4D",flexShrink:0,lineHeight:1}}>{tourn.dateS}</div>
+      {/* ── ÚLTIMES PARTIDES ── */}
+      {recentGames.length > 0 && (
+        <div style={{marginTop:24,marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #1A1B1E"}}>
+            <div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"#555761",marginBottom:4}}>
+                {lang==="en"?"Community":lang==="es"?"Comunidad":"Comunitat"}
               </div>
-              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                <span className="pill" style={{fontSize:9,display:"flex",alignItems:"center",gap:3}}><Activity size={8}/>{tourn.format}</span>
-                <span className="pill" style={{fontSize:9,color:mt?.color,borderColor:mt?.border}}>{lang==="en"?"Min:":"Min:"} {mt?.emoji} {mt?.name}</span>
-                <span className="pill" style={{fontSize:9,display:"flex",alignItems:"center",gap:3}}><Award size={8}/>{tourn.fee}</span>
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(20px,5vw,30px)",letterSpacing:".04em",lineHeight:1}}>
+                {lang==="en"?"RECENT GAMES":lang==="es"?"ÚLTIMAS PARTIDAS":"ÚLTIMES PARTIDES"}
               </div>
             </div>
-          );
-        })}
-      </div>
+          </div>
+          {recentGames.map(g => {
+            const scoreDiff = (() => {
+              try {
+                const sc = typeof g.scores === "string" ? JSON.parse(g.scores) : g.scores;
+                const pl = typeof g.players === "string" ? JSON.parse(g.players) : g.players;
+                if (!Array.isArray(sc) || !Array.isArray(pl)) return null;
+                const me = pl[0];
+                if (!me) return null;
+                let tot = 0, cnt = 0;
+                sc.forEach(h => { const v = h.playerScores?.[me.id]; if (v != null) { tot += v - h.par; cnt++; } });
+                return cnt ? tot : null;
+              } catch { return null; }
+            })();
+            const diffColor = scoreDiff == null ? "#555" : scoreDiff < 0 ? "#FBBF24" : scoreDiff === 0 ? "#CAFF4D" : "#d0d0d0";
+            const diffLabel = scoreDiff == null ? "—" : scoreDiff > 0 ? `+${scoreDiff}` : scoreDiff === 0 ? "E" : `${scoreDiff}`;
+            const initials = (g.player_name||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
+            const daysAgo = (() => { const d = Math.floor((Date.now() - new Date(g.created_at)) / 86400000); return d === 0 ? (lang==="en"?"Today":lang==="es"?"Hoy":"Avui") : d === 1 ? (lang==="en"?"Yesterday":lang==="es"?"Ayer":"Ahir") : `${d}d`; })();
+            return (
+              <div key={g.id} className="card" style={{padding:"11px 13px",marginBottom:7,display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:34,height:34,borderRadius:"50%",background:g.color||"#1A1B1E",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
+                  {g.avatar_url ? <img src={g.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : initials}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.player_name||"—"}</div>
+                  <div style={{fontSize:10,color:"#555761",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.course} · {daysAgo}</div>
+                </div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:diffColor,lineHeight:1,flexShrink:0}}>{diffLabel}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {!user && (
         <div style={{background:"rgba(202,255,77,.06)",border:"1px solid rgba(202,255,77,.2)",borderRadius:10,padding:"13px 14px",marginTop:8}}>

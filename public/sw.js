@@ -1,10 +1,11 @@
 self.addEventListener('push', (event) => {
-  const data = event.data.json();
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || 'Pitch & Clubs';
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
+    self.registration.showNotification(title, {
+      body: data.body || '',
       icon: '/icon-192.png',
-      badge: '/icon-72.png',
+      badge: '/icon-192.png',
       data: { url: data.url || '/' },
       vibrate: [200, 100, 200],
     })

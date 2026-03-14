@@ -721,10 +721,10 @@ const UGC_FEED = [
 // ── TOURNAMENTS: fallback data (used if Google Sheets API unavailable) ──
 // To update live: edit the Google Sheet linked in TournamentsScreen
 const TOURNAMENTS_FALLBACK = [
-  {id:1,name:"P&C Spring Open",dateS:"15/06",course:"Vallromanes",location:"Vilanova del Vallès",format:"Strokeplay 18H",minTier:"player",spots:24,left:8,prize:"Kit P&C + 200 pts",status:"open",fee:"€15",category:"open"},
-  {id:2,name:"Copa Canal Olímpic",dateS:"22/06",course:"Canal Olímpic",location:"Castelldefels",format:"Matchplay 9H",minTier:"caddie",spots:16,left:3,prize:"150 pts + greenfees",status:"open",fee:"€10",category:"club"},
-  {id:3,name:"Master Series — R1",dateS:"05/07",course:"HCP1",location:"Sant Vicenç",format:"Strokeplay 18H",minTier:"master",spots:12,left:12,prize:"300 pts + trofeu",status:"soon",fee:"€25",category:"master"},
-  {id:4,name:"Nit de Sant Joan",dateS:"23/06",course:"P&P Badalona",location:"Badalona",format:"Stableford 9H",minTier:"caddie",spots:32,left:19,prize:"Festa + 80 pts",status:"open",fee:"Gratis",category:"social"},
+  {id:1,name:"P&C Spring Open",dateS:"18/04",course:"Vallromanes",location:"Vilanova del Vallès",format:"Strokeplay 18H",minTier:"player",spots:24,left:11,prize:"Kit P&C + 200 pts",status:"open",fee:"€15",category:"open"},
+  {id:2,name:"Copa Canal Olímpic",dateS:"10/05",course:"Canal Olímpic",location:"Castelldefels",format:"Matchplay 9H",minTier:"caddie",spots:16,left:5,prize:"150 pts + greenfees",status:"open",fee:"€10",category:"club"},
+  {id:3,name:"Master Series — R1",dateS:"07/06",course:"HCP1",location:"Sant Vicenç",format:"Strokeplay 18H",minTier:"master",spots:12,left:12,prize:"300 pts + trofeu",status:"soon",fee:"€25",category:"master"},
+  {id:4,name:"Torneig Sant Joan",dateS:"21/06",course:"P&P Badalona",location:"Badalona",format:"Stableford 9H",minTier:"caddie",spots:32,left:24,prize:"Festa + 80 pts",status:"soon",fee:"Gratis",category:"social"},
 ];
 // ── Keep alias for HomeScreen previews ──
 const TOURNAMENTS_DATA = TOURNAMENTS_FALLBACK;
@@ -1036,6 +1036,25 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
           <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:".04em",marginBottom:6}}>{tl("no_games")}</div>
           <div style={{fontSize:12,color:"#555761",lineHeight:1.6,marginBottom:14}}>{tl("no_games_sub")}</div>
           <button className="btn btn-ghost btn-sm" style={{width:"auto",margin:"0 auto"}} onClick={()=>setScreen("game-setup")}>{tl("cta_register_now")}</button>
+        </div>
+      )}
+
+      {myGames.length===0 && user && (
+        <div className="card" style={{textAlign:"center",padding:"32px 20px",marginBottom:16,borderColor:"rgba(202,255,77,.15)"}}>
+          <div style={{display:"flex",justifyContent:"center",marginBottom:14,color:"#CAFF4D"}}><Flag size={36} strokeWidth={1.5}/></div>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:22,letterSpacing:".06em",marginBottom:8}}>
+            {lang==="en"?"START PLAYING.":lang==="es"?"EMPIEZA A JUGAR.":"COMENÇA A JUGAR."}
+          </div>
+          <div style={{fontSize:13,color:"#787C8A",lineHeight:1.75,marginBottom:20,maxWidth:260,margin:"0 auto 20px"}}>
+            {lang==="en"
+              ? "Every round feeds your game. Track your first round today and start building your story."
+              : lang==="es"
+              ? "Cada partida nutre tu juego. Registra la primera hoy y empieza a construir tu historial."
+              : "Cada partida nodreix el teu joc. Registra la primera avui i comença a construir la teva història."}
+          </div>
+          <button className="btn btn-primary" style={{width:"auto",margin:"0 auto",padding:"14px 28px",fontSize:14}} onClick={()=>setScreen("game-setup")}>
+            {tl("cta_new_game")} →
+          </button>
         </div>
       )}
 

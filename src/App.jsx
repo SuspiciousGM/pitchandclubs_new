@@ -2524,13 +2524,20 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
             const d = me.diff;
             if (typeof d === "number" && !isNaN(d)) userMap[g.user_id].scores.push(d);
           });
+          // Fetch avatars from profiles table (source of truth)
+          const userIds = Object.keys(userMap);
+          const { data: profilesData } = await supabase
+            .from("profiles").select("id, avatar_url").in("id", userIds);
+          const profileAvatars = {};
+          (profilesData || []).forEach(p => { if (p.avatar_url) profileAvatars[p.id] = p.avatar_url; });
+
           const global = Object.entries(userMap)
             .map(([uid, v]) => ({
               uid, name: v.name, club: v.club,
               pts: v.pts, games: v.games,
               best: v.scores.length ? Math.min(...v.scores) : null,
               avatar: v.name.split(" ").map(w=>w[0]).slice(0,2).join(""),
-              avatarUrl: v.avatarUrl,
+              avatarUrl: profileAvatars[uid] || v.avatarUrl || null,
             }))
             .sort((a,b) => b.pts - a.pts)
             .map((p, i) => ({
@@ -3059,23 +3066,42 @@ function LiveScreen({ user, openAuth, lang, liveGames, setLiveGames, onSelectGam
 
   // Re-fetch live games on mount and every 30s (Realtime fallback)
   useEffect(() => {
-    const fetch = () => supabase.from("games").select("*").eq("is_live", true)
-      .order("created_at", { ascending: false }).limit(20)
-      .then(({ data }) => { if (data) setLiveGames(data); });
+    const fetch = async () => {
+      const { data } = await supabase.from("games").select("*").eq("is_live", true)
+        .order("created_at", { ascending: false }).limit(20);
+      if (!data?.length) return;
+      const ids = [...new Set(data.map(g => g.user_id).filter(Boolean))];
+      const { data: profiles } = ids.length
+        ? await supabase.from("profiles").select("id, avatar_url").in("id", ids)
+        : { data: [] };
+      const avatarMap = {};
+      (profiles || []).forEach(p => { if (p.avatar_url) avatarMap[p.id] = p.avatar_url; });
+      setLiveGames(data.map(g => ({ ...g, avatar_url: avatarMap[g.user_id] || g.avatar_url || null })));
+    };
     fetch();
     const iv = setInterval(fetch, 30000);
     return () => clearInterval(iv);
   }, []);
 
-  // Fetch 10 most recent finished games
+  // Fetch 10 most recent finished games, enriched with profile avatars
   useEffect(() => {
-    supabase.from("games")
-      .select("id,player_name,avatar_url,color,course,date,scores,players,created_at")
-      .eq("is_live", false)
-      .not("scores", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(10)
-      .then(({ data }) => { if (data) setRecentGames(data); });
+    const load = async () => {
+      const { data } = await supabase.from("games")
+        .select("id,user_id,player_name,avatar_url,color,course,date,scores,players,created_at")
+        .eq("is_live", false)
+        .not("scores", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (!data?.length) return;
+      const ids = [...new Set(data.map(g => g.user_id).filter(Boolean))];
+      const { data: profiles } = ids.length
+        ? await supabase.from("profiles").select("id, avatar_url").in("id", ids)
+        : { data: [] };
+      const avatarMap = {};
+      (profiles || []).forEach(p => { if (p.avatar_url) avatarMap[p.id] = p.avatar_url; });
+      setRecentGames(data.map(g => ({ ...g, avatar_url: avatarMap[g.user_id] || g.avatar_url || null })));
+    };
+    load();
   }, []);
 
   const liveNow = (liveGames||[]).filter(g => g.is_live);

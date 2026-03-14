@@ -2574,8 +2574,14 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
     return () => { cancelled = true; };
   }, []);
 
-  // Use real data when available — never mix mock players into a real ranking
-  const merged = (liveRanking || LEADERBOARD).sort((a,b) => b.pts - a.pts).map((p,i) => ({...p, rank:i+1}));
+  const MOCK_EXTRA = [
+    { name:"Arnau Puig",  avatar:"AP", club:"Vallromanes",   pts:312, best:-3, color:"#60A5FA" },
+    { name:"Marta Oller", avatar:"MO", club:"Mas Gurumbau",  pts:187, best:-1, color:"#F472B6" },
+    { name:"Pere Vidal",  avatar:"PV", club:"Canal Olímpic", pts:94,  best: 0, color:"#FBBF24" },
+  ];
+  // Real players first; pad with mock players (no uid) to fill the board
+  const base = liveRanking ? [...liveRanking, ...MOCK_EXTRA] : LEADERBOARD;
+  const merged = base.sort((a,b) => b.pts - a.pts).map((p,i) => ({...p, rank:i+1}));
   const globalData = merged.slice(0, 10);
   const isLive     = !!liveRanking;
   // Current user's position (may be outside top 10)

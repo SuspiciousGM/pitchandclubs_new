@@ -797,7 +797,7 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
         {/* Background photo */}
         <div style={{
           position:"absolute",inset:0,
-          backgroundImage:"url('https://images.unsplash.com/photo-1535131749006-b7f58c99034b?auto=format&fit=crop&w=1200&q=80')",
+          backgroundImage:"url('/shutterstock_2470097539%201.png')",
           backgroundSize:"cover",backgroundPosition:"center",zIndex:0,
         }}/>
         <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1}}/>
@@ -874,9 +874,21 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
         }}>
           <div className="guest-features">
             {[
-              {icon:<Flag size={28} strokeWidth={1.5}/>,title:tl("step1_t"),desc:tl("step1_d")},
-              {icon:<TrendingUp size={28} strokeWidth={1.5}/>,title:tl("step2_t"),desc:tl("step2_d")},
-              {icon:<ShoppingBag size={28} strokeWidth={1.5}/>,title:tl("step3_t"),desc:tl("step3_d")},
+              {
+                icon:<Flag size={28} strokeWidth={1.5}/>,
+                title:lang==="en"?"TRACK YOUR ROUND":lang==="es"?"REGISTRA LA PARTIDA":"REGISTRA LA PARTIDA",
+                desc:lang==="en"?"Live virtual scorecard. Pick from 61 courses and save every shot.":lang==="es"?"Tarjeta virtual en directo. Elige entre 61 campos y guarda cada golpe.":"Targeta virtual en directe. Tria entre 61 camps i guarda cada cop.",
+              },
+              {
+                icon:<TrendingUp size={28} strokeWidth={1.5}/>,
+                title:lang==="en"?"CLIMB THE RANKING":lang==="es"?"PUJA AL RÀNQUING":"PUJA AL RÀNQUING",
+                desc:lang==="en"?"Earn points and lead the P&C ranking. Caddie - Player - Pro - Master.":lang==="es"?"Suma puntos y lidera el ránking P&C. Caddie - Player - Pro - Master.":"Suma punts i lidera el rànquing P&C. Caddie - Player - Pro - Master.",
+              },
+              {
+                icon:<ShoppingBag size={28} strokeWidth={1.5}/>,
+                title:lang==="en"?"BOOST YOUR CLUB":lang==="es"?"IMPULSA EL TU CLUB":"IMPULSA EL TEU CLUB",
+                desc:lang==="en"?"Play against the best and share your rounds.":lang==="es"?"Juega contra los mejores y comparte tus partidas.":"Juga contra els millors i comparteix les teves partides.",
+              },
             ].map((f,i,arr)=>(
               <div key={i} className="guest-features-item" style={{
                 textAlign:"center",

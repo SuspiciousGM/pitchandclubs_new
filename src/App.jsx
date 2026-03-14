@@ -781,6 +781,119 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
   const bestGame = myScores.length ? Math.min(...myScores) : null;
   const tl = (k,v={}) => t(lang,k,v);
 
+  // ── GUEST LANDING PAGE ──
+  if (!user) return (
+    <div className="page-scroll" style={{padding:0}}>
+      <style>{`
+        .guest-features{display:flex;flex-direction:column;}
+        @media(min-width:640px){
+          .guest-landing-inner{max-width:500px;margin:0 auto;}
+          .guest-features{flex-direction:row;}
+          .guest-features-item{flex:1;border-bottom:none!important;border-right:1px solid rgba(202,255,77,.12);}
+          .guest-features-item:last-child{border-right:none!important;}
+        }
+      `}</style>
+      <div style={{position:"relative",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+        {/* Background photo */}
+        <div style={{
+          position:"absolute",inset:0,
+          backgroundImage:"url('https://images.unsplash.com/photo-1535131749006-b7f58c99034b?auto=format&fit=crop&w=1200&q=80')",
+          backgroundSize:"cover",backgroundPosition:"center",zIndex:0,
+        }}/>
+        <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1}}/>
+
+        {/* Hero content */}
+        <div className="guest-landing-inner" style={{
+          position:"relative",zIndex:2,
+          flex:1,display:"flex",flexDirection:"column",alignItems:"center",
+          padding:"64px 24px 0",textAlign:"center",width:"100%",boxSizing:"border-box",
+        }}>
+          {/* Logo */}
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:"clamp(50px,14vw,86px)",lineHeight:.88,letterSpacing:".02em",marginBottom:14}}>
+            PITCH<span style={{color:"#CAFF4D"}}>&amp;</span>CLUBS<span style={{color:"#CAFF4D",fontSize:".42em",verticalAlign:"top",lineHeight:2.1}}>●</span>
+          </div>
+          {/* Subtitle */}
+          <div style={{fontSize:15,fontWeight:300,color:"rgba(255,255,255,.85)",marginBottom:18,letterSpacing:".015em"}}>
+            {lang==="en"?"Your golfers' community.":lang==="es"?"Tu comunidad de jugadores.":"La teva comunitat de jugadors."}
+          </div>
+          {/* Separator */}
+          <div style={{width:"70%",maxWidth:260,height:1,background:"rgba(255,255,255,.2)",marginBottom:18}}/>
+          {/* Body text */}
+          <div style={{fontSize:13,color:"#787C8A",lineHeight:1.75,marginBottom:38,maxWidth:300}}>
+            {lang==="en"?"Record every round, improve your swing and boost your club.":lang==="es"?"Registra cada partida, mejora tu swing e impulsa tu club.":"Registra cada partida, millora el teu swing i impulsa el teu club."}
+          </div>
+
+          {/* Buttons */}
+          <div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",gap:11}}>
+            {/* NOVA PARTIDA */}
+            <button onClick={()=>setScreen("game-setup")} style={{
+              width:"100%",padding:"15px 24px",borderRadius:50,border:"none",
+              background:"#CAFF4D",color:"#0A0A0B",
+              fontFamily:"'Bebas Neue'",fontSize:19,letterSpacing:".1em",
+              cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+            }}>
+              <Flag size={19} strokeWidth={2.5}/>
+              {lang==="en"?"NEW GAME":lang==="es"?"NUEVA PARTIDA":"NOVA PARTIDA"}
+            </button>
+            {/* CREA UN COMPTE */}
+            <button onClick={openAuth} style={{
+              width:"100%",padding:"14px 24px",borderRadius:50,
+              border:"1.5px solid rgba(255,255,255,.65)",
+              background:"rgba(0,0,0,.25)",color:"#fff",
+              fontFamily:"'Bebas Neue'",fontSize:19,letterSpacing:".1em",
+              cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+            }}>
+              <User size={17}/>
+              {lang==="en"?"CREATE ACCOUNT":lang==="es"?"CREA UNA CUENTA":"CREA UN COMPTE"}
+            </button>
+            {/* Entra amb Google */}
+            <button onClick={async()=>{ await supabase.auth.signInWithOAuth({ provider:"google", options:{redirectTo:window.location.origin} }); }} style={{
+              width:"100%",padding:"12px 24px",borderRadius:50,border:"none",
+              background:"rgba(238,238,238,.92)",color:"#111",
+              fontSize:13,fontWeight:600,
+              cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+            }}>
+              <svg width="16" height="16" viewBox="0 0 18 18">
+                <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+                <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+                <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z"/>
+                <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+              </svg>
+              {lang==="en"?"Sign in with Google":lang==="es"?"Entrar con Google":"Entra amb Google"}
+            </button>
+          </div>
+        </div>
+
+        {/* Features panel */}
+        <div style={{
+          position:"relative",zIndex:2,
+          marginTop:52,
+          background:"rgba(15,16,18,0.92)",
+          borderRadius:"40px 40px 0 0",
+          padding:"36px 24px calc(90px + env(safe-area-inset-bottom))",
+        }}>
+          <div className="guest-features">
+            {[
+              {icon:<Flag size={28} strokeWidth={1.5}/>,title:tl("step1_t"),desc:tl("step1_d")},
+              {icon:<TrendingUp size={28} strokeWidth={1.5}/>,title:tl("step2_t"),desc:tl("step2_d")},
+              {icon:<ShoppingBag size={28} strokeWidth={1.5}/>,title:tl("step3_t"),desc:tl("step3_d")},
+            ].map((f,i,arr)=>(
+              <div key={i} className="guest-features-item" style={{
+                textAlign:"center",
+                padding:"28px 16px",
+                borderBottom:i<arr.length-1?"1px solid rgba(202,255,77,.12)":"none",
+              }}>
+                <div style={{color:"#CAFF4D",display:"flex",justifyContent:"center",marginBottom:14}}>{f.icon}</div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:17,letterSpacing:".08em",color:"#fff",marginBottom:8}}>{f.title}</div>
+                <div style={{fontSize:12,color:"#787C8A",lineHeight:1.7}}>{f.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="page-scroll ani-up">
 

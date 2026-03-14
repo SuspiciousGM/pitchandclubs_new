@@ -797,7 +797,7 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
         {/* Background photo */}
         <div style={{
           position:"absolute",inset:0,
-          backgroundImage:"url('/shutterstock_2470097539%201.png')",
+          backgroundImage:"url('/hero-bg.jpg')",
           backgroundSize:"cover",backgroundPosition:"center",zIndex:0,
         }}/>
         <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1}}/>
@@ -819,7 +819,7 @@ function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, 
           {/* Separator */}
           <div style={{width:"70%",maxWidth:260,height:1,background:"rgba(255,255,255,.2)",marginBottom:18}}/>
           {/* Body text */}
-          <div style={{fontSize:13,color:"#787C8A",lineHeight:1.75,marginBottom:38,maxWidth:300}}>
+          <div style={{fontSize:14,color:"rgba(255,255,255,.75)",lineHeight:1.75,marginBottom:38,maxWidth:300,textShadow:"0 1px 6px rgba(0,0,0,.8)"}}>
             {lang==="en"?"Record every round, improve your swing and boost your club.":lang==="es"?"Registra cada partida, mejora tu swing e impulsa tu club.":"Registra cada partida, millora el teu swing i impulsa el teu club."}
           </div>
 

@@ -4198,13 +4198,22 @@ export default function App() {
   }, [screen]);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         const u = session.user;
-        const uName = u.user_metadata?.name || u.user_metadata?.full_name || u.email.split("@")[0];
-        setUser({ id: u.id, name: uName, email: u.email, club: u.user_metadata?.club || "", hcp: u.user_metadata?.hcp ?? null, license: u.user_metadata?.license || "", avatarUrl: u.user_metadata?.avatar_url || u.user_metadata?.picture || null });
-        // Keep profiles table in sync so player search works
-        supabase.from("profiles").upsert({ id: u.id, name: uName, club: u.user_metadata?.club || "" }, { onConflict: "id" }).then(() => {});
+        const googleName = u.user_metadata?.full_name || u.user_metadata?.name || u.email.split("@")[0];
+
+        // Profiles table is the source of truth for display name.
+        // A manually edited name must never be overwritten by the OAuth provider.
+        const { data: profile } = await supabase.from("profiles").select("name,club").eq("id", u.id).single();
+        const uName = profile?.name || googleName;
+        const uClub = profile?.club || u.user_metadata?.club || "";
+
+        setUser({ id: u.id, name: uName, email: u.email, club: uClub, hcp: u.user_metadata?.hcp ?? null, license: u.user_metadata?.license || "", avatarUrl: u.user_metadata?.avatar_url || u.user_metadata?.picture || null });
+        // Only insert the profile row the first time — never overwrite a custom-edited name
+        if (!profile) {
+          supabase.from("profiles").insert({ id: u.id, name: uName, club: uClub }).then(() => {});
+        }
         supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false })
           .then(({ data, error }) => {
             if (error) return;

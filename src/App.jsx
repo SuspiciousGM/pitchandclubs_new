@@ -3316,14 +3316,16 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
     if (!editName.trim()) return;
     setSaving(true);
     const hcpVal = editHcp.trim() !== "" ? parseFloat(editHcp.replace(",", ".")) : null;
-    await supabase.auth.updateUser({ data: {
+    const hcp = isNaN(hcpVal) ? null : hcpVal;
+    // Profiles table is source of truth — no auth.updateUser to avoid onAuthStateChange deadlock
+    await supabase.from("profiles").upsert({
+      id: user.id,
       name: editName.trim(),
       club: editClub.trim(),
-      hcp: isNaN(hcpVal) ? null : hcpVal,
-      license: editLicense.trim(),
-    }});
-    supabase.from("profiles").upsert({ id: user.id, name: editName.trim(), club: editClub.trim() }, { onConflict: "id" }).then(() => {});
-    if (setUser) setUser(prev => ({ ...prev, name: editName.trim(), club: editClub.trim(), hcp: isNaN(hcpVal) ? null : hcpVal, license: editLicense.trim() }));
+    }, { onConflict: "id" });
+    // Update user_metadata in background (non-blocking)
+    supabase.auth.updateUser({ data: { name: editName.trim(), club: editClub.trim(), hcp, license: editLicense.trim() } }).catch(() => {});
+    if (setUser) setUser(prev => ({ ...prev, name: editName.trim(), club: editClub.trim(), hcp, license: editLicense.trim() }));
     setSaving(false);
     setEditMode(false);
   };

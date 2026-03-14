@@ -3317,17 +3317,31 @@ function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history
   const handleSaveProfile = async () => {
     if (!editName.trim()) return;
     setSaving(true);
+    const newName = editName.trim();
+    const newClub = editClub.trim();
     const hcpVal = editHcp.trim() !== "" ? parseFloat(editHcp.replace(",", ".")) : null;
     const hcp = isNaN(hcpVal) ? null : hcpVal;
-    // Profiles table is source of truth — no auth.updateUser to avoid onAuthStateChange deadlock
-    await supabase.from("profiles").upsert({
-      id: user.id,
-      name: editName.trim(),
-      club: editClub.trim(),
-    }, { onConflict: "id" });
-    // Update user_metadata in background (non-blocking)
-    supabase.auth.updateUser({ data: { name: editName.trim(), club: editClub.trim(), hcp, license: editLicense.trim() } }).catch(() => {});
-    if (setUser) setUser(prev => ({ ...prev, name: editName.trim(), club: editClub.trim(), hcp, license: editLicense.trim() }));
+
+    // 1. Save to profiles table (source of truth)
+    await supabase.from("profiles").upsert({ id: user.id, name: newName, club: newClub }, { onConflict: "id" });
+
+    // 2. Backfill all existing games with the new name
+    //    — update player_name column in one shot
+    await supabase.from("games").update({ player_name: newName }).eq("user_id", user.id);
+    //    — update the name inside the players jsonb array (the isMe player)
+    const { data: userGames } = await supabase.from("games").select("id, players").eq("user_id", user.id);
+    if (userGames?.length) {
+      await Promise.all(userGames.map(g => {
+        const updated = (g.players || []).map(p => p.isMe ? { ...p, name: newName } : p);
+        return supabase.from("games").update({ players: updated }).eq("id", g.id);
+      }));
+    }
+
+    // 3. Update user_metadata in background (non-blocking)
+    supabase.auth.updateUser({ data: { name: newName, club: newClub, hcp, license: editLicense.trim() } }).catch(() => {});
+
+    // 4. Update local state and close edit
+    if (setUser) setUser(prev => ({ ...prev, name: newName, club: newClub, hcp, license: editLicense.trim() }));
     setSaving(false);
     setEditMode(false);
   };

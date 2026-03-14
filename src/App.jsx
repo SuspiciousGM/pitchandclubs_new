@@ -2507,7 +2507,7 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
         // Global: aggregate points per user from games table
         const { data: gamesData } = await supabase
           .from("games")
-          .select("user_id, players, scores, created_at, course_name, date");
+          .select("user_id, players, scores, created_at, course_name, date, avatar_url");
 
         if (gamesData && !cancelled) {
           const userMap = {};
@@ -2515,8 +2515,10 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
             const me = (g.players||[]).find(p => p.isMe);
             if (!me || !g.user_id) return;
             if (!userMap[g.user_id]) {
-              userMap[g.user_id] = { name: me.name, pts: 0, scores: [], club: me.club||"", games: 0 };
+              userMap[g.user_id] = { name: me.name, pts: 0, scores: [], club: me.club||"", games: 0, avatarUrl: g.avatar_url || null };
             }
+            // Keep the most recent avatar_url seen for this user
+            if (g.avatar_url) userMap[g.user_id].avatarUrl = g.avatar_url;
             userMap[g.user_id].pts += (me.points || 0);
             userMap[g.user_id].games += 1;
             const d = me.diff;
@@ -2528,6 +2530,7 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
               pts: v.pts, games: v.games,
               best: v.scores.length ? Math.min(...v.scores) : null,
               avatar: v.name.split(" ").map(w=>w[0]).slice(0,2).join(""),
+              avatarUrl: v.avatarUrl,
             }))
             .sort((a,b) => b.pts - a.pts)
             .map((p, i) => ({
@@ -2654,7 +2657,9 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
             <div key={p.rank} style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 44px 32px",alignItems:"center",padding:"10px 13px",borderBottom:"1px solid #111214",background:isMe?"rgba(202,255,77,.04)":"transparent"}}>
               <div style={{fontFamily:"'Bebas Neue'",fontSize:14,color:i===0?"#FBBF24":i===1?"#9CA3AF":i===2?"#CD7F32":"#2A2B30"}}>{String(p.rank).padStart(2,"0")}</div>
               <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-                <div style={{width:26,height:26,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0,border:isMe?"2px solid #CAFF4D":"none"}}>{p.avatar}</div>
+                <div style={{width:26,height:26,borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0,border:isMe?"2px solid #CAFF4D":"none",overflow:"hidden"}}>
+                  {p.avatarUrl ? <img src={p.avatarUrl} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : p.avatar}
+                </div>
                 <div style={{minWidth:0}}>
                   <div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:isMe?"#CAFF4D":"#fff",display:"flex",alignItems:"center",gap:5}}>
                     {p.name}{isMe&&<span style={{fontSize:8,color:"#CAFF4D",fontWeight:700}}>TU</span>}
@@ -2683,7 +2688,9 @@ function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
             <div style={{display:"grid",gridTemplateColumns:"34px 1fr 48px 44px 32px",alignItems:"center",padding:"10px 13px",background:"rgba(202,255,77,.04)"}}>
               <div style={{fontFamily:"'Bebas Neue'",fontSize:14,color:"#555761"}}>{String(myRow.rank).padStart(2,"0")}</div>
               <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-                <div style={{width:26,height:26,borderRadius:"50%",background:myRow.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0,border:"2px solid #CAFF4D"}}>{myRow.avatar}</div>
+                <div style={{width:26,height:26,borderRadius:"50%",background:myRow.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:"#0A0A0B",flexShrink:0,border:"2px solid #CAFF4D",overflow:"hidden"}}>
+                  {myRow.avatarUrl ? <img src={myRow.avatarUrl} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : myRow.avatar}
+                </div>
                 <div style={{minWidth:0}}>
                   <div style={{fontWeight:600,fontSize:12,color:"#CAFF4D"}}>{myRow.name} <span style={{fontSize:8,fontWeight:700}}>TU</span></div>
                   <div style={{fontSize:9,color:"#555761"}}>{getTier(myRow.pts).emoji} {getTier(myRow.pts).name}{myRow.games?` · ${myRow.games}p`:""}</div>
@@ -4203,16 +4210,18 @@ export default function App() {
         const u = session.user;
         const googleName = u.user_metadata?.full_name || u.user_metadata?.name || u.email.split("@")[0];
 
-        // Profiles table is the source of truth for display name.
-        // A manually edited name must never be overwritten by the OAuth provider.
-        const { data: profile } = await supabase.from("profiles").select("name,club").eq("id", u.id).single();
+        // Profiles table is the source of truth for name and avatar.
+        // Manually edited values must never be overwritten by the OAuth provider.
+        const { data: profile } = await supabase.from("profiles").select("name,club,avatar_url").eq("id", u.id).single();
         const uName = profile?.name || googleName;
         const uClub = profile?.club || u.user_metadata?.club || "";
+        const googlePicture = u.user_metadata?.picture || u.user_metadata?.avatar_url || null;
+        const uAvatar = profile?.avatar_url || googlePicture;
 
-        setUser({ id: u.id, name: uName, email: u.email, club: uClub, hcp: u.user_metadata?.hcp ?? null, license: u.user_metadata?.license || "", avatarUrl: u.user_metadata?.avatar_url || u.user_metadata?.picture || null });
-        // Only insert the profile row the first time — never overwrite a custom-edited name
+        setUser({ id: u.id, name: uName, email: u.email, club: uClub, hcp: u.user_metadata?.hcp ?? null, license: u.user_metadata?.license || "", avatarUrl: uAvatar });
+        // Only insert the profile row the first time — never overwrite custom-edited fields
         if (!profile) {
-          supabase.from("profiles").insert({ id: u.id, name: uName, club: uClub }).then(() => {});
+          supabase.from("profiles").insert({ id: u.id, name: uName, club: uClub, avatar_url: googlePicture }).then(() => {});
         }
         supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false })
           .then(({ data, error }) => {
@@ -4250,23 +4259,33 @@ export default function App() {
   const handleAvatarChange = async (file) => {
     const { data: authData } = await supabase.auth.getUser();
     if (!authData?.user) return;
-    // Compress to 200x200 JPEG and store as base64 in user_metadata (no storage bucket needed)
-    const dataUrl = await new Promise((resolve) => {
+    const uid = authData.user.id;
+    // Compress to 400x400 JPEG blob
+    const blob = await new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        canvas.width = 200; canvas.height = 200;
+        canvas.width = 400; canvas.height = 400;
         const ctx = canvas.getContext("2d");
         const s = Math.min(img.width, img.height);
         const ox = (img.width - s) / 2, oy = (img.height - s) / 2;
-        ctx.drawImage(img, ox, oy, s, s, 0, 0, 200, 200);
-        resolve(canvas.toDataURL("image/jpeg", 0.75));
+        ctx.drawImage(img, ox, oy, s, s, 0, 0, 400, 400);
+        canvas.toBlob(resolve, "image/jpeg", 0.82);
       };
       img.src = URL.createObjectURL(file);
     });
-    const { error } = await supabase.auth.updateUser({ data: { avatar_url: dataUrl } });
-    if (error) { showToast("Error: " + error.message); return; }
-    setUser(prev => ({ ...prev, avatarUrl: dataUrl }));
+    // Upload to Supabase Storage avatars bucket
+    const path = `${uid}/avatar.jpg`;
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, blob, {
+      contentType: "image/jpeg", upsert: true,
+    });
+    if (uploadError) { showToast("Error pujant la foto: " + uploadError.message); return; }
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+    const avatarUrl = publicUrl + "?t=" + Date.now();
+    // Persist in profiles table (source of truth) and user_metadata
+    await supabase.from("profiles").upsert({ id: uid, avatar_url: avatarUrl }, { onConflict: "id" });
+    await supabase.auth.updateUser({ data: { avatar_url: avatarUrl } });
+    setUser(prev => ({ ...prev, avatarUrl }));
     showToast("Foto de perfil actualitzada! ✓");
   };
 
@@ -4384,6 +4403,7 @@ export default function App() {
         user_id: user.id,
         course_name: data.course.name,
         player_name: me.name,
+        avatar_url: user?.avatarUrl || null,
         players: data.players,
         scores: Array.from({length: data.course.holes}, (_,i) => ({
           hole: i+1, par: Math.round(data.course.par / data.course.holes),
@@ -4485,6 +4505,8 @@ export default function App() {
           const { data: rows, error } = await supabase.from("games").insert({
             user_id: user.id,
             course_name: game.course,
+            player_name: user?.name || "",
+            avatar_url: user?.avatarUrl || null,
             date: game.date,
             game_mode: game.mode,
             players: game.players,

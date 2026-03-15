@@ -320,19 +320,27 @@ export default function App() {
         if (data?.length) setLiveGames(data);
       });
 
+    // Helper: enrich a game object with the user's profile avatar
+    const enrichWithAvatar = async (game) => {
+      if (!game.user_id) return game;
+      const { data } = await supabase.from("profiles").select("avatar_url").eq("id", game.user_id).single();
+      return { ...game, avatar_url: data?.avatar_url || game.avatar_url || null };
+    };
+
     // Real-time subscription for new games
     const channel = supabase
       .channel("games-feed")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "games" }, (payload) => {
-        setActivityFeed(prev => [mapGameToFeedItem(payload.new), ...prev].slice(0, 20));
-        if (payload.new.is_live) setLiveGames(prev => [payload.new, ...prev].slice(0, 20));
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "games" }, async (payload) => {
+        const enriched = await enrichWithAvatar(payload.new);
+        setActivityFeed(prev => [mapGameToFeedItem(enriched), ...prev].slice(0, 20));
+        if (enriched.is_live) setLiveGames(prev => [enriched, ...prev].slice(0, 20));
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games" }, (payload) => {
-        // Remove from live list if game was just finished
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games" }, async (payload) => {
         if (!payload.new.is_live) {
           setLiveGames(prev => prev.filter(g => g.id !== payload.new.id));
         } else {
-          setLiveGames(prev => prev.map(g => g.id === payload.new.id ? payload.new : g));
+          const enriched = await enrichWithAvatar(payload.new);
+          setLiveGames(prev => prev.map(g => g.id === payload.new.id ? enriched : g));
         }
       })
       .subscribe();
@@ -345,7 +353,16 @@ export default function App() {
     if (screen === "live") {
       supabase.from("games").select("*").eq("is_live", true)
         .order("created_at", { ascending: false }).limit(20)
-        .then(({ data }) => { if (data) setLiveGames(data); });
+        .then(async ({ data }) => {
+          if (!data?.length) return;
+          const ids = [...new Set(data.map(g => g.user_id).filter(Boolean))];
+          const { data: profiles } = ids.length
+            ? await supabase.from("profiles").select("id, avatar_url").in("id", ids)
+            : { data: [] };
+          const avatarMap = {};
+          (profiles || []).forEach(p => { if (p.avatar_url) avatarMap[p.id] = p.avatar_url; });
+          setLiveGames(data.map(g => ({ ...g, avatar_url: avatarMap[g.user_id] || g.avatar_url || null })));
+        });
     }
   }, [screen]);
 

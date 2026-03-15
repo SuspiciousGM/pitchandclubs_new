@@ -159,8 +159,9 @@ export default function LiveScreen({ user, openAuth, lang, liveGames, setLiveGam
         .select("id,user_id,player_name,course_name,date,scores,players,created_at")
         .eq("is_live", false)
         .not("scores", "is", null)
+        .gt("score_total", 0)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(5);
       if (!data?.length) return;
       const ids = [...new Set(data.map(g => g.user_id).filter(Boolean))];
       const { data: profiles } = ids.length

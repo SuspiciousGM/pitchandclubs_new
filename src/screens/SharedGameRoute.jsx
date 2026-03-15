@@ -6,108 +6,169 @@ import ScorecardScreen from './ScorecardScreen.jsx';
 
 /* ─── Shared game: standalone viewer ─── */
 function SharedViewer({ game, token, watchOnly, onJoinClick }) {
-  const isLive = game.is_live;
+  const [tab, setTab]           = useState("rank"); // "rank" | "card"
+  const [expandedPid, setExpandedPid] = useState(null);
+
+  const isLive  = game.is_live;
   const players = game.players || [];
   const scores  = game.scores  || [];
   const fmtDate = game.date ? game.date.replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1').slice(0,5) : "";
+  const gameCode = token; // 6-char code
 
-  const scDiff = (pid) => {
-    let d = 0;
-    scores.forEach(h => { const v = h.playerScores?.[pid]; if (v != null) d += v - h.par; });
-    return d;
+  const playerStats = (pid) => {
+    let strokes = 0, par = 0, holesPlayed = 0;
+    scores.forEach(h => {
+      const v = h.playerScores?.[pid];
+      if (v != null) { strokes += v; par += h.par; holesPlayed++; }
+    });
+    return { strokes, par, diff: strokes - par, holesPlayed };
   };
-  const diffColor = d => d < -1 ? "#FBBF24" : d === -1 ? "#60A5FA" : d === 0 ? "#CAFF4D" : "#EF4444";
+  const diffColor = d => d < -1 ? "#FBBF24" : d === -1 ? "#60A5FA" : d === 0 ? "#CAFF4D" : d > 0 ? "#EF4444" : "#fff";
+  const diffLabel = d => d > 0 ? `+${d}` : d === 0 ? "E" : String(d);
 
-  const primaryPlayer = players[0];
-  const primaryDiff = primaryPlayer ? scDiff(primaryPlayer.id) : 0;
-  const primaryColor = diffColor(primaryDiff);
+  // Sort players by diff ascending (best first)
+  const ranked = [...players]
+    .map((p, origIdx) => ({ ...p, origIdx, stats: playerStats(p.id) }))
+    .sort((a, b) => a.stats.diff - b.stats.diff);
 
   return (
     <div style={{minHeight:"100dvh",background:"#0A0A0B",fontFamily:"Inter,sans-serif",maxWidth:430,margin:"0 auto",display:"flex",flexDirection:"column"}}>
       {/* Top bar */}
       <div style={{padding:"12px 16px",borderBottom:"1px solid #1A1B1E",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
         <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:"#CAFF4D",letterSpacing:".08em"}}>PITCH&CLUBS</div>
-        {isLive ? (
-          <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(239,68,68,.15)",color:"#EF4444",border:"1px solid rgba(239,68,68,.3)",borderRadius:3,padding:"2px 7px",display:"flex",alignItems:"center",gap:4}}>
-            <span style={{width:4,height:4,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/> EN DIRECTE
-          </span>
-        ) : (
-          <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(85,87,97,.15)",color:"#555761",border:"1px solid #222327",borderRadius:3,padding:"2px 7px"}}>PARTIDA ACABADA</span>
-        )}
-      </div>
-
-      {/* Header */}
-      <div style={{padding:"14px 16px 12px",borderBottom:"1px solid #1A1B1E",display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexShrink:0}}>
-        <div style={{flex:1,minWidth:0}}>
-          {primaryPlayer && (
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:".04em",lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>
-              {players.length === 1 ? primaryPlayer.name : game.course_name}
-            </div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          {/* Game code chip */}
+          <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:".15em",color:"#fff",background:"#1A1B1E",border:"1px solid #2a2a35",borderRadius:6,padding:"3px 8px"}}>{gameCode}</span>
+          {isLive ? (
+            <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(239,68,68,.15)",color:"#EF4444",border:"1px solid rgba(239,68,68,.3)",borderRadius:3,padding:"2px 7px",display:"flex",alignItems:"center",gap:4}}>
+              <span style={{width:4,height:4,borderRadius:"50%",background:"#EF4444",animation:"blink 1.2s infinite",display:"inline-block"}}/> EN DIRECTE
+            </span>
+          ) : (
+            <span style={{fontSize:8,fontWeight:700,letterSpacing:".08em",background:"rgba(85,87,97,.15)",color:"#555761",border:"1px solid #222327",borderRadius:3,padding:"2px 7px"}}>ACABADA</span>
           )}
-          <div style={{fontSize:11,color:"#787C8A"}}>
-            {game.course_name}{isLive ? ` · Forat ${game.current_hole||1}/${game.holes||18}` : ` · ${game.holes||18} forats`}{fmtDate ? ` · ${fmtDate}` : ""}
-          </div>
         </div>
-        {players.length === 1 && (
-          <div style={{fontFamily:"'Bebas Neue'",fontSize:32,color:primaryColor,lineHeight:1,flexShrink:0,marginLeft:12}}>
-            {primaryDiff>0?`+${primaryDiff}`:primaryDiff===0?"E":primaryDiff}
-          </div>
-        )}
       </div>
 
-      {/* Players */}
-      {players.length > 0 && (
-        <div style={{padding:"12px 16px",borderBottom:"1px solid #1A1B1E",flexShrink:0}}>
-          {players.map((p, i) => {
-            const d = scDiff(p.id);
-            const pc = PLAYER_COLORS[i] || "#CAFF4D";
-            return (
-              <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:i<players.length-1?"1px solid #111214":"none"}}>
-                <div style={{width:28,height:28,borderRadius:"50%",background:pc,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
-                  {p.avatarUrl
-                    ? <img src={p.avatarUrl} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
-                    : (p.name||"P").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase() || "P"
-                  }
-                </div>
-                <div style={{flex:1,fontWeight:600,fontSize:13}}>{p.name}</div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:18,color:diffColor(d)}}>
-                  {d>0?`+${d}`:d===0?"E":d}
-                </div>
-              </div>
-            );
-          })}
+      {/* Course header */}
+      <div style={{padding:"14px 16px 12px",borderBottom:"1px solid #1A1B1E",flexShrink:0}}>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:22,letterSpacing:".04em",lineHeight:1,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+          {game.course_name}
         </div>
-      )}
+        <div style={{fontSize:11,color:"#787C8A"}}>
+          {isLive ? `Forat ${game.current_hole||1}/${game.holes||18} en joc` : `${game.holes||18} forats · Partida acabada`}
+          {fmtDate ? ` · ${fmtDate}` : ""}
+        </div>
+      </div>
 
-      {/* Scorecard grid */}
-      <div style={{flex:1,overflowY:"auto",padding:"12px 16px"}}>
-        {scores.length > 0 ? (
-          <>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#555761",marginBottom:10}}>Forat a forat</div>
-            <div style={{display:"grid",gridTemplateColumns:`40px repeat(${Math.min(players.length||1,4)},1fr)`,gap:4}}>
-              <div style={{fontSize:9,color:"#555761",fontWeight:700,textAlign:"center",paddingBottom:4}}>F.</div>
-              {players.slice(0,4).map((p,i)=>(
-                <div key={p.id} style={{fontSize:9,color:PLAYER_COLORS[i]||"#CAFF4D",fontWeight:700,textAlign:"center",paddingBottom:4}}>
-                  {(p.name||"P").split(" ")[0].slice(0,4).toUpperCase()}
-                </div>
-              ))}
-              {scores.map((h, hi) => {
-                const isActive = isLive && hi === (game.current_hole || 1) - 1;
-                return (
-                  <React.Fragment key={hi}>
-                    <div style={{fontSize:10,fontWeight:700,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",height:34,color:isActive?"#CAFF4D":"#555761",borderRadius:isActive?5:0,background:isActive?"rgba(202,255,77,.08)":"transparent"}}>{h.hole}</div>
-                    {players.slice(0,4).map((p) => (
-                      <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"center",height:34,background:isActive?"rgba(202,255,77,.04)":"transparent",borderRadius:isActive?5:0}}>
-                        <ScoreSymbol v={h.playerScores?.[p.id]} par={h.par} size={28}/>
+      {/* Tabs */}
+      <div style={{display:"flex",borderBottom:"1px solid #1A1B1E",flexShrink:0}}>
+        {[["rank","CLASSIFICACIÓ"],["card","TARGETA"]].map(([id,label])=>(
+          <button key={id} onClick={()=>setTab(id)}
+            style={{flex:1,padding:"11px 0",background:"none",border:"none",cursor:"pointer",fontSize:11,fontWeight:700,letterSpacing:".08em",color:tab===id?"#fff":"#555761",borderBottom:tab===id?"2px solid #CAFF4D":"2px solid transparent",transition:"color .15s"}}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div style={{flex:1,overflowY:"auto"}}>
+
+        {/* ── CLASSIFICACIÓ ── */}
+        {tab === "rank" && (
+          <div style={{padding:"12px 16px"}}>
+            {ranked.length === 0 && (
+              <div style={{textAlign:"center",padding:"40px 0",color:"#555761",fontSize:13}}>Sense jugadors</div>
+            )}
+            {ranked.map((p, rankIdx) => {
+              const { strokes, diff, holesPlayed } = p.stats;
+              const color = PLAYER_COLORS[p.origIdx] || "#CAFF4D";
+              const isExpanded = expandedPid === p.id;
+              const playerHoles = scores.filter(h => h.playerScores?.[p.id] != null);
+              return (
+                <div key={p.id} style={{marginBottom:10,borderRadius:12,border:"1px solid #1A1B1E",overflow:"hidden"}}>
+                  {/* Player row */}
+                  <button onClick={()=>setExpandedPid(isExpanded ? null : p.id)}
+                    style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"14px",background:"#111214",border:"none",cursor:"pointer",textAlign:"left"}}>
+                    {/* Rank */}
+                    <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color: rankIdx===0?"#CAFF4D":"#555761",width:22,flexShrink:0,lineHeight:1}}>{rankIdx+1}</div>
+                    {/* Avatar */}
+                    <div style={{width:40,height:40,borderRadius:"50%",background:color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#0A0A0B",flexShrink:0,overflow:"hidden"}}>
+                      {p.avatarUrl
+                        ? <img src={p.avatarUrl} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+                        : (p.name||"P").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase()||"P"
+                      }
+                    </div>
+                    {/* Name + holes */}
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:14,color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                      <div style={{fontSize:11,color:"#555761",marginTop:1}}>{holesPlayed} de {game.holes||18} forats</div>
+                    </div>
+                    {/* Score */}
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,lineHeight:1,color:"#fff"}}>{strokes||"—"}</div>
+                      {holesPlayed > 0 && <div style={{fontSize:11,fontWeight:700,color:diffColor(diff)}}>{diffLabel(diff)}</div>}
+                    </div>
+                  </button>
+
+                  {/* Expanded hole grid */}
+                  {isExpanded && playerHoles.length > 0 && (
+                    <div style={{background:"#0D0D0F",padding:"10px 14px 14px",borderTop:"1px solid #1A1B1E"}}>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                        {scores.map((h, hi) => {
+                          const v = h.playerScores?.[p.id];
+                          const d = v != null ? v - h.par : null;
+                          const isActive = isLive && hi === (game.current_hole||1)-1;
+                          return (
+                            <div key={hi} style={{display:"flex",flexDirection:"column",alignItems:"center",width:30}}>
+                              <div style={{fontSize:8,color:isActive?"#CAFF4D":"#555761",fontWeight:700,marginBottom:2}}>{h.hole}</div>
+                              <div style={{width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                <ScoreSymbol v={v} par={h.par} size={26}/>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <div style={{textAlign:"center",padding:"32px 16px",color:"#555761",fontSize:13}}>Sense puntuació encara</div>
+                      <div style={{display:"flex",justifyContent:"space-between",marginTop:10,paddingTop:8,borderTop:"1px solid #1A1B1E"}}>
+                        <div style={{fontSize:11,color:"#555761"}}>{holesPlayed} forats jugats</div>
+                        <div style={{fontSize:11,fontWeight:700,color:diffColor(diff)}}>{strokes} cops · {diffLabel(diff)}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── TARGETA ── */}
+        {tab === "card" && (
+          <div style={{padding:"12px 16px"}}>
+            {scores.length > 0 ? (
+              <div style={{display:"grid",gridTemplateColumns:`32px repeat(${Math.min(players.length||1,4)},1fr)`,gap:4}}>
+                <div style={{fontSize:9,color:"#555761",fontWeight:700,textAlign:"center",paddingBottom:6}}>F.</div>
+                {players.slice(0,4).map((p,i)=>(
+                  <div key={p.id} style={{fontSize:9,color:PLAYER_COLORS[i]||"#CAFF4D",fontWeight:700,textAlign:"center",paddingBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {(p.name||"P").split(" ")[0].slice(0,5).toUpperCase()}
+                  </div>
+                ))}
+                {scores.map((h, hi) => {
+                  const isActive = isLive && hi === (game.current_hole||1)-1;
+                  return (
+                    <React.Fragment key={hi}>
+                      <div style={{fontSize:10,fontWeight:700,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",height:32,color:isActive?"#CAFF4D":"#555761",borderRadius:isActive?5:0,background:isActive?"rgba(202,255,77,.08)":"transparent"}}>{h.hole}</div>
+                      {players.slice(0,4).map((p) => (
+                        <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"center",height:32,background:isActive?"rgba(202,255,77,.04)":"transparent",borderRadius:isActive?5:0}}>
+                          <ScoreSymbol v={h.playerScores?.[p.id]} par={h.par} size={26}/>
+                        </div>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{textAlign:"center",padding:"40px 0",color:"#555761",fontSize:13}}>Sense puntuació encara</div>
+            )}
+          </div>
         )}
       </div>
 
@@ -129,6 +190,8 @@ function SharedViewer({ game, token, watchOnly, onJoinClick }) {
           Registra't gratis →
         </a>
       </div>
+
+      <style>{`@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}`}</style>
     </div>
   );
 }

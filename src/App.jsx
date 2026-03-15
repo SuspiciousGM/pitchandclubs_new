@@ -557,12 +557,12 @@ export default function App() {
     setGameData(data);
     setScreen("scorecard");
 
-    // Insert a live game row for logged-in users (enables spectators + live linking)
-    if (user?.id) {
+    // Insert a live game row (logged-in and guest users both stream live)
+    {
       const me = data.players.find(p => p.isMe) || data.players[0];
       const shareToken = crypto.randomUUID();
       const { data: row, error: liveErr } = await supabase.from("games").insert({
-        user_id: user.id,
+        user_id: user?.id || null,
         course_name: data.course.name,
         player_name: me.name,
         avatar_url: user?.avatarUrl || null,

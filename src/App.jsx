@@ -654,14 +654,29 @@ export default function App() {
     if (user?.id) {
       try {
         if (liveGameId) {
-          const { error } = await supabase.from("games").update({
+          const { error: updateErr } = await supabase.from("games").update({
             players: game.players,
             scores: game.scores,
             is_live: false,
             current_hole: game.scores.length,
+            player_name: user?.name || "",
+            course_name: game.course,
+            date: game.date,
+            game_mode: game.mode,
           }).eq("id", liveGameId);
-          if (error) throw error;
-          dbGameId = liveGameId;
+          if (!updateErr) {
+            dbGameId = liveGameId;
+          } else {
+            // Fallback: insert fresh if update failed
+            console.warn("P&C: live update failed, inserting fresh:", updateErr.message);
+            const { data: rows, error: insErr } = await supabase.from("games").insert({
+              user_id: user.id, course_name: game.course, player_name: user?.name || "",
+              avatar_url: user?.avatarUrl || null, date: game.date, game_mode: game.mode,
+              players: game.players, scores: game.scores,
+            }).select();
+            if (insErr) throw insErr;
+            dbGameId = rows?.[0]?.id || null;
+          }
           setLiveGameId(null);
         } else {
           const { data: rows, error } = await supabase.from("games").insert({

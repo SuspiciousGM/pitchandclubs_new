@@ -581,7 +581,7 @@ export default function App() {
         share_token: shareToken,
         share_mode: "play",
       }).select().single();
-      if (liveErr) { console.error("P&C: live game insert error:", liveErr); }
+      if (liveErr) { console.error("P&C: live game insert error:", liveErr); showToast("Live error: " + liveErr.message); }
       else if (row) {
         setLiveGameId(row.id);
         setLiveShareToken(row.share_token || shareToken);

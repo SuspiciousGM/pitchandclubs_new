@@ -28,31 +28,29 @@ export default function GameSetupScreen({ user, openAuth, onStart, lang }) {
       return;
     }
     searchDebounce.current[playerId] = setTimeout(async () => {
-      const q = query.trim().toLowerCase();
+      const q = query.trim();
       const excludedIds = new Set();
       if (user?.id) excludedIds.add(user.id);
       players.forEach(p => { if (p.userId) excludedIds.add(p.userId); });
 
-      // Try profiles table first (fast, reliable)
-      // Search registered users by name from games table (server-side ilike filter)
-      const { data: gamesData } = await supabase
-        .from('games')
-        .select('user_id, player_name')
-        .not('user_id', 'is', null)
-        .ilike('player_name', `%${q}%`)
-        .order('created_at', { ascending: false })
-        .limit(80);
+      // Search profiles table — finds all registered users even with no games yet
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, name, club, avatar_url')
+        .ilike('name', `%${q}%`)
+        .limit(10);
 
-      const seen = new Set(excludedIds);
-      const results = [];
-      for (const g of (gamesData || [])) {
-        if (results.length >= 6) break;
-        if (!seen.has(g.user_id) && g.player_name) {
-          seen.add(g.user_id);
-          const initials = g.player_name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
-          results.push({ name: g.player_name, userId: g.user_id, initials, isRegistered: true });
-        }
-      }
+      const results = (profilesData || [])
+        .filter(p => p.name && !excludedIds.has(p.id))
+        .slice(0, 6)
+        .map(p => ({
+          name: p.name,
+          userId: p.id,
+          initials: p.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase(),
+          isRegistered: true,
+          avatarUrl: p.avatar_url || null,
+          club: p.club || "",
+        }));
       setPlayerSuggestions(ps=>({...ps,[playerId]:results}));
     }, 300);
   };

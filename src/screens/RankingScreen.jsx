@@ -8,6 +8,7 @@ import { TIERS, LEADERBOARD } from '../data/constants.js';
 export default function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
   const tl = (k,v={}) => t(lang,k,v);
   const [liveRanking, setLiveRanking] = useState(null);
+  const [clubLeaders, setClubLeaders] = useState([]);
   const [courseLeaders, setCourseLeaders] = useState([]);
   const [loading, setLoading]         = useState(true);
   const [activeTab, setActiveTab]     = useState("global");
@@ -39,12 +40,15 @@ export default function RankingScreen({ user, openAuth, setScreen, lang, follows
             const d = me.diff;
             if (typeof d === "number" && !isNaN(d)) userMap[g.user_id].scores.push(d);
           });
-          // Fetch avatars from profiles table (source of truth)
+          // Fetch profiles (avatar + club, source of truth)
           const userIds = Object.keys(userMap);
           const { data: profilesData } = await supabase
-            .from("profiles").select("id, avatar_url").in("id", userIds);
+            .from("profiles").select("id, avatar_url, club").in("id", userIds);
           const profileAvatars = {};
-          (profilesData || []).forEach(p => { if (p.avatar_url) profileAvatars[p.id] = p.avatar_url; });
+          (profilesData || []).forEach(p => {
+            if (p.avatar_url) profileAvatars[p.id] = p.avatar_url;
+            if (p.club && userMap[p.id]) userMap[p.id].club = p.club; // prefer profiles club
+          });
 
           const global = Object.entries(userMap)
             .map(([uid, v]) => ({
@@ -61,7 +65,25 @@ export default function RankingScreen({ user, openAuth, setScreen, lang, follows
             }));
           if (global.length) setLiveRanking(global);
 
-          // Club: best score per course
+          // Club leaderboard: group players by club, sum pts
+          const clubMap = {};
+          Object.entries(userMap).forEach(([uid, v]) => {
+            const clubName = (v.club || "").trim();
+            if (!clubName) return;
+            const key = clubName.toLowerCase();
+            if (!clubMap[key]) clubMap[key] = { name: clubName, pts: 0, members: 0, best: null, topPlayer: "", topAvatar: profileAvatars[uid] || null };
+            clubMap[key].pts += v.pts;
+            clubMap[key].members += 1;
+            const bestScore = v.scores.length ? Math.min(...v.scores) : null;
+            if (bestScore !== null && (clubMap[key].best === null || bestScore < clubMap[key].best)) {
+              clubMap[key].best = bestScore;
+              clubMap[key].topPlayer = v.name;
+              clubMap[key].topAvatar = profileAvatars[uid] || null;
+            }
+          });
+          if (!cancelled) setClubLeaders(Object.values(clubMap).sort((a,b) => b.pts - a.pts));
+
+          // Course leaderboard: best score per course
           const courseMap = {};
           gamesData.forEach(g => {
             const me = (g.players||[]).find(p => p.isMe);
@@ -122,7 +144,7 @@ export default function RankingScreen({ user, openAuth, setScreen, lang, follows
 
       {/* ── TABS */}
       <div style={{display:"flex",gap:6,marginBottom:16}}>
-        {[{id:"global",label:lang==="en"?"Global":lang==="es"?"Global":"Global"},{id:"club",label:"Club"}].map(tab => (
+        {[{id:"global",label:"Global"},{id:"club",label:lang==="en"?"Clubs":lang==="es"?"Clubs":"Clubs"},{id:"course",label:lang==="en"?"Course":lang==="es"?"Campo":"Camp"}].map(tab => (
           <button key={tab.id} onClick={()=>setActiveTab(tab.id)}
             style={{padding:"7px 18px",borderRadius:100,border:`1px solid ${activeTab===tab.id?"#CAFF4D":"#222327"}`,background:activeTab===tab.id?"rgba(202,255,77,.1)":"transparent",color:activeTab===tab.id?"#CAFF4D":"#555761",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"Inter",letterSpacing:".04em"}}>
             {tab.label}
@@ -130,16 +152,16 @@ export default function RankingScreen({ user, openAuth, setScreen, lang, follows
         ))}
       </div>
 
-      {/* ── CLUB LEADERBOARD */}
-      {activeTab === "club" && (
+      {/* ── COURSE LEADERBOARD */}
+      {activeTab === "course" && (
         <div className="card" style={{overflow:"hidden",padding:0,marginBottom:16}}>
           <div style={{padding:"10px 14px",borderBottom:"1px solid #1A1B1E"}}>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:".06em",color:"#CAFF4D"}}>MILLOR RESULTAT PER CAMP</div>
-            <div style={{fontSize:10,color:"#555761",marginTop:1}}>Rècord de cada camp registrat a P&C</div>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:".06em",color:"#CAFF4D"}}>{lang==="en"?"BEST SCORE BY COURSE":lang==="es"?"MEJOR SCORE POR CAMPO":"MILLOR SCORE PER CAMP"}</div>
+            <div style={{fontSize:10,color:"#555761",marginTop:1}}>{lang==="en"?"Course records on P&C":lang==="es"?"Récords de campo en P&C":"Rècords de camp a P&C"}</div>
           </div>
           {courseLeaders.length === 0 ? (
             <div style={{padding:"32px",textAlign:"center",color:"#555761",fontSize:13}}>
-              {loading ? "Carregant…" : "Encara no hi ha resultats registrats"}
+              {loading ? "Carregant…" : (lang==="en"?"No results yet":lang==="es"?"Sin resultados aún":"Encara no hi ha resultats")}
             </div>
           ) : courseLeaders.map((row, i) => {
             const diffFmt = row.best == null ? "—" : row.best > 0 ? `+${row.best}` : row.best === 0 ? "E" : `${row.best}`;
@@ -154,10 +176,52 @@ export default function RankingScreen({ user, openAuth, setScreen, lang, follows
                   <div style={{fontWeight:700,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{shortName || row.course}</div>
                   <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2}}>
                     <div style={{width:16,height:16,borderRadius:"50%",background:colors[i%6],display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>{row.bestAvatar}</div>
-                    <div style={{fontSize:10,color:"#787C8A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.bestPlayer}{fmtDate ? ` · ${fmtDate}` : ""}{row.games > 1 ? ` · ${row.games} partides` : ""}</div>
+                    <div style={{fontSize:10,color:"#787C8A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.bestPlayer}{fmtDate ? ` · ${fmtDate}` : ""}{row.games > 1 ? ` · ${row.games}p` : ""}</div>
                   </div>
                 </div>
                 <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:diffCol,flexShrink:0}}>{diffFmt}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── CLUB LEADERBOARD */}
+      {activeTab === "club" && (
+        <div className="card" style={{overflow:"hidden",padding:0,marginBottom:16}}>
+          <div style={{padding:"10px 14px",borderBottom:"1px solid #1A1B1E"}}>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:".06em",color:"#CAFF4D"}}>RÀNQUING DE CLUBS</div>
+            <div style={{fontSize:10,color:"#555761",marginTop:1}}>Punts acumulats per tots els membres</div>
+          </div>
+          {clubLeaders.length === 0 ? (
+            <div style={{padding:"32px",textAlign:"center",color:"#555761",fontSize:13}}>
+              {loading ? "Carregant…" : "Encara no hi ha clubs registrats"}
+            </div>
+          ) : clubLeaders.map((club, i) => {
+            const colors = ["#CAFF4D","#60A5FA","#A78BFA","#F472B6","#34D399","#FBBF24"];
+            const color = colors[i % 6];
+            const bestFmt = club.best == null ? "—" : club.best > 0 ? `+${club.best}` : club.best === 0 ? "E" : `${club.best}`;
+            const isMyClub = user?.club && user.club.toLowerCase() === club.name.toLowerCase();
+            const initials = club.name.split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+            return (
+              <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderBottom:"1px solid #111214",background:isMyClub?"rgba(202,255,77,.04)":"transparent"}}>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:13,color:i===0?"#FBBF24":i===1?"#9CA3AF":i===2?"#CD7F32":"#2A2B30",width:22,flexShrink:0}}>{String(i+1).padStart(2,"0")}</div>
+                <div style={{width:36,height:36,borderRadius:8,background:`${color}22`,border:`1px solid ${color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:color,flexShrink:0}}>
+                  {club.topAvatar ? <img src={club.topAvatar} style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:8}} alt=""/> : initials}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:isMyClub?"#CAFF4D":"#fff",display:"flex",alignItems:"center",gap:6}}>
+                    {club.name}
+                    {isMyClub && <span style={{fontSize:8,color:"#CAFF4D",fontWeight:700}}>TU</span>}
+                  </div>
+                  <div style={{fontSize:10,color:"#555761",marginTop:1}}>
+                    {club.members} {club.members===1?"membre":"membres"}{club.topPlayer ? ` · Millor: ${club.topPlayer}` : ""}
+                  </div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:"#CAFF4D",lineHeight:1}}>{club.pts}</div>
+                  <div style={{fontSize:9,color:"#555761"}}>pts · millor {bestFmt}</div>
+                </div>
               </div>
             );
           })}

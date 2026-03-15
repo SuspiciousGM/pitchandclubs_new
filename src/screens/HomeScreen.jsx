@@ -250,7 +250,7 @@ export default function HomeScreen({ user, userPts, history, setScreen, openAuth
       {completedGames.length > 0 && (
         <div style={{marginBottom:16}}>
           <SectionHeader sub={tl("sec_activity")} title={tl("sec_last_games")}/>
-          {completedGames.slice(0,3).map(g=>{
+          {completedGames.slice(0,5).map(g=>{
             const me = g.players.find(p=>p.isMe);
             return (
               <div key={g.id} className="card card-press" style={{padding:"12px 14px",marginBottom:8}}>

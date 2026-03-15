@@ -308,8 +308,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Fetch activity feed (all recent games for the public feed)
-    supabase.from("games").select("*").order("created_at", { ascending: false }).limit(20)
+    // Fetch activity feed (finished games only)
+    supabase.from("games").select("*").eq("is_live", false).order("created_at", { ascending: false }).limit(5)
       .then(({ data }) => {
         if (data) setActivityFeed(data.map(mapGameToFeedItem));
       });
@@ -332,8 +332,11 @@ export default function App() {
       .channel("games-feed")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "games" }, async (payload) => {
         const enriched = await enrichWithAvatar(payload.new);
-        setActivityFeed(prev => [mapGameToFeedItem(enriched), ...prev].slice(0, 20));
-        if (enriched.is_live) setLiveGames(prev => [enriched, ...prev].slice(0, 20));
+        if (enriched.is_live) {
+          setLiveGames(prev => [enriched, ...prev].slice(0, 20));
+        } else {
+          setActivityFeed(prev => [mapGameToFeedItem(enriched), ...prev].slice(0, 5));
+        }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games" }, async (payload) => {
         if (!payload.new.is_live) {

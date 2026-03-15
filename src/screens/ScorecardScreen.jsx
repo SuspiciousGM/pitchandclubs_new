@@ -114,7 +114,7 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
   const [showInviteSheet, setShowInviteSheet] = useState(false);
   const [showCodePanel,   setShowCodePanel]   = useState(false);
   const [codeCopied,      setCodeCopied]      = useState(false);
-  const gameCode = liveShareToken ? 'PC-' + liveShareToken.slice(0,4).toUpperCase() : null;
+  const gameCode = liveShareToken || null; // 6-char code e.g. JAY7MJ
   const [flashInfo,  setFlashInfo]  = useState(null);
   const [liveRemote, setLiveRemote] = useState(null); // remote game state (joined players + their scores)
   const stripRef = useRef(null);
@@ -530,8 +530,8 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
                     </button>
                   </div>
                   <button onClick={async()=>{
-                    const url=`${window.location.origin}/game/${liveShareToken}`;
-                    const data={title:'Pitch & Clubs',text:`Uneix-te! Codi: ${gameCode}`,url};
+                    const url=`${window.location.origin}/g/${liveShareToken}`;
+                    const data={title:'Pitch & Clubs',text:`Uneix-te a la partida! Codi: ${gameCode}\n${url}`,url};
                     if(navigator.share){try{await navigator.share(data);}catch(e){}}
                     else{navigator.clipboard.writeText(url);setCodeCopied(true);setTimeout(()=>setCodeCopied(false),2000);}
                   }} style={{width:'100%',padding:'11px',borderRadius:10,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
@@ -545,7 +545,7 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
 
             {/* Option 2: Watch live → share link only */}
             <button onClick={async()=>{
-              const url = liveShareToken ? `${window.location.origin}/game/${liveShareToken}?watch=1` : 'https://pitchandclubs.cat';
+              const url = liveShareToken ? `${window.location.origin}/g/${liveShareToken}?watch=1` : 'https://pitchandclubs.cat';
               const data = {title:'Pitch & Clubs — En directe',text:'Segueix la partida en directe!',url};
               if(navigator.share){try{await navigator.share(data);}catch(e){}}
               else{navigator.clipboard.writeText(url);setShowInviteSheet(false);}

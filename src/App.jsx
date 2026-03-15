@@ -560,7 +560,8 @@ export default function App() {
     // Insert a live game row (logged-in and guest users both stream live)
     {
       const me = data.players.find(p => p.isMe) || data.players[0];
-      const shareToken = crypto.randomUUID();
+      const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous 0/O 1/I
+      const shareToken = Array.from({length:6}, () => CHARS[Math.floor(Math.random()*CHARS.length)]).join('');
       const { data: row, error: liveErr } = await supabase.from("games").insert({
         user_id: user?.id || null,
         course_name: data.course.name,
@@ -703,12 +704,14 @@ export default function App() {
         // (direct cross-user INSERT is blocked by RLS; the function validates the host)
         const otherRegistered = gameData.players.filter(p => !p.isMe && p.userId);
         for (const rp of otherRegistered) {
+          // Remap isMe so each co-player sees their own perspective (fixes 0 pts bug)
+          const remappedPlayers = game.players.map(pl => ({ ...pl, isMe: pl.userId === rp.userId }));
           await supabase.rpc('save_linked_game', {
             p_user_id:   rp.userId,
             p_course:    game.course,
             p_date:      game.date,
             p_game_mode: game.mode,
-            p_players:   game.players,
+            p_players:   remappedPlayers,
             p_scores:    game.scores,
           }).then(({error}) => { if (error) console.warn("P&C: linked player save error:", error.message); });
         }
@@ -737,8 +740,8 @@ export default function App() {
   const setScreenSafe = (s) => { setScreen(s); window.scrollTo(0,0); };
   const isGameFlow = screen==="game-setup"||screen==="scorecard"||screen==="summary";
 
-  // Public share route: /game/:token
-  const sharedGameToken = window.location.pathname.match(/^\/game\/([^/]+)/)?.[1];
+  // Public share route: /g/:token
+  const sharedGameToken = window.location.pathname.match(/^\/g\/([^/]+)/)?.[1];
   if (sharedGameToken) return <SharedGameRoute token={sharedGameToken}/>;
 
   return (

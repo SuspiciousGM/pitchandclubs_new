@@ -565,7 +565,6 @@ export default function App() {
         user_id: user?.id || null,
         course_name: data.course.name,
         player_name: me.name,
-        avatar_url: user?.avatarUrl || null,
         players: data.players,
         scores: Array.from({length: data.course.holes}, (_,i) => ({
           hole: i+1, par: Math.round(data.course.par / data.course.holes),

@@ -719,7 +719,7 @@ export default function App() {
         alert("Error guardant la partida:\n" + (e.message || JSON.stringify(e)));
       }
     }
-    setLastGame({...game, supabaseId: dbGameId, fraudFlags});
+    setLastGame({...game, supabaseId: dbGameId, fraudFlags, shareToken: liveShareToken});
     // Remove from live list + clear active game state
     setLiveGames(prev => prev.filter(g => g.id !== liveGameId));
     setGameData(null);

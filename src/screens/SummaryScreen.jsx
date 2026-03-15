@@ -8,60 +8,89 @@ import { calcPCPoints } from '../utils/helpers.js';
 
 /* ─── ShareCard (off-screen, 1080×1920 for Instagram Stories) ─── */
 export function ShareCard({ game, cardRef, photo }) {
-  const me = game?.players.find(p => p.isMe);
-  const diff = me?.diff ?? 0;
-  const fmtD = d => d > 0 ? `+${d}` : d === 0 ? "E" : `${d}`;
-  const holeCount = game?.scores?.length ?? 0;
+  const me = game?.players?.find(p => p.isMe);
+  const allPlayers = game?.players || [];
   const par = game?.scores?.reduce((a,h)=>a+h.par,0) ?? 0;
-  const emoji = diff <= -2 ? "🔥" : diff < 0 ? "🎉" : diff === 0 ? "✅" : "👊";
+  const holeCount = game?.scores?.length ?? 0;
+  const fmtD = d => d > 0 ? `+${d}` : d === 0 ? "E" : `${d}`;
+  const scoreBg = (d) => d == null ? "#222" : d <= -2 ? "rgba(251,191,36,.4)" : d === -1 ? "rgba(96,165,250,.35)" : d === 0 ? "rgba(202,255,77,.35)" : d === 1 ? "#1e1e26" : "rgba(239,68,68,.3)";
+  const scoreCol = (d) => d == null ? "#333" : d <= -2 ? "#FBBF24" : d === -1 ? "#60A5FA" : d === 0 ? "#CAFF4D" : d === 1 ? "#787C8A" : "#EF4444";
   return (
     <div ref={cardRef} style={{
       position:"fixed", top:"-9999px", left:"-9999px",
-      width:1080, height:1920, background:"#0A0A0B",
+      width:1080, height:1920, background:"#080909",
       fontFamily:"Inter, sans-serif", overflow:"hidden",
     }}>
-      {/* BG photo */}
-      {photo && <img src={photo} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:.22}}/>}
-      {/* diagonal texture */}
-      <div style={{position:"absolute",inset:0,backgroundImage:"repeating-linear-gradient(135deg,rgba(202,255,77,.018) 0px,rgba(202,255,77,.018) 1px,transparent 1px,transparent 8px)"}}/>
-      {/* gradient overlay */}
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,rgba(10,10,11,.3) 0%,rgba(10,10,11,.7) 60%,rgba(10,10,11,.95) 100%)"}}/>
-      <div style={{position:"relative",zIndex:1,padding:"120px 80px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-        {/* top */}
-        <div>
-          <div style={{fontSize:48,fontWeight:900,letterSpacing:"-.02em",color:"#CAFF4D"}}>PITCH&CLUBS</div>
-          <div style={{fontSize:28,color:"#555761",marginTop:8}}>pitchandclubs.cat</div>
+      {/* Hero background */}
+      <img src="/hero-bg.jpg" alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:.18}}/>
+      {/* Round photo overlay */}
+      {photo && <img src={photo} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:.14}}/>}
+      {/* gradient */}
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,rgba(8,9,9,.4) 0%,rgba(8,9,9,.65) 40%,rgba(8,9,9,.97) 70%,#080909 100%)"}}/>
+      {/* subtle grid lines */}
+      <div style={{position:"absolute",inset:0,backgroundImage:"linear-gradient(rgba(202,255,77,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(202,255,77,.03) 1px,transparent 1px)",backgroundSize:"80px 80px"}}/>
+
+      <div style={{position:"relative",zIndex:1,padding:"100px 90px",height:"100%",display:"flex",flexDirection:"column"}}>
+        {/* Top bar */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"auto"}}>
+          <div>
+            <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:52,letterSpacing:".06em",color:"#CAFF4D",lineHeight:1}}>PITCH<span style={{color:"#fff"}}>&</span>CLUBS</div>
+            <div style={{fontSize:26,color:"rgba(255,255,255,.35)",marginTop:6,letterSpacing:".04em"}}>pitchandclubs.cat</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:26,color:"rgba(255,255,255,.4)",letterSpacing:".08em",textTransform:"uppercase"}}>{game?.date}</div>
+          </div>
         </div>
-        {/* center */}
-        <div style={{textAlign:"center"}}>
-          <div style={{fontSize:200}}>{emoji}</div>
-          <div style={{fontFamily:"'Bebas Neue', cursive",fontSize:220,lineHeight:.9,color:diff<0?"#FBBF24":diff===0?"#CAFF4D":"#FFFFFF"}}>{fmtD(diff)}</div>
-          <div style={{fontSize:52,color:"#787C8A",marginTop:24}}>{me?.score} cops · Par {par}</div>
-          <div style={{fontSize:42,color:"#555761",marginTop:12}}>{holeCount} forats</div>
+
+        {/* Course name */}
+        <div style={{marginTop:120}}>
+          <div style={{fontSize:26,fontWeight:600,letterSpacing:".12em",textTransform:"uppercase",color:"rgba(202,255,77,.7)",marginBottom:16}}>PARTIDA REGISTRADA</div>
+          <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:88,letterSpacing:".02em",lineHeight:1,color:"#fff"}}>{game?.course}</div>
+          <div style={{fontSize:32,color:"rgba(255,255,255,.35)",marginTop:12}}>{holeCount} forats · Par {par}</div>
         </div>
-        {/* bottom */}
-        <div>
-          <div style={{fontSize:56,fontWeight:800,color:"#fff",marginBottom:12}}>{game?.course}</div>
-          <div style={{fontSize:36,color:"#555761"}}>{game?.date}</div>
-          {/* hole grid */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(9,1fr)",gap:8,marginTop:40}}>
-            {game?.scores?.map((h,i)=>{
-              const s = me ? h.playerScores[me.id] : null;
-              const d = s != null ? s - h.par : null;
-              const bg = d == null ? "#222" : d <= -2 ? "rgba(251,191,36,.4)" : d === -1 ? "rgba(96,165,250,.35)" : d === 0 ? "rgba(202,255,77,.35)" : d === 1 ? "#2a2a32" : "rgba(239,68,68,.35)";
-              const col = d == null ? "#333" : d <= -2 ? "#FBBF24" : d === -1 ? "#60A5FA" : d === 0 ? "#CAFF4D" : "#fff";
-              return (
-                <div key={i} style={{height:72,borderRadius:10,background:bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <span style={{fontFamily:"'Bebas Neue',cursive",fontSize:40,color:col}}>{s ?? h.par}</span>
+
+        {/* Players scores */}
+        <div style={{marginTop:80,display:"flex",flexDirection:"column",gap:24}}>
+          {allPlayers.map((p, i) => {
+            const diff = p.diff ?? 0;
+            const diffColor = diff < 0 ? "#FBBF24" : diff === 0 ? "#CAFF4D" : "rgba(255,255,255,.6)";
+            const initials = (p.name||"?").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+            const colors = ["#CAFF4D","#60A5FA","#A78BFA","#F472B6"];
+            return (
+              <div key={p.id||i} style={{display:"flex",alignItems:"center",gap:28,padding:"28px 36px",background:"rgba(255,255,255,.04)",borderRadius:20,border:`1px solid rgba(255,255,255,.07)`,borderLeft:`4px solid ${colors[i%4]}`}}>
+                <div style={{width:72,height:72,borderRadius:"50%",background:`${colors[i%4]}22`,border:`2px solid ${colors[i%4]}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:700,color:colors[i%4],flexShrink:0}}>{initials}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:40,color:"#fff",lineHeight:1}}>{p.name}</div>
+                  <div style={{fontSize:26,color:"rgba(255,255,255,.4)",marginTop:6}}>{p.score} cops</div>
                 </div>
-              );
-            })}
+                <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:80,color:diffColor,lineHeight:1}}>{fmtD(diff)}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Hole grid for primary player */}
+        {me && (
+          <div style={{marginTop:60}}>
+            <div style={{fontSize:22,color:"rgba(255,255,255,.3)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:16}}>TARGETA · {me.name}</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(9,1fr)",gap:10}}>
+              {game?.scores?.map((h,i)=>{
+                const s = h.playerScores[me.id];
+                const d = s != null ? s - h.par : null;
+                return (
+                  <div key={i} style={{height:80,borderRadius:12,background:scoreBg(d),display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(255,255,255,.06)"}}>
+                    <span style={{fontFamily:"'Bebas Neue',cursive",fontSize:42,color:scoreCol(d)}}>{s ?? "—"}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div style={{display:"flex",gap:16,marginTop:20,flexWrap:"wrap"}}>
-            {[["E","HiO"],["B","Birdie"],["P","Par"],["BO","Bogey"],["D","Doble+"]].map(([k,l])=>(
-              <div key={k} style={{fontSize:24,color:"#555"}}>{l}: {game?.scores?.filter(h=>{const s=me?h.playerScores[me.id]:null;const d=s!=null?s-h.par:null;return k==="E"?d<=-2:k==="B"?d===-1:k==="P"?d===0:k==="BO"?d===1:d>=2}).length}</div>
-            ))}
-          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{marginTop:"auto",paddingTop:60,borderTop:"1px solid rgba(255,255,255,.08)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:26,color:"rgba(255,255,255,.3)"}}>Registra les teves partides</div>
+          <div style={{fontSize:26,fontWeight:700,color:"rgba(202,255,77,.8)",letterSpacing:".04em"}}>pitchandclubs.cat</div>
         </div>
       </div>
     </div>
@@ -90,8 +119,10 @@ export default function SummaryScreen({ game, userPts, prevPts, setScreen, openA
     canvas.toBlob(async (blob) => {
       if (!blob) { setSharing(false); return; }
       const file = new File([blob], "pitchandclubs-round.png", { type: "image/png" });
-      const appUrl = "https://pitchandclubs.cat";
-      const shareText = `He jugat a ${game.course} — pitchandclubs.cat`;
+      const gameUrl = game.shareToken
+        ? `https://pitchandclubs.cat/g/${game.shareToken}?watch=1`
+        : "https://pitchandclubs.cat";
+      const shareText = `He jugat a ${game.course} — veure la partida:`;
       // 1. Try native share with image file (iOS/Android opens full share sheet)
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         try {
@@ -102,7 +133,7 @@ export default function SummaryScreen({ game, userPts, prevPts, setScreen, openA
       // 2. Try URL-only share (most modern browsers)
       if (navigator.share) {
         try {
-          await navigator.share({ title: "La meva partida a Pitch & Clubs", text: shareText, url: appUrl });
+          await navigator.share({ title: "La meva partida a Pitch & Clubs", text: shareText, url: gameUrl });
           setSharing(false); return;
         } catch(e) { if (e.name === "AbortError") { setSharing(false); return; } }
       }

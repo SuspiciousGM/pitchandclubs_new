@@ -195,20 +195,6 @@ export default function LiveScreen({ user, openAuth, lang, liveGames, setLiveGam
       </div>
 
       {/* Stories row */}
-      {liveNow.length > 0 && (
-        <div className="story-row">
-          {liveNow.map(g=>(
-            <div key={g.id} className="story-avatar">
-              <div className="story-ring">
-                <div className="story-inner" style={{background:g.color||"#CAFF4D",color:"#0A0A0B"}}>
-                  {g.avatar_url ? <img src={g.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : (g.player_name||"?").split(" ").map(w=>w[0]).slice(0,2).join("")}
-                </div>
-              </div>
-              <span style={{fontSize:9,fontWeight:600,color:"#787C8A",maxWidth:50,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"center"}}>{(g.player_name||"?").split(" ")[0]}</span>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Live games */}
       {liveNow.length > 0 && (

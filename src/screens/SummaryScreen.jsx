@@ -69,21 +69,28 @@ export function ShareCard({ game, cardRef, photo }) {
           })}
         </div>
 
-        {/* Hole grid for primary player */}
-        {me && (
-          <div style={{marginTop:60}}>
-            <div style={{fontSize:22,color:"rgba(255,255,255,.3)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:16}}>TARGETA · {me.name}</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(9,1fr)",gap:10}}>
-              {game?.scores?.map((h,i)=>{
-                const s = h.playerScores[me.id];
-                const d = s != null ? s - h.par : null;
-                return (
-                  <div key={i} style={{height:80,borderRadius:12,background:scoreBg(d),display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(255,255,255,.06)"}}>
-                    <span style={{fontFamily:"'Bebas Neue',cursive",fontSize:42,color:scoreCol(d)}}>{s ?? "—"}</span>
+        {/* Hole grids — one per player */}
+        {allPlayers.length > 0 && (
+          <div style={{marginTop:60,display:"flex",flexDirection:"column",gap:36}}>
+            {allPlayers.map((p, pi) => {
+              const colors = ["#CAFF4D","#60A5FA","#A78BFA","#F472B6"];
+              return (
+                <div key={p.id||pi}>
+                  <div style={{fontSize:22,color:colors[pi%4],letterSpacing:".1em",textTransform:"uppercase",marginBottom:16,fontWeight:700}}>TARGETA · {p.name}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(9,1fr)",gap:8}}>
+                    {game?.scores?.map((h,i)=>{
+                      const s = h.playerScores[p.id];
+                      const d = s != null ? s - h.par : null;
+                      return (
+                        <div key={i} style={{height:72,borderRadius:10,background:scoreBg(d),display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(255,255,255,.06)"}}>
+                          <span style={{fontFamily:"'Bebas Neue',cursive",fontSize:38,color:scoreCol(d)}}>{s ?? "—"}</span>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
         )}
 

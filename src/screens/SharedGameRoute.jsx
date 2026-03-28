@@ -209,9 +209,12 @@ function GuestScorecard({ game, token, joinedPid, onLeave }) {
     }
   }
 
+  // Mark joined player as isMe so ScorecardScreen focuses them
+  const playersWithMe = (game.players || []).map(p => ({ ...p, isMe: p.id === joinedPid }));
+
   const gameData = {
     course: { name: game.course_name, holes: game.holes || 18, par: game.par || 18 },
-    players: game.players || [],
+    players: playersWithMe,
     date: game.date,
     gameMode: game.game_mode || 'stableford',
   };

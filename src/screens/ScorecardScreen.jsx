@@ -86,7 +86,7 @@ function NumberPicker({ value, par, onChange, lang }) {
   );
 }
 
-export default function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, liveGameId, onLiveUpdate, onPhotoCapture, liveShareToken }) {
+export default function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, liveGameId, onLiveUpdate, onPhotoCapture, liveShareToken, onCreateLive }) {
   const tl = (k,v={}) => t(lang,k,v);
   const { course, players } = gameData;
   const pph = Math.round(course.par / course.holes);
@@ -376,8 +376,11 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
               </div>
             )}
           </div>
-          <button onClick={()=>{setShowInviteSheet(true);setShowCodePanel(false);}} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(202,255,77,.35)',background:'rgba(202,255,77,.1)',color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
-            <Share2 size={12}/> Invita
+          <button onClick={()=>{setShowInviteSheet(true);setShowCodePanel(!!gameCode);}} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(202,255,77,.35)',background:'rgba(202,255,77,.1)',color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+            {gameCode
+              ? <><Share2 size={12}/> <span style={{fontFamily:"'Bebas Neue'",letterSpacing:'.15em',fontSize:13}}>{gameCode}</span></>
+              : <><Share2 size={12}/> Invita</>
+            }
           </button>
           <button onClick={()=>setShowFull(true)} style={{padding:'6px 8px',borderRadius:8,border:'1px solid #333',background:'#1a1a1f',color:'#999',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
             <Flag size={13}/>
@@ -604,7 +607,14 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
                     <Share2 size={14}/> Compartir link
                   </button>
                 </> : (
-                  <div style={{fontSize:12,color:'#555761',textAlign:'center',padding:'8px 0'}}>Inicia la partida en directe per obtenir un codi</div>
+                  <div style={{textAlign:'center',padding:'8px 0'}}>
+                    <div style={{fontSize:12,color:'#555761',marginBottom:10}}>La partida no s'ha pogut iniciar en directe</div>
+                    <button onClick={async()=>{
+                      if(onCreateLive){ await onCreateLive(); }
+                    }} style={{padding:'9px 20px',borderRadius:10,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontWeight:700,fontSize:13,cursor:'pointer'}}>
+                      Reintentar ↺
+                    </button>
+                  </div>
                 )}
               </div>
             )}

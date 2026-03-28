@@ -553,46 +553,48 @@ export default function App() {
     } catch(e) { console.error("Push subscription error:", e); }
   };
 
+  const createLiveGame = async (data) => {
+    const me = data.players.find(p => p.isMe) || data.players[0];
+    const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const shareToken = Array.from({length:6}, () => CHARS[Math.floor(Math.random()*CHARS.length)]).join('');
+    const { data: row, error: liveErr } = await supabase.from("games").insert({
+      user_id: user?.id || null,
+      course_name: data.course.name,
+      player_name: me.name,
+      players: data.players,
+      scores: Array.from({length: data.course.holes}, (_,i) => ({
+        hole: i+1, par: Math.round(data.course.par / data.course.holes),
+        playerScores: Object.fromEntries(data.players.map(p => [p.id, null])),
+      })),
+      is_live: true,
+      current_hole: 1,
+      holes: data.course.holes,
+      par: data.course.par,
+      score_total: 0,
+      date: data.date,
+      game_mode: data.gameMode,
+      share_token: shareToken,
+      share_mode: "play",
+    }).select().single();
+    if (liveErr) { console.error("P&C: live game insert error:", liveErr); showToast("Error en directe: " + liveErr.message); return null; }
+    if (row) {
+      setLiveGameId(row.id);
+      setLiveShareToken(row.share_token || shareToken);
+      localStorage.setItem('pc_liveGameId', row.id);
+      localStorage.setItem('pc_liveShareToken', row.share_token || shareToken);
+      setLiveGames(prev => [row, ...prev.filter(g => g.id !== row.id)].slice(0, 20));
+      return row;
+    }
+    return null;
+  };
+
   const handleGameStart = async (data) => {
     localStorage.setItem('pc_gameData', JSON.stringify(data));
     localStorage.setItem('pc_screen', 'scorecard');
     localStorage.setItem('pc_gameStartedAt', String(Date.now()));
     setGameData(data);
     setScreen("scorecard");
-
-    // Insert a live game row (logged-in and guest users both stream live)
-    {
-      const me = data.players.find(p => p.isMe) || data.players[0];
-      const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous 0/O 1/I
-      const shareToken = Array.from({length:6}, () => CHARS[Math.floor(Math.random()*CHARS.length)]).join('');
-      const { data: row, error: liveErr } = await supabase.from("games").insert({
-        user_id: user?.id || null,
-        course_name: data.course.name,
-        player_name: me.name,
-        players: data.players,
-        scores: Array.from({length: data.course.holes}, (_,i) => ({
-          hole: i+1, par: Math.round(data.course.par / data.course.holes),
-          playerScores: Object.fromEntries(data.players.map(p => [p.id, null])),
-        })),
-        is_live: true,
-        current_hole: 1,
-        holes: data.course.holes,
-        par: data.course.par,
-        score_total: 0,
-        date: data.date,
-        game_mode: data.gameMode,
-        share_token: shareToken,
-        share_mode: "play",
-      }).select().single();
-      if (liveErr) { console.error("P&C: live game insert error:", liveErr); showToast("Live error: " + liveErr.message); }
-      else if (row) {
-        setLiveGameId(row.id);
-        setLiveShareToken(row.share_token || shareToken);
-        localStorage.setItem('pc_liveGameId', row.id);
-        localStorage.setItem('pc_liveShareToken', row.share_token || shareToken);
-        setLiveGames(prev => [row, ...prev].slice(0, 10));
-      }
-    }
+    await createLiveGame(data);
   };
 
   const handleGameFinish = async (scores, saveAndExit=false) => {
@@ -761,7 +763,7 @@ export default function App() {
 
         {screen==="home"       && <HomeScreen       user={user} userPts={userPts} history={history} setScreen={setScreenSafe} openAuth={openAuth} leads={leads} lang={lang} activeGame={gameData} onResumeGame={()=>setScreen("scorecard")} activityFeed={activityFeed} liveGames={liveGames} onSelectGame={g=>{setSelectedLiveGame(g);setScreenSafe("live");}}/>}
         {screen==="game-setup" && <GameSetupScreen   user={user} openAuth={openAuth} onStart={handleGameStart} lang={lang}/>}
-        {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang} liveGameId={liveGameId} onPhotoCapture={setRoundPhoto} liveShareToken={liveShareToken} onLiveUpdate={(scores, curHole) => {
+        {screen==="scorecard"  && gameData && <ScorecardScreen gameData={gameData} onFinish={handleGameFinish} onDelete={handleGameDelete} user={user} openAuth={openAuth} lang={lang} liveGameId={liveGameId} onPhotoCapture={setRoundPhoto} liveShareToken={liveShareToken} onCreateLive={() => createLiveGame(gameData)} onLiveUpdate={(scores, curHole) => {
           if (!liveGameId) return;
           clearTimeout(liveDebounce.current);
           liveDebounce.current = setTimeout(async () => {

@@ -557,33 +557,31 @@ export default function App() {
     const me = data.players.find(p => p.isMe) || data.players[0];
     const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     const shareToken = Array.from({length:6}, () => CHARS[Math.floor(Math.random()*CHARS.length)]).join('');
-    const { data: row, error: liveErr } = await supabase.from("games").insert({
-      user_id: user?.id || null,
-      course_name: data.course.name,
-      player_name: me.name,
-      players: data.players,
-      scores: Array.from({length: data.course.holes}, (_,i) => ({
-        hole: i+1, par: Math.round(data.course.par / data.course.holes),
-        playerScores: Object.fromEntries(data.players.map(p => [p.id, null])),
-      })),
-      is_live: true,
-      current_hole: 1,
-      holes: data.course.holes,
-      par: data.course.par,
-      score_total: 0,
-      date: data.date,
-      game_mode: data.gameMode,
-      share_token: shareToken,
-      share_mode: "play",
-    }).select().single();
-    if (liveErr) { console.error("P&C: live game insert error:", liveErr); showToast("Error en directe: " + liveErr.message); return null; }
+    const scores = Array.from({length: data.course.holes}, (_,i) => ({
+      hole: i+1, par: Math.round(data.course.par / data.course.holes),
+      playerScores: Object.fromEntries(data.players.map(p => [p.id, null])),
+    }));
+    const { data: row, error: liveErr } = await supabase.rpc('create_live_game', {
+      p_user_id: user?.id || null,
+      p_course_name: data.course.name,
+      p_player_name: me.name,
+      p_players: data.players,
+      p_scores: scores,
+      p_holes: data.course.holes,
+      p_par: data.course.par,
+      p_date: data.date,
+      p_game_mode: data.gameMode,
+      p_share_token: shareToken,
+    });
+    if (liveErr) { console.error("P&C: live game error:", liveErr); showToast("Error en directe: " + liveErr.message); return null; }
     if (row) {
-      setLiveGameId(row.id);
-      setLiveShareToken(row.share_token || shareToken);
-      localStorage.setItem('pc_liveGameId', row.id);
-      localStorage.setItem('pc_liveShareToken', row.share_token || shareToken);
-      setLiveGames(prev => [row, ...prev.filter(g => g.id !== row.id)].slice(0, 20));
-      return row;
+      const game = typeof row === 'string' ? JSON.parse(row) : row;
+      setLiveGameId(game.id);
+      setLiveShareToken(game.share_token || shareToken);
+      localStorage.setItem('pc_liveGameId', game.id);
+      localStorage.setItem('pc_liveShareToken', game.share_token || shareToken);
+      setLiveGames(prev => [game, ...prev.filter(g => g.id !== game.id)].slice(0, 20));
+      return game;
     }
     return null;
   };

@@ -182,46 +182,24 @@ export default function GameSetupScreen({ user, openAuth, onStart, lang }) {
           </div>
         )}
 
-        <button className="btn btn-ghost btn-sm" style={{marginTop:10}} onClick={()=>setShowCustom(v=>!v)}>
-          {showCustom?"▲ Tancar":"⚙ Camp personalitzat"}
-        </button>
-
-        {showCustom && (
-          <div className="card ani-up" style={{marginTop:10,padding:"14px"}}>
-            <span className="label">{tl("custom_name")}</span>
-            <input className="inp" style={{marginBottom:10}} placeholder="Ex: Club de Golf de Lleida" value={customName} onChange={e=>setCustomName(e.target.value)} />
-            <div style={{display:"flex",gap:8}}>
-              <div style={{flex:1}}>
-                <span className="label">{tl("custom_holes")}</span>
-                <select className="inp" value={customHoles} onChange={e=>{setCustomHoles(Number(e.target.value));setCustomPar(Number(e.target.value)===9?27:54);}}>
-                  <option value={9}>9 forats</option>
-                  <option value={18}>18 forats</option>
-                </select>
-              </div>
-              <div style={{flex:1}}>
-                <span className="label">{tl("custom_par")}</span>
-                <select className="inp" value={customPar} onChange={e=>setCustomPar(Number(e.target.value))}>
-                  {customHoles===9 ? [27,28,29,30].map(v=><option key={v} value={v}>Par {v}</option>) : [52,54,56,58,72].map(v=><option key={v} value={v}>Par {v}</option>)}
-                </select>
-              </div>
-            </div>
-            <button className="btn btn-primary" style={{marginTop:12,fontSize:14}} disabled={!customName.trim()} onClick={()=>{setCustomCourse({name:customName,holes:customHoles,par:customPar});setSelCourse(null);setCourseQ(customName);setShowCustom(false);setShowDrop(false);}}>
-              Confirmar camp
-            </button>
-          </div>
-        )}
       </div>
 
       {/* GAME MODE */}
       <div style={{marginBottom:16}}>
         <span className="label">{tl("label_mode")}</span>
-        <div style={{display:"flex",gap:8}}>
-          {GAME_MODES.map(m => (
-            <div key={m.id} className="card" style={{flex:1,padding:"11px 13px",cursor:"pointer",marginBottom:0,borderColor:gameMode===m.id?"#CAFF4D":"#222327",background:gameMode===m.id?"rgba(202,255,77,.06)":"#1A1B1E"}} onClick={()=>setGameMode(m.id)}>
-              <div style={{fontWeight:700,fontSize:14}}>{m.label}</div>
-              <div style={{fontSize:11,color:"#555761",fontWeight:400,marginTop:2}}>{m.desc}</div>
-            </div>
-          ))}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {GAME_MODES.map(m => {
+            const sel = gameMode===m.id;
+            return (
+              <div key={m.id} className="card" onClick={()=>setGameMode(m.id)}
+                style={{padding:"16px 14px",cursor:"pointer",marginBottom:0,
+                  borderColor:sel?"#CAFF4D":"#222327",
+                  background:sel?"rgba(202,255,77,.07)":"#1A1B1E"}}>
+                <div style={{fontWeight:800,fontSize:17,lineHeight:1.15,marginBottom:4}}>{m.label}</div>
+                <div style={{fontSize:12,color:"#6b6f7e",fontWeight:400,lineHeight:1.35}}>{m.desc}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

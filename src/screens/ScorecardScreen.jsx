@@ -442,9 +442,9 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
           return (
             <div key={p.id} onClick={()=>setActivePid(p.id)}
               style={{borderRadius:14,transition:'all .2s',cursor:'pointer',position:'relative',
-                background:isAct?'#15151c':'#0f0f13',
-                border: isBestBall ? '2px solid rgba(202,255,77,.7)' : isAct?`1.5px solid ${pcolor}60`:'1px solid #1a1a1f',
-                boxShadow:isAct?`0 0 28px ${pcolor}14,inset 0 0 40px ${pcolor}05`:'none',
+                background:'#15151c',
+                border: isBestBall ? '2px solid rgba(202,255,77,.7)' : isAct?`2px solid ${pcolor}90`:`1px solid ${pcolor}30`,
+                boxShadow:isAct?`0 0 28px ${pcolor}20,inset 0 0 40px ${pcolor}08`:`0 0 12px ${pcolor}06`,
                 padding:'12px 13px'}}>
 
               {flash&&(
@@ -456,11 +456,11 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
               {/* Card header */}
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:9}}>
                 <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1}}>
-                  <div style={{width:32,height:32,borderRadius:'50%',background:isAct?pcolor:pcolor+'66',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#0A0A0B',flexShrink:0,transition:'background .2s'}}>
+                  <div style={{width:32,height:32,borderRadius:'50%',background:pcolor,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#0A0A0B',flexShrink:0,transition:'background .2s'}}>
                     {p.name[0]}
                   </div>
                   <div style={{minWidth:0}}>
-                    <div style={{fontWeight:700,fontSize:13,color:isAct?'#fff':p.isRegistered?'#aaa':'#555',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',transition:'color .2s',display:'flex',alignItems:'center',gap:4}}>
+                    <div style={{fontWeight:700,fontSize:13,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',transition:'color .2s',display:'flex',alignItems:'center',gap:4}}>
                       {p.isRegistered && <span style={{fontSize:7,color:'#CAFF4D',flexShrink:0}}>●</span>}
                       {p.name}
                     </div>
@@ -468,7 +468,7 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
                   </div>
                 </div>
                 <div style={{textAlign:'right',flexShrink:0}}>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:34,color:scDiffColor(tot),lineHeight:1,transition:'color .3s',textShadow:tot!=null&&isAct?`0 0 30px ${scDiffColor(tot)}25`:'none'}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:34,color:scDiffColor(tot),lineHeight:1,transition:'color .3s',textShadow:tot!=null?`0 0 30px ${scDiffColor(tot)}25`:'none'}}>
                     {scFmtTotal(tot)}
                   </div>
                   <div style={{fontSize:8,color:'#555',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',marginTop:1}}>{played}/{course.holes}</div>
@@ -476,7 +476,7 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
               </div>
 
               {/* Hole grid — 2 rows of 9 */}
-              <div style={{marginBottom:isAct?12:0}}>
+              <div style={{marginBottom:12}}>
                 {[0,1].map(row=>(
                   <div key={row}>
                     <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3,marginTop:row===1?6:0}}>
@@ -502,6 +502,9 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
                   </div>
                 ))}
               </div>
+
+              {/* Active indicator */}
+              {isAct&&<div style={{fontSize:8,fontWeight:700,letterSpacing:'.12em',color:pcolor,textTransform:'uppercase',marginBottom:8,opacity:.85}}>▶ ENTRANT</div>}
 
               {/* Scoring controls (active player only) */}
               {isAct&&(

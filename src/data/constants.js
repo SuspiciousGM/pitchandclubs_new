@@ -77,6 +77,7 @@ export const GAME_MODES = [
   { id:"stableford", label:"Stableford", desc:"Punts per forat" },
   { id:"medal",      label:"Medalplay",  desc:"Total de cops"   },
   { id:"parelles",   label:"Parelles",   desc:"Best ball · 2 o 4 jugadors" },
+  { id:"granada",    label:"Granada 💣", desc:"Match Play · Aposta per forat" },
 ];
 
 /* ─── MOCK LEADERBOARD ───────────────────────────────────────── */

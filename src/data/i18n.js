@@ -50,6 +50,7 @@ export const T = {
     auth_to_register:"No tens compte?",auth_to_register_link:"Crea'n un",err_name:"Escriu el teu nom o àlies",err_email:"Email invàlid",
     exit:"Sortir",courses_missing:"No trobes el teu camp? Afegeix-lo manualment o contacta'ns.",courses_add:"Afegir →",
     ticker:["Pitch & Clubs","61 camps","Registra · Puja · Domina","Kits Oficials","Less Elitist. More Real","Beta oberta","Tornejos 2025"],
+    mode_granada:"Granada 💣",mode_granada_desc:"Match Play · Aposta per forat",granada_bet:"Aposta base",granada_double:"Forats dobles (×2)",granada_hole_label:"Forat Granada (×3)",granada_decide_later:"Decidir durant la partida",granada_result:"SALDOS GRANADA",granada_final:"GRANADA — RESULTAT FINAL",granada_carry:"Pot acumulat",granada_login_required:"Necessites compte per jugar Granada 💣",
   },
   es:{
     nav_home:"Inicio",nav_ranking:"Ranking",nav_game:"Partida",nav_live:"Live",nav_shop:"Tienda",nav_profile:"Perfil",
@@ -101,6 +102,7 @@ export const T = {
     auth_to_register:"¿No tienes cuenta?",auth_to_register_link:"Créate una",err_name:"Escribe tu nombre o alias",err_email:"Email inválido",
     exit:"Salir",courses_missing:"¿No encuentras tu campo? Añádelo manualmente o contáctanos.",courses_add:"Añadir →",
     ticker:["Pitch & Clubs","61 campos","Registra · Sube · Domina","Kits Oficiales","Less Elitist. More Real","Beta abierta","Torneos 2025"],
+    mode_granada:"Granada 💣",mode_granada_desc:"Match Play · Apuesta por hoyo",granada_bet:"Apuesta base",granada_double:"Hoyos dobles (×2)",granada_hole_label:"Hoyo Granada (×3)",granada_decide_later:"Decidir durante la partida",granada_result:"SALDOS GRANADA",granada_final:"GRANADA — RESULTADO FINAL",granada_carry:"Bote acumulado",granada_login_required:"Necesitas cuenta para jugar Granada 💣",
   },
   en:{
     nav_home:"Home",nav_ranking:"Ranking",nav_game:"Round",nav_live:"Live",nav_shop:"Shop",nav_profile:"Profile",
@@ -152,6 +154,7 @@ export const T = {
     auth_to_register:"No account?",auth_to_register_link:"Create one",err_name:"Enter your name or alias",err_email:"Invalid email",
     exit:"Exit",courses_missing:"Can't find your course? Add it manually or contact us.",courses_add:"Add →",
     ticker:["Pitch & Clubs","61 courses","Track · Climb · Dominate","Official Kits","Less Elitist. More Real","Open beta","Tournaments 2025"],
+    mode_granada:"Granada 💣",mode_granada_desc:"Match Play · Bet per hole",granada_bet:"Base bet",granada_double:"Double holes (×2)",granada_hole_label:"Granada hole (×3)",granada_decide_later:"Decide during the round",granada_result:"GRANADA BALANCES",granada_final:"GRANADA — FINAL RESULT",granada_carry:"Carry over pot",granada_login_required:"You need an account to play Granada 💣",
   },
 };
 

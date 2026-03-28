@@ -15,6 +15,7 @@ export default function GameSetupScreen({ user, openAuth, onStart, lang }) {
   const [customPar, setCustomPar] = useState(54);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [gameMode, setGameMode] = useState("stableford");
+  const [granadaConfig, setGranadaConfig] = useState({ betBase: 1, doubleHoles: [], granadaHole: null, decideLater: false });
   const [players, setPlayers] = useState([{ id:1, name: user?.name || "", isMe:true }]);
   const [teams, setTeams] = useState([{id:"A",players:[]},{id:"B",players:[]}]);
   const [playerSuggestions, setPlayerSuggestions] = useState({});
@@ -124,7 +125,7 @@ export default function GameSetupScreen({ user, openAuth, onStart, lang }) {
     const effectiveCourse = activeCourse.holes === 9
       ? { ...activeCourse, holes: 18, par: activeCourse.par * 2 }
       : activeCourse;
-    onStart({ course: effectiveCourse, date, gameMode, players: playersWithTeam });
+    onStart({ course: effectiveCourse, date, gameMode, players: playersWithTeam, granadaConfig: gameMode === 'granada' ? granadaConfig : null });
   };
 
   return (
@@ -223,6 +224,87 @@ export default function GameSetupScreen({ user, openAuth, onStart, lang }) {
           ))}
         </div>
       </div>
+
+      {/* Granada config */}
+      {gameMode === 'granada' && !user && (
+        <div style={{marginTop:10,padding:"14px",background:"rgba(239,68,68,.06)",border:"1px solid rgba(239,68,68,.3)",borderRadius:10,textAlign:"center"}}>
+          <div style={{fontSize:14,marginBottom:6}}>💣</div>
+          <div style={{fontSize:13,fontWeight:700,color:"#EF4444",marginBottom:4}}>{tl("granada_login_required")}</div>
+          <button className="btn btn-primary btn-sm" style={{width:"auto",borderRadius:100,padding:"8px 18px",fontSize:12,marginTop:8}} onClick={openAuth}>{tl("cta_create_account")}</button>
+        </div>
+      )}
+      {gameMode === 'granada' && user && (
+        <div style={{marginTop:10,padding:"14px",background:"rgba(239,68,68,.06)",border:"1px solid rgba(239,68,68,.25)",borderRadius:12}}>
+          {/* Bet base */}
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"#EF4444",marginBottom:8}}>{tl("granada_bet")}</div>
+            <div style={{display:"flex",gap:8}}>
+              {[0.5,1,2,5].map(b=>(
+                <button key={b} onClick={()=>setGranadaConfig(c=>({...c,betBase:b}))}
+                  style={{flex:1,padding:"8px 4px",borderRadius:8,border:`1px solid ${granadaConfig.betBase===b?"#EF4444":"#333"}`,background:granadaConfig.betBase===b?"rgba(239,68,68,.15)":"#1A1B1E",color:granadaConfig.betBase===b?"#EF4444":"#787C8A",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                  {b}€
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Decide later toggle */}
+          <div style={{marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",background:"#111214",borderRadius:8}}>
+            <div>
+              <div style={{fontSize:12,fontWeight:600}}>{tl("granada_decide_later")}</div>
+              <div style={{fontSize:10,color:"#555761",marginTop:1}}>Assigneu els forats especials sobre la marxa</div>
+            </div>
+            <button onClick={()=>setGranadaConfig(c=>({...c,decideLater:!c.decideLater}))}
+              style={{width:40,height:22,borderRadius:11,background:granadaConfig.decideLater?"#EF4444":"#333",border:"none",cursor:"pointer",position:"relative",flexShrink:0,transition:"background .2s"}}>
+              <span style={{position:"absolute",top:2,left:granadaConfig.decideLater?18:2,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left .2s",display:"block"}}/>
+            </button>
+          </div>
+          {!granadaConfig.decideLater && (
+            <>
+              {/* Double holes */}
+              <div style={{marginBottom:14}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"#FBBF24",marginBottom:8}}>⚡ {tl("granada_double")} ({granadaConfig.doubleHoles.length}/3)</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                  {Array.from({length:18},(_,i)=>i+1).map(n=>{
+                    const isDouble = granadaConfig.doubleHoles.includes(n);
+                    const isGranada = granadaConfig.granadaHole === n;
+                    return (
+                      <button key={n} onClick={()=>{
+                        if (isGranada) return;
+                        if (isDouble) setGranadaConfig(c=>({...c,doubleHoles:c.doubleHoles.filter(h=>h!==n)}));
+                        else if (granadaConfig.doubleHoles.length < 3) setGranadaConfig(c=>({...c,doubleHoles:[...c.doubleHoles,n]}));
+                      }}
+                        style={{width:34,height:34,borderRadius:8,border:`1px solid ${isDouble?"#FBBF24":isGranada?"#EF4444":"#333"}`,background:isDouble?"rgba(251,191,36,.2)":isGranada?"rgba(239,68,68,.15)":"#1A1B1E",color:isDouble?"#FBBF24":isGranada?"#EF4444":"#555761",fontWeight:700,fontSize:12,cursor:isGranada?"default":"pointer"}}>
+                        {isGranada?"💣":n}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Granada hole */}
+              <div>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"#EF4444",marginBottom:8}}>💣 {tl("granada_hole_label")} ({granadaConfig.granadaHole?'F'+granadaConfig.granadaHole:'cap'})</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                  {Array.from({length:18},(_,i)=>i+1).map(n=>{
+                    const isGranada = granadaConfig.granadaHole === n;
+                    const isDouble = granadaConfig.doubleHoles.includes(n);
+                    return (
+                      <button key={n} onClick={()=>{
+                        if (isGranada) setGranadaConfig(c=>({...c,granadaHole:null}));
+                        else {
+                          setGranadaConfig(c=>({...c,granadaHole:n,doubleHoles:c.doubleHoles.filter(h=>h!==n)}));
+                        }
+                      }}
+                        style={{width:34,height:34,borderRadius:8,border:`1px solid ${isGranada?"#EF4444":"#333"}`,background:isGranada?"rgba(239,68,68,.3)":"#1A1B1E",color:isGranada?"#EF4444":"#555761",fontWeight:700,fontSize:isGranada?16:12,cursor:"pointer"}}>
+                        {isGranada?"💣":n}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* PLAYERS */}
       <div style={{marginBottom:16}}>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Share2, Download } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { t } from '../data/i18n.js';
-import { getTier } from '../utils/helpers.js';
+import { getTier, calcGranada } from '../utils/helpers.js';
 import { TIERS, PLAYER_COLORS } from '../data/constants.js';
 import { calcPCPoints } from '../utils/helpers.js';
 
@@ -246,6 +246,39 @@ export default function SummaryScreen({ game, userPts, prevPts, setScreen, openA
           })}
         </div>
       )}
+
+      {/* Granada final result */}
+      {game.mode === 'granada' && game.granadaConfig && (() => {
+        const result = calcGranada(game.scores, game.players, game.granadaConfig);
+        const sorted = [...game.players].sort((a,b)=>(result.balances[b.id]||0)-(result.balances[a.id]||0));
+        const medals = ["🥇","🥈","🥉"];
+        const { doubleHoles=[], granadaHole=null, betBase=1 } = game.granadaConfig;
+        return (
+          <div style={{marginBottom:14}}>
+            <div className="sec-title">💣 GRANADA — RESULTAT FINAL</div>
+            <div className="card" style={{padding:"16px",borderColor:"rgba(239,68,68,.3)",background:"rgba(239,68,68,.04)"}}>
+              {sorted.map((p,i)=>{
+                const bal = result.balances[p.id] || 0;
+                const pi = game.players.findIndex(x=>x.id===p.id);
+                return (
+                  <div key={p.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:i<sorted.length-1?"1px solid #1a1a1f":"none"}}>
+                    <div style={{fontSize:20,width:28,textAlign:"center"}}>{medals[i]||`#${i+1}`}</div>
+                    <div style={{flex:1,fontWeight:700,fontSize:14,color:PLAYER_COLORS[pi]||"#fff"}}>{p.name}</div>
+                    <div style={{fontFamily:"'Bebas Neue'",fontSize:26,color:bal>=0?"#CAFF4D":"#EF4444",lineHeight:1}}>
+                      {bal>=0?`+${bal.toFixed(2)}€`:`${bal.toFixed(2)}€`}
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{marginTop:12,paddingTop:10,borderTop:"1px solid #1a1a1f",fontSize:10,color:"#555761"}}>
+                {doubleHoles.length>0&&<span>⚡ {doubleHoles.sort((a,b)=>a-b).map(h=>`F${h}`).join(", ")} · </span>}
+                {granadaHole&&<span>💣 F{granadaHole} · </span>}
+                <span>Aposta base: {betBase}€/forat</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {me && (
         <>

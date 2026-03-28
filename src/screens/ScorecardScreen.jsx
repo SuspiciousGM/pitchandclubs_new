@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient.js';
 import { t } from '../data/i18n.js';
 import { PLAYER_COLORS } from '../data/constants.js';
 import { ScoreSymbol } from '../components/ScoreSymbol.jsx';
+import { calcGranada } from '../utils/helpers.js';
 
 /* ─── NUMBER PICKER ───────────────────────────────────────── */
 function NumberPicker({ value, par, onChange, lang }) {
@@ -119,6 +120,12 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
   const [liveRemote, setLiveRemote] = useState(null); // remote game state (joined players + their scores)
   const stripRef = useRef(null);
 
+  // Granada state
+  const granadaConfig = gameData.granadaConfig || null;
+  const isGranada = gameData.gameMode === 'granada';
+  const [granadaDoubles, setGranadaDoubles] = useState(granadaConfig?.doubleHoles || []);
+  const [granadaHoleNum, setGranadaHoleNum] = useState(granadaConfig?.granadaHole || null);
+
   // Subscribe to Realtime updates on the live game row (to pick up joined players)
   useEffect(() => {
     if (!liveGameId) return;
@@ -147,6 +154,9 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
     });
     return { ...h, playerScores: ps };
   });
+
+  const effectiveGranadaConfig = isGranada ? { ...(granadaConfig||{}), doubleHoles: granadaDoubles, granadaHole: granadaHoleNum } : null;
+  const granadaResult = isGranada ? calcGranada(mergedScores, allPlayers, effectiveGranadaConfig) : null;
 
   const hole = mergedScores[curHole];
   const par  = hole.par;
@@ -223,6 +233,37 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
           <button onClick={()=>setShowFull(false)} style={{padding:'6px 13px',borderRadius:8,border:'1px solid #222',background:'#1a1a1f',color:'#CAFF4D',fontSize:11,fontWeight:700,cursor:'pointer'}}>← {lang==='en'?'Back':lang==='es'?'Volver':'Tornar'}</button>
         </div>
         <div style={{flex:1,overflowY:'auto',padding:'0 14px 24px'}}>
+          {/* Granada live balances */}
+          {isGranada && granadaResult && (
+            <div style={{margin:"12px 0 16px",background:"rgba(239,68,68,.06)",border:"1px solid rgba(239,68,68,.2)",borderRadius:12,padding:"14px"}}>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:".1em",color:"#EF4444",marginBottom:12}}>💣 {tl("granada_result")}</div>
+              {[...allPlayers].sort((a,b)=>(granadaResult.balances[b.id]||0)-(granadaResult.balances[a.id]||0)).map((p,i)=>{
+                const bal = granadaResult.balances[p.id] || 0;
+                const color = PLAYER_COLORS[allPlayers.indexOf(p)] || "#CAFF4D";
+                return (
+                  <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:i<allPlayers.length-1?"1px solid #1a1a1f":"none"}}>
+                    <div style={{width:28,height:28,borderRadius:"50%",background:color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#0A0A0B",flexShrink:0}}>
+                      {(p.name||"P").split(" ").filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase()||"P"}
+                    </div>
+                    <div style={{flex:1,fontWeight:600,fontSize:13}}>{p.name}</div>
+                    <div style={{fontFamily:"'Bebas Neue'",fontSize:20,fontWeight:700,color:bal>=0?"#CAFF4D":"#EF4444"}}>
+                      {bal>=0?`+${bal.toFixed(2)}€`:`${bal.toFixed(2)}€`}
+                    </div>
+                  </div>
+                );
+              })}
+              {granadaResult.carryPot > 0 && (
+                <div style={{marginTop:10,padding:"6px 10px",background:"rgba(251,191,36,.1)",borderRadius:6,fontSize:11,color:"#FBBF24",fontWeight:700}}>
+                  💰 {tl("granada_carry")}: +{granadaResult.carryPot.toFixed(2)}€
+                </div>
+              )}
+              <div style={{marginTop:8,fontSize:10,color:"#555761"}}>
+                {[...granadaDoubles].sort((a,b)=>a-b).map(h=>`F${h}⚡`).join(" ")}
+                {granadaHoleNum ? ` F${granadaHoleNum}💣` : ""}
+                {granadaConfig?.betBase ? ` · ${granadaConfig.betBase}€/forat` : ""}
+              </div>
+            </div>
+          )}
           {/* Player header row */}
           <div style={{display:'flex',alignItems:'center',padding:'10px 0 8px',borderBottom:'2px solid #2A2B35'}}>
             <div style={{width:36,flexShrink:0}}/>
@@ -309,9 +350,31 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
             {(()=>{ const short=course.name.replace(/\s*Pitch\s*[&i]+\s*Putt/gi,'').replace(/\s*P&P/gi,'').replace(/\s*Golf\s*i\s*Pitch.*/gi,' Golf').replace(/\s+/g,' ').trim()||course.name; return (
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:short.length>18?15:18,letterSpacing:'.05em',color:'#CAFF4D',lineHeight:1.1,maxWidth:180}}>{short}</div>
             );})()}
-            <div style={{fontSize:10,color:'#555761',fontWeight:600,marginTop:1}}>
-              {lang==='en'?'H':lang==='es'?'H':'F'}<span style={{color:'#CAFF4D',fontSize:14,fontWeight:700}}>{curHole+1}</span>/{course.holes} · Par {par}
+            <div style={{fontSize:10,color:'#555761',fontWeight:600,marginTop:1,display:'flex',alignItems:'center',flexWrap:'wrap',gap:4}}>
+              <span>{lang==='en'?'H':lang==='es'?'H':'F'}<span style={{color:'#CAFF4D',fontSize:14,fontWeight:700}}>{curHole+1}</span>/{course.holes} · Par {par}</span>
+              {isGranada && (()=>{
+                const hNum = curHole + 1;
+                const isMult2 = granadaDoubles.includes(hNum);
+                const isMult3 = granadaHoleNum === hNum;
+                if (isMult3) return <span style={{fontSize:11,fontWeight:700,background:"rgba(239,68,68,.2)",color:"#EF4444",border:"1px solid rgba(239,68,68,.4)",borderRadius:6,padding:"2px 7px"}}>💣 ×3</span>;
+                if (isMult2) return <span style={{fontSize:11,fontWeight:700,background:"rgba(251,191,36,.15)",color:"#FBBF24",border:"1px solid rgba(251,191,36,.3)",borderRadius:6,padding:"2px 7px"}}>⚡ ×2</span>;
+                return null;
+              })()}
             </div>
+            {isGranada && granadaConfig?.decideLater && (
+              <div style={{display:"flex",gap:6,marginTop:6}}>
+                <button onClick={()=>{
+                  const h = curHole+1;
+                  setGranadaDoubles(prev => prev.includes(h) ? prev.filter(x=>x!==h) : prev.length<3 ? [...prev,h] : prev);
+                  if(granadaHoleNum===h) setGranadaHoleNum(null);
+                }} style={{fontSize:10,padding:"3px 8px",borderRadius:6,border:`1px solid ${granadaDoubles.includes(curHole+1)?"#FBBF24":"#333"}`,background:granadaDoubles.includes(curHole+1)?"rgba(251,191,36,.15)":"transparent",color:granadaDoubles.includes(curHole+1)?"#FBBF24":"#555761",fontWeight:700,cursor:"pointer"}}>⚡ Doble</button>
+                <button onClick={()=>{
+                  const h = curHole+1;
+                  setGranadaHoleNum(prev => prev===h ? null : h);
+                  setGranadaDoubles(prev => prev.filter(x=>x!==h));
+                }} style={{fontSize:10,padding:"3px 8px",borderRadius:6,border:`1px solid ${granadaHoleNum===curHole+1?"#EF4444":"#333"}`,background:granadaHoleNum===curHole+1?"rgba(239,68,68,.2)":"transparent",color:granadaHoleNum===curHole+1?"#EF4444":"#555761",fontWeight:700,cursor:"pointer"}}>💣 Granada</button>
+              </div>
+            )}
           </div>
           <button onClick={()=>{setShowInviteSheet(true);setShowCodePanel(false);}} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(202,255,77,.35)',background:'rgba(202,255,77,.1)',color:'#CAFF4D',fontSize:10,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
             <Share2 size={12}/> Invita

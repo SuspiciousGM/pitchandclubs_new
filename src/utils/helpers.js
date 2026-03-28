@@ -56,3 +56,78 @@ export const timeAgo = (isoStr) => {
 };
 
 export const fmtScore = (d) => d == null ? "—" : d > 0 ? `+${d}` : d === 0 ? "E" : `${d}`;
+
+export const calcGranada = (scores, players, granadaConfig) => {
+  const { betBase = 1, doubleHoles = [], granadaHole = null } = granadaConfig || {};
+  const balances = Object.fromEntries(players.map(p => [p.id, 0]));
+  const holeResults = [];
+  let carryPot = 0;
+
+  for (let i = 0; i < scores.length; i++) {
+    const h = scores[i];
+    const holeNum = h.hole;
+    const par = h.par;
+    let mult = 1;
+    if (holeNum === granadaHole) mult = 3;
+    else if ((doubleHoles || []).includes(holeNum)) mult = 2;
+
+    const pScores = players.map(p => ({ id: p.id, s: h.playerScores?.[p.id] ?? null })).filter(p => p.s !== null);
+    if (pScores.length === 0) { holeResults.push({ hole: holeNum, mult, winner: null, tie: false, carryPot, changes: {} }); continue; }
+
+    const changes = Object.fromEntries(players.map(p => [p.id, 0]));
+    const minS = Math.min(...pScores.map(p => p.s));
+    const winnerIds = pScores.filter(p => p.s === minS).map(p => p.id);
+
+    if (winnerIds.length > 1) {
+      holeResults.push({ hole: holeNum, mult, winner: null, tie: true, carryPot, changes: {} });
+      carryPot += betBase * mult;
+      continue;
+    }
+
+    const winnerId = winnerIds[0];
+    const winnerScore = minS;
+
+    // Base hole win
+    pScores.filter(p => p.id !== winnerId).forEach(loser => {
+      changes[loser.id] -= betBase * mult;
+      changes[winnerId] += betBase * mult;
+    });
+
+    // Carry-over pot to winner
+    if (carryPot > 0) { changes[winnerId] += carryPot; }
+
+    // HiO bonus
+    if (winnerScore === 1) {
+      pScores.filter(p => p.id !== winnerId).forEach(rival => {
+        changes[rival.id] -= 5 * betBase * mult;
+        changes[winnerId] += 5 * betBase * mult;
+      });
+      if (pScores.some(p => p.id !== winnerId && p.s >= 5)) {
+        pScores.filter(p => p.id !== winnerId).forEach(rival => {
+          changes[rival.id] -= betBase * mult;
+          changes[winnerId] += betBase * mult;
+        });
+      }
+    } else if (winnerScore === par - 1) {
+      // Birdie bonus
+      pScores.filter(p => p.id !== winnerId).forEach(rival => {
+        changes[rival.id] -= betBase * mult;
+        changes[winnerId] += betBase * mult;
+      });
+    }
+
+    // 5+ penalty
+    pScores.filter(p => p.s >= 5).forEach(bad => {
+      pScores.filter(p => p.s < 5).forEach(safe => {
+        changes[bad.id] -= betBase * mult;
+        changes[safe.id] += betBase * mult;
+      });
+    });
+
+    Object.entries(changes).forEach(([pid, delta]) => { balances[pid] = (balances[pid] || 0) + delta; });
+    holeResults.push({ hole: holeNum, mult, winner: winnerId, winnerScore, tie: false, pot: carryPot, changes });
+    carryPot = 0;
+  }
+
+  return { balances, holeResults, carryPot };
+};

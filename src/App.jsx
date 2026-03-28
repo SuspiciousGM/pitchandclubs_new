@@ -648,7 +648,7 @@ export default function App() {
       const pScore = scores.reduce((a,h)=>a+(h.playerScores[p.id]??h.par),0);
       return {...p, score:pScore, diff:pScore-totalPar, points:pPts, hcp: p.isMe ? (user?.hcp ?? null) : (p.hcp ?? null)};
     });
-    const game = { id:Date.now(), course:gameData.course.name, date:gameData.date, mode:gameData.gameMode, players, scores:[...scores] };
+    const game = { id:Date.now(), course:gameData.course.name, date:gameData.date, mode:gameData.gameMode, players, scores:[...scores], granadaConfig: gameData.granadaConfig || null };
     setHistory(prev=>[game,...prev]);
     const me = players.find(p=>p.isMe);
     if (me) { setPrevPts(userPts); setUserPts(p=>p+me.points); }

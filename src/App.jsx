@@ -561,18 +561,22 @@ export default function App() {
       hole: i+1, par: Math.round(data.course.par / data.course.holes),
       playerScores: Object.fromEntries(data.players.map(p => [p.id, null])),
     }));
-    const { data: row, error: liveErr } = await supabase.rpc('create_live_game', {
-      p_user_id: user?.id || null,
-      p_course_name: data.course.name,
-      p_player_name: me.name,
-      p_players: data.players,
-      p_scores: scores,
-      p_holes: data.course.holes,
-      p_par: data.course.par,
-      p_date: data.date,
-      p_game_mode: data.gameMode,
-      p_share_token: shareToken,
-    });
+    let rpcResult;
+    try {
+      rpcResult = await supabase.rpc('create_live_game', {
+        p_user_id: user?.id || null,
+        p_course_name: data.course.name,
+        p_player_name: me.name,
+        p_players: data.players,
+        p_scores: scores,
+        p_holes: data.course.holes,
+        p_par: data.course.par,
+        p_date: data.date,
+        p_game_mode: data.gameMode,
+        p_share_token: shareToken,
+      });
+    } catch(e) { console.error("P&C: live game exception:", e); showToast("Error en directe: " + e.message); return null; }
+    const { data: row, error: liveErr } = rpcResult || {};
     if (liveErr) { console.error("P&C: live game error:", liveErr); showToast("Error en directe: " + liveErr.message); return null; }
     if (row) {
       const game = typeof row === 'string' ? JSON.parse(row) : row;

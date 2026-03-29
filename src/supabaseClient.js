@@ -9,6 +9,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
     storageKey: 'pc_auth',
-    lock: () => Promise.resolve(),  // disable Web Locks (breaks in PWA/multiple tabs)
   }
 })

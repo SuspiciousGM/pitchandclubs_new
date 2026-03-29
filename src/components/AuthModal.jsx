@@ -100,10 +100,11 @@ export default function AuthModal({ onClose, onAuth, lang, initialMode="register
         {/* Google OAuth */}
         <button
           onClick={async()=>{
-            await supabase.auth.signInWithOAuth({
+            const { error } = await supabase.auth.signInWithOAuth({
               provider:"google",
-              options:{ redirectTo: window.location.origin }
+              options:{ redirectTo: window.location.origin + '/' }
             });
+            if (error) setErr("Google: " + error.message);
           }}
           style={{width:"100%",padding:"12px",borderRadius:12,border:"1px solid #2a2a30",background:"#1A1B1E",color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:14}}>
           {/* Google "G" logo */}

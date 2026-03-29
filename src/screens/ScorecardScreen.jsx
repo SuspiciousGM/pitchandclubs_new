@@ -114,6 +114,7 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
   const [showFull,        setShowFull]        = useState(false);
   const [showInviteSheet, setShowInviteSheet] = useState(false);
   const [showCodePanel,   setShowCodePanel]   = useState(false);
+  const [showWatchPanel,  setShowWatchPanel]  = useState(false);
   const [codeCopied,      setCodeCopied]      = useState(false);
   const gameCode = liveShareToken || null; // 6-char code e.g. JAY7MJ
   const [flashInfo,  setFlashInfo]  = useState(null);
@@ -567,7 +568,7 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
       {/* Invite sheet */}
       {showInviteSheet && (
         <div style={{position:'fixed',inset:0,zIndex:9999,display:'flex',flexDirection:'column',justifyContent:'flex-end'}}>
-          <div onClick={()=>{setShowInviteSheet(false);setShowCodePanel(false);}} style={{position:'absolute',inset:0,background:'rgba(0,0,0,.7)'}}/>
+          <div onClick={()=>{setShowInviteSheet(false);setShowCodePanel(false);setShowWatchPanel(false);}} style={{position:'absolute',inset:0,background:'rgba(0,0,0,.7)'}}/>
           <div style={{position:'relative',background:'#1A1B1E',borderRadius:'20px 20px 0 0',padding:'20px 20px 40px'}}>
             <div style={{width:40,height:4,background:'#333',borderRadius:2,margin:'0 auto 18px'}}/>
             <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:'.12em',color:'#555761',marginBottom:16,textAlign:'center'}}>COMPARTIR PARTIDA</div>
@@ -619,21 +620,40 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
               </div>
             )}
 
-            {/* Option 2: Watch live → share link only */}
-            <button onClick={async()=>{
-              const url = liveShareToken ? `${window.location.origin}/g/${liveShareToken}?watch=1` : 'https://pitchandclubs.cat';
-              const data = {title:'Pitch & Clubs — En directe',text:'Segueix la partida en directe!',url};
-              if(navigator.share){try{await navigator.share(data);}catch(e){}}
-              else{navigator.clipboard.writeText(url);setShowInviteSheet(false);}
-            }} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'14px',background:'#111214',borderRadius:12,border:'1px solid #222327',color:'#fff',cursor:'pointer',textAlign:'left'}}>
+            {/* Option 2: Watch live → expands with URL + share button */}
+            <button onClick={()=>setShowWatchPanel(v=>!v)}
+              style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'14px',background:'#111214',borderRadius:showWatchPanel?'12px 12px 0 0':'12px',border:'1px solid #222327',borderBottom:showWatchPanel?'none':'1px solid #222327',color:'#fff',cursor:'pointer',textAlign:'left'}}>
               <div style={{width:40,height:40,borderRadius:10,background:'#1a1a1f',border:'1px solid #2a2a35',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                 <Play size={18} color='#787C8A'/>
               </div>
-              <div>
+              <div style={{flex:1}}>
                 <div style={{fontSize:14,fontWeight:700}}>Seguir en directe</div>
                 <div style={{fontSize:11,color:'#555761',marginTop:2}}>Veure la partida sense participar</div>
               </div>
+              <ChevronRight size={16} color='#555761' style={{transform:showWatchPanel?'rotate(90deg)':'none',transition:'transform .2s'}}/>
             </button>
+            {showWatchPanel && (
+              <div style={{background:'#111214',borderRadius:'0 0 12px 12px',padding:'14px 14px 16px',borderTop:'1px solid #1A1B1E'}}>
+                {gameCode ? (
+                  <>
+                    <div style={{fontSize:9,color:'#555761',fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:8}}>Link per seguir</div>
+                    <div style={{fontFamily:'monospace',fontSize:11,color:'#787C8A',background:'#0c0c12',borderRadius:8,padding:'8px 10px',marginBottom:12,wordBreak:'break-all'}}>
+                      {window.location.origin}/g/{liveShareToken}?watch=1
+                    </div>
+                    <button onClick={async()=>{
+                      const url=`${window.location.origin}/g/${liveShareToken}?watch=1`;
+                      const shareData={title:'Pitch & Clubs — En directe',text:'Segueix la partida en directe!',url};
+                      if(navigator.share){try{await navigator.share(shareData);}catch(e){}}
+                      else{navigator.clipboard.writeText(url);setShowInviteSheet(false);}
+                    }} style={{width:'100%',padding:'11px',borderRadius:10,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                      <Share2 size={14}/> Compartir link
+                    </button>
+                  </>
+                ) : (
+                  <div style={{fontSize:12,color:'#555761',textAlign:'center',padding:'4px 0'}}>Esperant codi de partida…</div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

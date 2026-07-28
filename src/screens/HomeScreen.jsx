@@ -8,10 +8,9 @@ import SectionHeader from '../components/SectionHeader.jsx';
 import TierBadge from '../components/TierBadge.jsx';
 import LiveGameCard from '../components/LiveCard.jsx';
 
-export default function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, activeGame, onResumeGame, activityFeed, liveGames, onSelectGame }) {
+export default function HomeScreen({ user, userPts, history, setScreen, openAuth, leads, lang, activeGame, onResumeGame, liveGames, onSelectGame }) {
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
-  const [liked, setLiked] = useState({});
   const tier = getTier(userPts);
   const nextTier = TIERS[TIERS.findIndex(x=>x.id===tier.id)+1];
   const pct = getTierPct(userPts);
@@ -333,7 +332,7 @@ export default function HomeScreen({ user, userPts, history, setScreen, openAuth
             {initials:"GR",color:"#34D399",quote:lang==="en"?"Finally a pitch & putt app made by players":lang==="es"?"Por fin una app de pitch & putt hecha por jugadores":"Finalment una app de pitch & putt feta per jugadors",author:"Gerard R.",club:"Vallromanes"},
             {initials:"MO",color:"#60A5FA",quote:lang==="en"?"The live ranking makes every hole count":lang==="es"?"El ranking en directo hace que cada hoyo cuente":"El rànquing en directe fa que cada forat compti",author:"Marta O.",club:"Mas Gurumbau"},
             {initials:"JV",color:"#A78BFA",quote:lang==="en"?"The best way to track my handicap progress":lang==="es"?"La mejor manera de seguir la progresión de mi hándicap":"La millor manera de seguir la progressió del meu hàndicap",author:"Jordi V.",club:"Àccura Teià"},
-            {initials:"AP",color:"#CAFF4D",quote:lang==="en"?"Signing up took 30 seconds and now I can\'t stop checking my ranking":lang==="es"?"Me registré en 30 segundos y ahora no puedo dejar de mirar el ranking":"Em vaig registrar en 30 segons i ara no paro de mirar el rànquing",author:"Anna P.",club:"Prat de Llobregat"},
+            {initials:"AP",color:"#CAFF4D",quote:lang==="en"?"Signing up took 30 seconds and now I can't stop checking my ranking":lang==="es"?"Me registré en 30 segundos y ahora no puedo dejar de mirar el ranking":"Em vaig registrar en 30 segons i ara no paro de mirar el rànquing",author:"Anna P.",club:"Prat de Llobregat"},
             {initials:"RF",color:"#FBBF24",quote:lang==="en"?"Playing in tournaments has never been this fun":lang==="es"?"Jugar en torneos nunca había sido tan divertido":"Mai havia sigut tan divertit jugar en tornejos",author:"Raimon F.",club:"Canal Olímpic"},
           ].map((testimonial,i)=>(
             <div key={i} style={{minWidth:280,background:"#111118",borderLeft:`3px solid ${testimonial.color}`,borderRadius:"0 8px 8px 0",padding:"14px",scrollSnapAlign:"start",flexShrink:0}}>

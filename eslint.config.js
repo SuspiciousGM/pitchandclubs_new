@@ -5,7 +5,13 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // `pc-webapp-mvp-v7-2.jsx` es el monolito legacy de la raíz: no se importa ni entra en el build.
+  globalIgnores(['dist', 'pc-webapp-mvp-v7-2.jsx']),
+  {
+    // Service worker: entorno propio (self, clients, registration…), no window.
+    files: ['public/sw.js'],
+    languageOptions: { globals: globals.serviceworker },
+  },
   {
     files: ['**/*.{js,jsx}'],
     extends: [

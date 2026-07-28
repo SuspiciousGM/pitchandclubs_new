@@ -64,6 +64,34 @@ npm run lint      # ESLint
 - El esquema base (CREATE TABLE, RPC `create_live_game`) **no está completo en `migrations/`**;
   parte vive solo en el dashboard de Supabase.
 
+## Integración con la federación (FCPP / pitch.cat)
+
+Fase 1 implementada: conectar la cuenta de pitch.cat e importar el historial oficial.
+Ver `docs/plan-integracio-federacio.md` (producto) y `docs/federacio-desplegament.md` (despliegue).
+
+- **Dos orígenes de partida**: `games.source` es `'manual'` (a mano en la app) o
+  `'federation'` (importada, de solo lectura). El filtro del historial usa este campo.
+- **Deduplicación**: `games.federation_round_id` deriva de fecha + torneo + vuelta + modalidad,
+  con índice único `(user_id, federation_round_id)`. El sync hace upsert, es idempotente.
+  El índice **no** es parcial a propósito: `ON CONFLICT` no puede inferir un índice con predicado
+  desde PostgREST.
+- **Credenciales**: la contraseña vive solo en Supabase Vault. `federation_connections` guarda
+  el puntero. Las funciones `federation_*` son `SECURITY DEFINER` con EXECUTE solo para
+  `service_role`; el navegador nunca puede leer un secreto.
+- **Edge Functions**: `federation-connect` (verifica y guarda), `federation-sync` (importa,
+  acepta llamada programada con service role), `federation-disconnect` (borra secreto y,
+  opcionalmente, datos).
+- **Scraping**: `_shared/pitchcat.ts`. Ojo con dos cosas del sitio: responde en `iso-8859-1`
+  (no UTF-8) y la sesión va en cookie, así que los redirects se siguen a mano. Los scorecards
+  vienen embebidos en las páginas de resultados; los metros y stroke index por hoyo están en las
+  fichas de torneo y se dejaron para la Fase 2.
+- **Tests del parser**: `npm run test:functions` (requiere Deno). Es lo que protege el scraping
+  cuando la federación cambie el HTML.
+- **Feed público**: las rondas importadas se excluyen del feed y de los eventos realtime en
+  `App.jsx`, o una importación masiva enterraría el feed de la comunidad.
+- **Puntos**: las rondas oficiales se importan con 0 puntos (`AWARD_POINTS` en `_shared/rounds.ts`)
+  para no reordenar el ranking al conectar. Decisión de producto pendiente (Fase 3).
+
 ## Convenciones
 
 - Componentes en `screens/` (pantallas completas) vs `components/` (reutilizables).

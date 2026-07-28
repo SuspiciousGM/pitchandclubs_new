@@ -86,7 +86,7 @@ function NumberPicker({ value, par, onChange, lang }) {
   );
 }
 
-export default function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, liveGameId, onLiveUpdate, onPhotoCapture, liveShareToken, onCreateLive }) {
+export default function ScorecardScreen({ gameData, onFinish, onDelete, user, openAuth, lang, liveGameId, onLiveUpdate, liveShareToken, onCreateLive }) {
   const tl = (k,v={}) => t(lang,k,v);
   const { course, players } = gameData;
   const pph = Math.round(course.par / course.holes);
@@ -94,16 +94,13 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
   /* ── helpers ── */
   const scDiffColor = d => d==null?'#3a3a42':d<=-2?'#FBBF24':d===-1?'#60A5FA':d===0?'#CAFF4D':d===1?'#d0d0d0':d===2?'#EF4444':'#9f1414';
   const scFmtTotal  = d => d==null?'—':d>0?`+${d}`:d===0?'E':`${d}`;
-  const scHolePts   = d => d==null?0:d<=-2?25:d===-1?12:d===0?6:d===1?2:0;
-  const scCalcPts   = (sc,pid) => sc.reduce((s,h)=>{ const v=h.playerScores[pid]; return s+(v!=null?scHolePts(v-h.par):0); },0);
   const scPlayerTot = (sc,pid) => { let t=0,c=0; sc.forEach(h=>{const v=h.playerScores[pid];if(v!=null){t+=v-h.par;c++;}}); return c?t:null; };
   const scDiffLabel = d => d==null?'—':d<=-2?'Hole in One':d===-1?'Birdie':d===0?'Par':d===1?'Bogey':d===2?'Doble':'+'+d;
   const scRowLabel  = (n,par) => { const d=n-par; const lbl=d<=-2?'HiO':d===-1?'Birdie':d===0?'Par':d===1?'Bogey':d===2?'Doble':'Triple'; const sign=d===0?'':d>0?`+${d}`:`${d}`; return sign?`${sign} ${lbl}`:lbl; };
-  const scDiffBg    = d => d==null?'transparent':d<=-2?'rgba(251,191,36,.14)':d===-1?'rgba(96,165,250,.13)':d===0?'rgba(202,255,77,.10)':d===1?'rgba(255,255,255,.05)':d===2?'rgba(239,68,68,.13)':'rgba(127,29,29,.32)';
 
   /* ── State ── */
   const [scores, setScores] = useState(() => {
-    try { const s=localStorage.getItem('pc_scores'); if(s) return JSON.parse(s); } catch {}
+    try { const s=localStorage.getItem('pc_scores'); if(s) return JSON.parse(s); } catch { /* sin partida guardada: empezamos de cero */ }
     return Array.from({length:course.holes},(_,i)=>({
       hole:i+1, par:pph,
       playerScores:Object.fromEntries(players.map(p=>[p.id,null])),
@@ -217,7 +214,7 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
   if (showFull) {
     const ballBg  = d => d==null?'transparent':d<=-1?'transparent':d===0?'rgba(202,255,77,.12)':d===1?'rgba(208,208,208,.1)':'rgba(239,68,68,.15)';
     const ballCol = d => d==null?'#2A2B30':d<=-2?'#FBBF24':d===-1?'#60A5FA':d===0?'#CAFF4D':d===1?'#d0d0d0':d===2?'#EF4444':'#9f1414';
-    const ballBorder = (d, isActive, v) => {
+    const ballBorder = (d, isActive) => {
       if (d==null) return isActive ? '1.5px dashed rgba(202,255,77,.4)' : '1px solid #1E2025';
       return 'none';
     };
@@ -411,19 +408,6 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
 
       {/* PLAYER CARDS */}
       <div style={{flex:1,overflowY:'auto',padding:'10px 14px',display:'flex',flexDirection:'column',gap:8}}>
-        {/* For parelles mode: compute best ball per team per hole */}
-        {(() => {
-          const isParelles = gameData.gameMode === "parelles";
-          const getBestBallPlayer = (holeScores, teamPlayers) => {
-            let best = null, bestPid = null;
-            teamPlayers.forEach(p => {
-              const s = holeScores[p.id];
-              if (s != null && (best === null || s < best)) { best = s; bestPid = p.id; }
-            });
-            return bestPid;
-          };
-          return null;
-        })()}
         {allPlayers.map((p,pi)=>{
           const pcolor  = PLAYER_COLORS[pi];
           const v       = hole.playerScores[p.id];
@@ -602,7 +586,7 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
                   <button onClick={async()=>{
                     const url=`${window.location.origin}/g/${liveShareToken}`;
                     const data={title:'Pitch & Clubs',text:`Uneix-te a la partida! Codi: ${gameCode}\n${url}`,url};
-                    if(navigator.share){try{await navigator.share(data);}catch(e){}}
+                    if(navigator.share){try{await navigator.share(data);}catch{ /* el usuario canceló el share */ }}
                     else{navigator.clipboard.writeText(url);setCodeCopied(true);setTimeout(()=>setCodeCopied(false),2000);}
                   }} style={{width:'100%',padding:'11px',borderRadius:10,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
                     <Share2 size={14}/> Compartir link
@@ -643,7 +627,7 @@ export default function ScorecardScreen({ gameData, onFinish, onDelete, user, op
                     <button onClick={async()=>{
                       const url=`${window.location.origin}/g/${liveShareToken}?watch=1`;
                       const shareData={title:'Pitch & Clubs — En directe',text:'Segueix la partida en directe!',url};
-                      if(navigator.share){try{await navigator.share(shareData);}catch(e){}}
+                      if(navigator.share){try{await navigator.share(shareData);}catch{ /* el usuario canceló el share */ }}
                       else{navigator.clipboard.writeText(url);setShowInviteSheet(false);}
                     }} style={{width:'100%',padding:'11px',borderRadius:10,border:'none',background:'#CAFF4D',color:'#0A0A0B',fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
                       <Share2 size={14}/> Compartir link

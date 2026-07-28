@@ -15,6 +15,24 @@ import LiveScreen, { LiveGameView } from "./screens/LiveScreen";
 import ShopScreen from "./screens/ShopScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 import SharedGameRoute from "./screens/SharedGameRoute";
+import FederationConnectScreen from "./screens/FederationConnectScreen";
+
+/* Shapes a games row into the object the screens consume. */
+const mapGameRow = (g) => ({
+  id: g.id,
+  course: g.course_name,
+  date: g.date,
+  mode: g.game_mode,
+  players: g.players,
+  scores: g.scores,
+  source: g.source || "manual",
+  federationMeta: g.federation_meta || null,
+});
+
+const sumMyPoints = (games) => games.reduce((sum, g) => {
+  const me = (g.players || []).find(p => p.isMe);
+  return sum + (me?.points || 0);
+}, 0);
 
 /* ─── GLOBAL CSS ─────────────────────────────────────────────── */
 const G = `
@@ -213,6 +231,7 @@ input[type="date"].inp{color-scheme:dark;}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes spin{to{transform:rotate(360deg)}}
 .ani-up{animation:fadeUp .25s ease forwards;}
 .ani-pop{animation:pop .35s ease;}
 
@@ -308,8 +327,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Fetch activity feed (finished games only)
-    supabase.from("games").select("*").eq("is_live", false).order("created_at", { ascending: false }).limit(5)
+    // Fetch activity feed (finished games only).
+    // Imported federation rounds are excluded: a bulk import would otherwise
+    // bury the feed under someone's back catalogue.
+    supabase.from("games").select("*").eq("is_live", false).eq("source", "manual")
+      .order("created_at", { ascending: false }).limit(5)
       .then(({ data }) => {
         if (data) setActivityFeed(data.map(mapGameToFeedItem));
       });
@@ -331,6 +353,8 @@ export default function App() {
     const channel = supabase
       .channel("games-feed")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "games" }, async (payload) => {
+        // A sync inserts many rows at once; they are history, not activity.
+        if (payload.new.source === "federation") return;
         const enriched = await enrichWithAvatar(payload.new);
         if (enriched.is_live) {
           setLiveGames(prev => [enriched, ...prev].slice(0, 20));
@@ -388,14 +412,7 @@ export default function App() {
         if (!profile) {
           supabase.from("profiles").insert({ id: u.id, name: uName, club: uClub, avatar_url: googlePicture }).then(() => {});
         }
-        supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false })
-          .then(({ data, error }) => {
-            if (error) return;
-            if (data) {
-              setHistory(data.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
-              setUserPts(data.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
-            }
-          });
+        loadHistory(u.id);
         // Load follows + resolve names on every session restore
         supabase.from("follows").select("following_id").eq("follower_id", u.id).then(async ({ data }) => {
           if (!data?.length) return;
@@ -420,6 +437,17 @@ export default function App() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),3000); };
   const openAuth = (mode="register") => { setAuthMode(mode); setShowAuth(true); };
+
+  // Single place that pulls the player's rounds, both manual and imported.
+  const loadHistory = async (userId) => {
+    if (!userId) return;
+    const { data, error } = await supabase.from("games").select("*")
+      .eq("user_id", userId).order("created_at", { ascending: false });
+    if (error) { console.error("P&C: history load error:", error.message); return; }
+    if (!data) return;
+    setHistory(data.map(mapGameRow));
+    setUserPts(sumMyPoints(data));
+  };
 
   const handleAvatarChange = async (file) => {
     const { data: authData } = await supabase.auth.getUser();
@@ -454,6 +482,8 @@ export default function App() {
     showToast("Foto de perfil actualitzada! ✓");
   };
 
+  // Pendiente de cablear: la UI de captura de fotos de partida aún no lo invoca.
+  // eslint-disable-next-line no-unused-vars
   const handlePhotoUpload = async (file, caption, label, gameId) => {
     const { data: authData } = await supabase.auth.getUser();
     if (!authData?.user) return;
@@ -507,11 +537,7 @@ export default function App() {
     setShowAuth(false);
     const greet = lang==="en"?`👋 Welcome, ${u.name.split(" ")[0]}!`:lang==="es"?`👋 Bienvenido/a, ${u.name.split(" ")[0]}!`:`👋 Benvingut/da, ${u.name.split(" ")[0]}!`;
     showToast(greet);
-    const { data: games } = await supabase.from("games").select("*").eq("user_id", u.id).order("created_at", { ascending: false });
-    if (games?.length) {
-      setHistory(games.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
-      setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
-    }
+    await loadHistory(u.id);
     // Load follows + resolve names
     const { data: followData } = await supabase.from("follows").select("following_id").eq("follower_id", u.id);
     if (followData?.length) {
@@ -640,7 +666,7 @@ export default function App() {
         const soloToday = soloGames.filter(g => g.date === today).length;
         if (soloToday >= 1) fraudFlags.push({ code: 'SOLO_DAY', detail: `${soloToday+1} partides sol·les avui` });
         else if (soloGames.length >= 2) fraudFlags.push({ code: 'SOLO_WEEK', detail: `${soloGames.length+1} partides sol·les aquesta setmana` });
-      } catch(e) { /* non-blocking */ }
+      } catch { /* non-blocking */ }
     }
 
     const pointsBlocked = fraudFlags.length > 0;
@@ -700,12 +726,7 @@ export default function App() {
           dbGameId = rows?.[0]?.id || null;
         }
         // Reload history from DB so it survives refresh
-        const { data: games, error: loadErr } = await supabase.from("games").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-        if (loadErr) console.error("P&C: reload history error:", loadErr);
-        if (games) {
-          setHistory(games.map(g => ({ id: g.id, course: g.course_name, date: g.date, mode: g.game_mode, players: g.players, scores: g.scores })));
-          setUserPts(games.reduce((sum, g) => { const me = (g.players||[]).find(p => p.isMe); return sum + (me?.points || 0); }, 0));
-        }
+        await loadHistory(user.id);
         showToast("Partida guardada! ✓");
         // Save copies for other registered players via secure RPC
         // (direct cross-user INSERT is blocked by RLS; the function validates the host)
@@ -784,7 +805,8 @@ export default function App() {
         {screen==="live" && selectedLiveGame && <LiveGameView game={selectedLiveGame} liveGames={liveGames} onClose={()=>setSelectedLiveGame(null)} lang={lang} user={user} openAuth={openAuth} follows={follows} onFollow={handleFollow}/>}
         {screen==="tournaments" && <TournamentsScreen user={user} openAuth={openAuth} lang={lang}/>}
         {screen==="shop"       && <ShopScreen       openAuth={openAuth} user={user} lang={lang}/>}
-        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser} follows={follows} followsNames={followsNames} onFollow={handleFollow} enableNotifications={enableNotifications}/>}
+        {screen==="profile"    && <ProfileScreen    user={user} userPts={userPts} setScreen={setScreenSafe} lang={lang} onAvatarChange={handleAvatarChange} history={history} setUser={setUser} follows={follows} followsNames={followsNames} onFollow={handleFollow} enableNotifications={enableNotifications} showToast={showToast} onHistoryChange={()=>loadHistory(user?.id)}/>}
+        {screen==="federation" && <FederationConnectScreen lang={lang} showToast={showToast} onCancel={()=>setScreenSafe("profile")} onDone={()=>{ loadHistory(user?.id); setScreenSafe("profile"); }}/>}
 
         {!isGameFlow && <BottomNav screen={screen} setScreen={setScreenSafe} lang={lang} gameData={gameData}/>}
 

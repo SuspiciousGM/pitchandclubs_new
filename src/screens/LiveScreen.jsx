@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Bell, Flag } from 'lucide-react';
 import { supabase } from '../supabaseClient.js';
-import { t } from '../data/i18n.js';
 import { PLAYER_COLORS } from '../data/constants.js';
 import { ScoreSymbol } from '../components/ScoreSymbol.jsx';
 import LiveGameCard from '../components/LiveCard.jsx';
@@ -129,8 +128,7 @@ export function LiveGameView({ game, liveGames, onClose, lang, user, openAuth, f
 /* ═══════════════════════════════════════════════════════════════
    LIVE SCREEN
 ═══════════════════════════════════════════════════════════════ */
-export default function LiveScreen({ user, openAuth, lang, liveGames, setLiveGames, onSelectGame, setScreen }) {
-  const tl = (k) => t(lang,k);
+export default function LiveScreen({ user, openAuth, lang, liveGames, setLiveGames, onSelectGame }) {
   const [recentGames, setRecentGames] = useState([]);
 
   // Re-fetch live games on mount and every 30s (Realtime fallback)
@@ -150,7 +148,7 @@ export default function LiveScreen({ user, openAuth, lang, liveGames, setLiveGam
     fetch();
     const iv = setInterval(fetch, 30000);
     return () => clearInterval(iv);
-  }, []);
+  }, [setLiveGames]);
 
   // Fetch 10 most recent finished games, enriched with profile avatars
   useEffect(() => {

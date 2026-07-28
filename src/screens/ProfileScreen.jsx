@@ -5,8 +5,10 @@ import { t } from '../data/i18n.js';
 import { getTier, getTierPct } from '../utils/helpers.js';
 import { TIERS, PLAYER_PROFILE } from '../data/constants.js';
 import TierBadge from '../components/TierBadge.jsx';
+import FederationCard from '../components/FederationCard.jsx';
+import GameHistoryList from '../components/GameHistoryList.jsx';
 
-export default function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history, setUser, follows, followsNames, onFollow, enableNotifications }) {
+export default function ProfileScreen({ user, userPts, setScreen, lang, onAvatarChange, history, setUser, follows, followsNames, onFollow, enableNotifications, showToast, onHistoryChange }) {
   const tl = (k,v={}) => t(lang,k,v);
   const profile = PLAYER_PROFILE;
   const tier = getTier(userPts);
@@ -337,6 +339,18 @@ export default function ProfileScreen({ user, userPts, setScreen, lang, onAvatar
           </button>
         </div>
       )}
+
+      {/* ── FEDERACIO ── */}
+      <FederationCard
+        user={user}
+        lang={lang}
+        showToast={showToast}
+        onConnect={() => setScreen("federation")}
+        onSynced={onHistoryChange}
+      />
+
+      {/* ── HISTORIAL (manual + oficial) ── */}
+      {user && <GameHistoryList history={history} lang={lang}/>}
 
       {/* ── SEGUINT (follows) ── */}
       {user && (

@@ -8,7 +8,6 @@ import { calcPCPoints } from '../utils/helpers.js';
 
 /* ─── ShareCard (off-screen, 1080×1920 for Instagram Stories) ─── */
 export function ShareCard({ game, cardRef, photo }) {
-  const me = game?.players?.find(p => p.isMe);
   const allPlayers = game?.players || [];
   const par = game?.scores?.reduce((a,h)=>a+h.par,0) ?? 0;
   const holeCount = game?.scores?.length ?? 0;
@@ -104,7 +103,7 @@ export function ShareCard({ game, cardRef, photo }) {
   );
 }
 
-export default function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang, shareCardRef, roundPhoto }) {
+export default function SummaryScreen({ game, userPts, prevPts, setScreen, openAuth, user, lang, shareCardRef }) {
   const tl = (k,v={}) => t(lang,k,v);
   const me = game.players.find(p => p.isMe);
   const [sharing, setSharing] = useState(false);
@@ -346,7 +345,7 @@ export default function SummaryScreen({ game, userPts, prevPts, setScreen, openA
                   <tr key={i}>
                     <td style={{textAlign:"left",fontWeight:700}}>{h.hole}</td>
                     <td style={{color:"#555761"}}>{h.par}</td>
-                    {game.players.map((p,pi)=>{
+                    {game.players.map(p=>{
                       const s = h.playerScores[p.id]??h.par;
                       const d = s - h.par;
                       const c = d<0?"#FBBF24":d===0?"#CAFF4D":d===1?"#FFFFFF":"#EF4444";

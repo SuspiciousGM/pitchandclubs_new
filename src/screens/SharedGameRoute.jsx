@@ -116,7 +116,6 @@ function SharedViewer({ game, token, watchOnly, onJoinClick }) {
                       <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                         {scores.map((h, hi) => {
                           const v = h.playerScores?.[p.id];
-                          const d = v != null ? v - h.par : null;
                           const isActive = isLive && hi === (game.current_hole||1)-1;
                           return (
                             <div key={hi} style={{display:"flex",flexDirection:"column",alignItems:"center",width:30}}>
@@ -198,8 +197,8 @@ function SharedViewer({ game, token, watchOnly, onJoinClick }) {
 
 /* ─── Guest scorecard (joined player) ─── */
 function GuestScorecard({ game, token, joinedPid, onLeave }) {
-  const initRef = useRef(false);
-  if (!initRef.current) {
+  const initRef = useRef(null);
+  if (initRef.current == null) {
     initRef.current = true;
     const initKey = `pc_guest_init_${token}`;
     if (!localStorage.getItem(initKey) && (game.scores || []).length) {

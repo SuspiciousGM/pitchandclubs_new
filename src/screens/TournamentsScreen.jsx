@@ -8,7 +8,7 @@ export default function TournamentsScreen({ openAuth, user, lang }) {
   const [cat, setCat]           = useState("all");
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading]   = useState(true);
-  const [lastSync, setLastSync] = useState(null);
+  const [, setLastSync] = useState(null);
 
   useEffect(() => {
     supabase.from("tournaments").select("*").order("id")

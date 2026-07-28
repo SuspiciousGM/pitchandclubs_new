@@ -9,10 +9,6 @@ export default function GameSetupScreen({ user, openAuth, onStart, lang }) {
   const [showDrop, setShowDrop] = useState(false);
   const [selCourse, setSelCourse] = useState(null);
   const [customCourse, setCustomCourse] = useState(null);
-  const [showCustom, setShowCustom] = useState(false);
-  const [customName, setCustomName] = useState("");
-  const [customHoles, setCustomHoles] = useState(18);
-  const [customPar, setCustomPar] = useState(54);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [gameMode, setGameMode] = useState("stableford");
   const [granadaConfig, setGranadaConfig] = useState({ betBase: 1, doubleHoles: [], granadaHole: null, decideLater: false });
@@ -56,14 +52,19 @@ export default function GameSetupScreen({ user, openAuth, onStart, lang }) {
     }, 300);
   };
 
-  // Sync player 1 name when user auth resolves after mount
+  // Sync player 1 name when user auth resolves after mount.
+  // Sólo se dispara al cambiar user.name, así se preservan los nombres editados a mano.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (user?.name) setPlayers(p => p.map(x => x.isMe ? {...x, name: user.name} : x));
   }, [user?.name]);
 
-  // Sync teams when gameMode switches to parelles
+  // Sync teams when gameMode switches to parelles.
+  // `players` queda fuera de las deps a propósito: los equipos sólo se recalculan al
+  // cambiar de modo, no cada vez que se edita un jugador.
   useEffect(() => {
     if (gameMode === "parelles") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTeams([
         {id:"A", players: players.slice(0,2).map(p=>p.id)},
         {id:"B", players: players.slice(2,4).map(p=>p.id)},
@@ -264,7 +265,6 @@ export default function GameSetupScreen({ user, openAuth, onStart, lang }) {
                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                   {Array.from({length:18},(_,i)=>i+1).map(n=>{
                     const isGranada = granadaConfig.granadaHole === n;
-                    const isDouble = granadaConfig.doubleHoles.includes(n);
                     return (
                       <button key={n} onClick={()=>{
                         if (isGranada) setGranadaConfig(c=>({...c,granadaHole:null}));
@@ -300,7 +300,7 @@ export default function GameSetupScreen({ user, openAuth, onStart, lang }) {
                 <div key={team.id} style={{marginBottom:10,padding:"12px",border:`1px dashed ${team.color}44`,borderRadius:10,background:`${team.color}08`}}>
                   <div style={{fontSize:9,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:team.color,marginBottom:8}}>EQUIP {team.id}</div>
                   {teamPlayers.length === 0 && <div style={{fontSize:11,color:"#555761",fontStyle:"italic"}}>Sense jugadors</div>}
-                  {teamPlayers.map((p,i) => {
+                  {teamPlayers.map(p => {
                     const pi = players.findIndex(x=>x.id===p.id);
                     return (
                       <div key={p.id} style={{position:"relative",marginBottom:6}}>

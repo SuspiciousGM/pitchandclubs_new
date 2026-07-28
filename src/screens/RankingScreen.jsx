@@ -5,14 +5,13 @@ import { t } from '../data/i18n.js';
 import { getTier } from '../utils/helpers.js';
 import { TIERS, LEADERBOARD } from '../data/constants.js';
 
-export default function RankingScreen({ user, openAuth, setScreen, lang, follows, onFollow }) {
+export default function RankingScreen({ user, openAuth, lang, follows, onFollow }) {
   const tl = (k,v={}) => t(lang,k,v);
   const [liveRanking, setLiveRanking] = useState(null);
   const [clubLeaders, setClubLeaders] = useState([]);
   const [courseLeaders, setCourseLeaders] = useState([]);
   const [loading, setLoading]         = useState(true);
   const [activeTab, setActiveTab]     = useState("global");
-  const goProfile = () => setScreen("profile");
 
   useEffect(() => {
     let cancelled = false;

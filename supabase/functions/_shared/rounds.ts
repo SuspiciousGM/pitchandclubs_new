@@ -12,6 +12,16 @@ const PAR_TOTAL = HOLES * PAR_HOLE;
 const ME = "me";
 
 /**
+ * What a raya (X on the card) is worth in gross strokes.
+ *
+ * Verified against a full history: for individual rounds, the sum of the card
+ * with each raya counted as 5 matches the federation's own gross total (CB)
+ * exactly. The handicap of the hole decides when a player may stop, not what
+ * the stroke count ends up being.
+ */
+const RAYA_STROKES = 5;
+
+/**
  * Whether imported rounds award P&C points.
  *
  * Off for now: importing a long history would otherwise reshuffle the
@@ -35,6 +45,8 @@ export interface GameRow {
   score_total: number | null;
   is_live: false;
   federation_meta: unknown;
+  /** Backdated to the day it was played so the feed stays chronological. */
+  created_at: string;
 }
 
 export interface HandicapRow {
@@ -51,12 +63,43 @@ export function toGameMode(round: FederationRound): string {
   return round.format === "ME" ? "medal" : "stableford";
 }
 
+interface ResolvedCard {
+  /** Strokes per hole once rayas are priced in, or null when unusable. */
+  holes: (number | null)[] | null;
+  /** True when the card adds up to the federation's own gross total. */
+  reconciled: boolean;
+}
+
+/**
+ * Decides whether the hole by hole card can be shown as the player's own.
+ *
+ * In pairs formats the card published next to a result is the team's ball, not
+ * the player's, so it does not add up to their individual gross. Rather than
+ * guessing from the modality code, this checks the arithmetic: a card is only
+ * used when it reconciles with the official total, which keeps the hole grid
+ * and the score in the app consistent by construction.
+ */
+export function resolveCard(round: FederationRound): ResolvedCard {
+  if (!round.scorecard) return { holes: null, reconciled: false };
+
+  const rayas = new Set(round.rayaHoles);
+  const holes = round.scorecard.map((strokes, i) =>
+    strokes ?? (rayas.has(i) ? RAYA_STROKES : null)
+  );
+
+  const total = holes.reduce((sum: number, value) => sum + (value ?? 0), 0);
+  const reconciled = round.grossStrokes !== null && total === round.grossStrokes;
+
+  return { holes: reconciled ? holes : null, reconciled };
+}
+
 export function toGameRow(round: FederationRound, userId: string, playerName: string): GameRow {
-  const strokes = round.scorecard ?? [];
+  const { holes, reconciled } = resolveCard(round);
+
   const scores = Array.from({ length: HOLES }, (_, i) => ({
     hole: i + 1,
     par: PAR_HOLE,
-    playerScores: { [ME]: strokes[i] ?? null },
+    playerScores: { [ME]: holes?.[i] ?? null },
   }));
 
   const gross = round.grossStrokes;
@@ -69,7 +112,7 @@ export function toGameRow(round: FederationRound, userId: string, playerName: st
     userId,
     score: gross,
     diff,
-    points: AWARD_POINTS && gross !== null ? pcPoints(strokes) : 0,
+    points: AWARD_POINTS && holes ? pcPoints(holes) : 0,
     hcp: round.hcpAfter,
   };
 
@@ -88,6 +131,7 @@ export function toGameRow(round: FederationRound, userId: string, playerName: st
     // The app stores the difference to par here, not the raw stroke count.
     score_total: diff === null ? null : clamp(diff, -PAR_TOTAL, 300),
     is_live: false,
+    created_at: round.date,
     federation_meta: {
       tournament: round.tournament,
       tournament_id: round.tournamentId,
@@ -96,8 +140,17 @@ export function toGameRow(round: FederationRound, userId: string, playerName: st
       round: round.round,
       gross_strokes: round.grossStrokes,
       net_strokes: round.netStrokes,
+      // Official result: stableford points when format is ST, strokes when ME.
+      result_gross: round.resultGross,
+      result_net: round.resultNet,
+      playing_hcp: round.playingHcp,
       hcp_before: round.hcpBefore,
       hcp_after: round.hcpAfter,
+      raya_holes: round.rayaHoles,
+      /** False when the published card belongs to the pair, not the player. */
+      scorecard_is_own: reconciled,
+      /** Kept even when unusable as an own card, for the pairs views to come. */
+      published_scorecard: round.scorecard,
     },
   };
 }
@@ -114,9 +167,9 @@ export function toHandicapRow(round: FederationRound, userId: string): HandicapR
 }
 
 /** Same scale as utils/helpers.js calcPCPoints, kept in sync by hand. */
-function pcPoints(strokes: (number | null)[]): number {
+function pcPoints(holes: (number | null)[]): number {
   let total = 0;
-  for (const value of strokes) {
+  for (const value of holes) {
     if (value === null) continue;
     const diff = value - PAR_HOLE;
     if (diff <= -2) total += 25;

@@ -14,6 +14,27 @@ const BASE = "https://www.pitch.cat";
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)";
 const TIMEOUT_MS = 30_000;
 
+/**
+ * Columns of the results table, as published by the federation:
+ * Data | Torneig | Camp | Mod. | For. | V. | HPJ | HPP | RB | RN | HPEI | HPEF | . | CB | CN |
+ */
+const COL = {
+  date: 0,
+  tournament: 1,
+  course: 2,
+  modality: 3,
+  format: 4,
+  round: 5,
+  playingHcp: 6, // HPJ, handicap de joc
+  pairHcp: 7, // HPP
+  resultGross: 8, // RB, stableford points in ST, strokes in ME
+  resultNet: 9, // RN
+  hcpBefore: 10, // HPEI, handicap exacte inicial
+  hcpAfter: 11, // HPEF, handicap exacte final
+  grossStrokes: 13, // CB, cops bruts
+  netStrokes: 14, // CN, cops nets
+} as const;
+
 /** Round as published by the federation. Strokes are per hole, par is always 3. */
 export interface FederationRound {
   /** Stable identity used to deduplicate across syncs. */
@@ -29,11 +50,21 @@ export interface FederationRound {
   /** Gross strokes for the round, null when the federation does not publish them. */
   grossStrokes: number | null;
   netStrokes: number | null;
+  /** Official result: stableford points when format is ST, strokes when ME. */
+  resultGross: number | null;
+  resultNet: number | null;
+  /** Playing handicap for this round. */
+  playingHcp: number | null;
   /** Exact handicap before and after the round. */
   hcpBefore: number | null;
   hcpAfter: number | null;
-  /** 18 entries: strokes per hole, or null when not completed. */
+  /**
+   * 18 entries: strokes per hole. A hole the player gave up on ("raya", shown
+   * as X) is null here and listed in rayaHoles instead.
+   */
   scorecard: (number | null)[] | null;
+  /** Indices (0 based) of the holes marked as raya. */
+  rayaHoles: number[];
   tournamentId: string | null;
 }
 
@@ -197,34 +228,38 @@ function parseRow(row: Element, doc: Element): FederationRound | null {
 
   const text = (i: number) => cells[i]?.textContent?.replace(/\s+/g, " ").trim() ?? "";
 
-  const date = parseDate(text(0));
+  const date = parseDate(text(COL.date));
   if (!date) return null;
 
-  const link = cells[1].querySelector("a");
+  const link = cells[COL.tournament].querySelector("a");
   const tournamentId = link?.getAttribute("href")?.match(/id=(\d+)/)?.[1] ?? null;
 
   // The hole by hole card sits in a hidden div, revealed on hover.
   const detailId = link?.getAttribute("onmouseover")?.match(/mostra\('(detall_\d+)'/)?.[1] ?? null;
   const detail = detailId ? doc.querySelector(`#${detailId}`) : null;
-  const scorecard = detail ? parseScorecard(detail as unknown as Element) : null;
+  const card = detail ? parseScorecard(detail as unknown as Element) : null;
 
-  const tournament = text(1);
-  const modality = text(3);
-  const round = text(5);
+  const tournament = text(COL.tournament);
+  const modality = text(COL.modality);
+  const round = text(COL.round);
 
   return {
     roundId: buildRoundId(date, tournamentId, tournament, round, modality),
     date,
     tournament,
-    course: text(2),
+    course: text(COL.course),
     modality,
-    format: text(4),
+    format: text(COL.format),
     round,
-    hcpBefore: toFloat(text(10)),
-    hcpAfter: toFloat(text(11)),
-    grossStrokes: toInt(text(13)),
-    netStrokes: toInt(text(14)),
-    scorecard,
+    playingHcp: toInt(text(COL.playingHcp)),
+    resultGross: toInt(text(COL.resultGross)),
+    resultNet: toInt(text(COL.resultNet)),
+    hcpBefore: toFloat(text(COL.hcpBefore)),
+    hcpAfter: toFloat(text(COL.hcpAfter)),
+    grossStrokes: toInt(text(COL.grossStrokes)),
+    netStrokes: toInt(text(COL.netStrokes)),
+    scorecard: card?.strokes ?? null,
+    rayaHoles: card?.rayaHoles ?? [],
     tournamentId,
   };
 }
@@ -252,11 +287,21 @@ function slug(value: string): string {
     .slice(0, 40) || "torneig";
 }
 
+export interface ParsedCard {
+  /** Strokes per hole; null where the player drew a raya. */
+  strokes: (number | null)[];
+  rayaHoles: number[];
+}
+
 /**
  * Reads the 18 hole strokes out of a scorecard table. The strokes row sits
  * directly above the row of hole numbers ("1", "2", "3", ...).
+ *
+ * An "X" means raya: the player stopped playing the hole because they could
+ * no longer score a stableford point. It is kept separate from a real stroke
+ * count, and the caller decides what it is worth.
  */
-export function parseScorecard(container: Element): (number | null)[] | null {
+export function parseScorecard(container: Element): ParsedCard | null {
   const table = container.querySelector("table");
   if (!table) return null;
 
@@ -273,14 +318,23 @@ export function parseScorecard(container: Element): (number | null)[] | null {
   const strokesRow = headerIndex > 0 ? rows[headerIndex - 1] : rows[0];
   if (!strokesRow) return null;
 
-  const scores: (number | null)[] = [];
+  const strokes: (number | null)[] = [];
+  const rayaHoles: number[] = [];
+
   for (const cell of cellsOf(strokesRow)) {
-    if (/^\d+$/.test(cell)) scores.push(Number(cell));
-    else if (cell.toUpperCase() === "X") scores.push(null); // started but not finished
+    if (/^\d+$/.test(cell)) {
+      strokes.push(Number(cell));
+    } else if (cell.toUpperCase() === "X") {
+      rayaHoles.push(strokes.length);
+      strokes.push(null);
+    }
   }
 
-  if (!scores.length) return null;
-  return scores.length >= 18 ? scores.slice(0, 18) : scores;
+  if (!strokes.length) return null;
+  return {
+    strokes: strokes.length >= 18 ? strokes.slice(0, 18) : strokes,
+    rayaHoles: rayaHoles.filter((i) => i < 18),
+  };
 }
 
 function parseDate(value: string): string | null {

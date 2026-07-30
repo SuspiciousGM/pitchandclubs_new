@@ -72,10 +72,44 @@ npx supabase functions logs federation-sync
 
 Programarlo con `pg_cron` cada 6 o 12 horas es suficiente: la federación no publica resultados con más frecuencia.
 
+## Lo que sabemos del HTML de pitch.cat
+
+Verificado contra un historial real de 47 vueltas. Esto es lo que hay que respetar al tocar el parser.
+
+**Columnas de la tabla de resultados** (`table.llistat`, filas `tr.fila`):
+
+```
+0 Data | 1 Torneig | 2 Camp | 3 Mod. | 4 For. | 5 V. | 6 HPJ | 7 HPP
+8 RB | 9 RN | 10 HPEI | 11 HPEF | 12 (vacía) | 13 CB | 14 CN
+```
+
+- `CB`/`CN`: cops bruts y nets (golpes).
+- `RB`/`RN`: el resultado oficial. En formato `ST` son **puntos stableford**; en `ME` son golpes.
+  Por eso no calculamos stableford nosotros: se importa el número oficial y así no dependemos de
+  la aritmética de hándicap (incluidos los hándicaps positivos, donde un birdie en el hoyo de
+  hándicap 18 vale 2 puntos y no 3).
+- `HPJ`: hándicap de juego de esa vuelta.
+
+**La raya (X) vale 5 golpes.** Una X significa que el jugador dejó de jugar el hoyo porque ya no
+podía puntuar. El stroke index del hoyo determina *cuándo* puede parar, pero el golpe que consta
+en el bruto es **5 fijo**: sumando la tarjeta con cada raya a 5 se reproduce el `CB` oficial en
+**34 de 34** vueltas individuales. Por eso no hace falta el stroke index para importar.
+
+**En parejas la tarjeta publicada no es la del jugador.** En FourBall (`FB`) la tarjeta que
+acompaña al resultado es la bola del equipo, y no cuadra con el `CB` individual (0 de 12 vueltas).
+En vez de decidirlo por el código de modalidad, `resolveCard` comprueba la aritmética: la tarjeta
+solo se muestra como propia si suma exactamente el bruto oficial. Así el grid de hoyos y el total
+nunca se contradicen, y la regla sigue valiendo si aparece una modalidad nueva.
+
+**Las fichas de torneo** (`torneig.php?id=`) tienen filas `Metres:` y `Handicap:` (stroke index)
+por hoyo, y además una fila con el nombre del jugador y su tarjeta individual. De ahí saldrán las
+estadísticas por longitud y dificultad de la Fase 2, y la tarjeta propia en vueltas de parejas.
+
 ## Notas de operación
 
 - **Deduplicación**: cada ronda deriva un `federation_round_id` de fecha, torneo, vuelta y modalidad. El sync hace `upsert` sobre `(user_id, federation_round_id)`, así que se puede repetir sin duplicar nada.
 - **Coste de un sync**: una petición por página de resultados. Los scorecards vienen ya embebidos en esas páginas, así que un historial completo son pocos segundos. Los metros y el stroke index de cada hoyo viven en las fichas de torneo y se han dejado para la fase de estadísticas, precisamente para no acercarse al límite de tiempo de la función.
 - **Fragilidad**: si la federación cambia su HTML, el estado pasa a `error` y `last_error` guarda el motivo, visible en el perfil. Los tests del parser (`npm run test:functions`, requiere Deno) son la primera línea de defensa al tocar el scraping.
-- **Feed público**: las rondas importadas se excluyen del feed de actividad y de los eventos realtime. Sin eso, importar un historial largo enterraría el feed de toda la comunidad.
+- **Feed y `created_at`**: las rondas importadas se guardan con `created_at` en la **fecha en que se jugaron**, no en la de importación. Así compiten en igualdad en cualquier lista ordenada por `created_at` sin que una importación masiva entierre la actividad reciente. En realtime sí hace falta un filtro extra: un sync dispara un INSERT por fila, así que `App.jsx` descarta las que tengan más de 7 días antes de pedir avatares y reordena el feed por fecha.
+- **Ojo**: `activityFeed` se calcula en `App.jsx` y se pasa a `HomeScreen`, pero hoy `HomeScreen` no lo consume, así que no se muestra en ninguna parte. La lista visible de "últimes partides" es la de `LiveScreen`, que ordena por `created_at` y ya marca las oficiales.
 - **Puntos P&C**: las rondas oficiales se importan con **0 puntos** (`AWARD_POINTS` en `_shared/rounds.ts`). Es deliberado: conectar la cuenta no debe reordenar el ranking de golpe. Cómo deben puntuar es una decisión de producto de la Fase 3, y se activa cambiando esa constante y re-sincronizando.

@@ -85,10 +85,20 @@ Ver `docs/plan-integracio-federacio.md` (producto) y `docs/federacio-desplegamen
   (no UTF-8) y la sesión va en cookie, así que los redirects se siguen a mano. Los scorecards
   vienen embebidos en las páginas de resultados; los metros y stroke index por hoyo están en las
   fichas de torneo y se dejaron para la Fase 2.
+- **La raya (X) vale 5 golpes fijos**. Verificado: reproduce el bruto oficial en 34/34 vueltas
+  individuales. El stroke index decide cuándo se puede parar, no el golpe que consta.
+- **En parejas la tarjeta publicada es la del equipo**, no la del jugador (0/12 en FourBall).
+  `resolveCard` no mira la modalidad: acepta la tarjeta solo si suma el bruto oficial, así el
+  grid de hoyos y el total nunca se contradicen.
+- **Resultado oficial**: `RB`/`RN` son puntos stableford en formato ST y golpes en ME. Se importan
+  tal cual en vez de calcular stableford, lo que evita depender de la aritmética de hándicap
+  (incluidos los hándicaps positivos).
 - **Tests del parser**: `npm run test:functions` (requiere Deno). Es lo que protege el scraping
   cuando la federación cambie el HTML.
-- **Feed público**: las rondas importadas se excluyen del feed y de los eventos realtime en
-  `App.jsx`, o una importación masiva enterraría el feed de la comunidad.
+- **`created_at` de las importadas va a la fecha en que se jugó la vuelta**, no a la de
+  importación, para que ordenar por `created_at` no entierre la actividad reciente. En realtime
+  `App.jsx` descarta además las de más de 7 días. Nota: `activityFeed` no lo consume nadie hoy
+  (`HomeScreen` no lo destructura); la lista visible de recientes es la de `LiveScreen`.
 - **Puntos**: las rondas oficiales se importan con 0 puntos (`AWARD_POINTS` en `_shared/rounds.ts`)
   para no reordenar el ranking al conectar. Decisión de producto pendiente (Fase 3).
 

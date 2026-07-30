@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Bell, Flag } from 'lucide-react';
+import { X, Bell, Flag, ShieldCheck } from 'lucide-react';
 import { supabase } from '../supabaseClient.js';
 import { PLAYER_COLORS } from '../data/constants.js';
 import { ScoreSymbol } from '../components/ScoreSymbol.jsx';
@@ -154,7 +154,7 @@ export default function LiveScreen({ user, openAuth, lang, liveGames, setLiveGam
   useEffect(() => {
     const load = async () => {
       const { data } = await supabase.from("games")
-        .select("id,user_id,player_name,course_name,date,scores,players,created_at")
+        .select("id,user_id,player_name,course_name,date,scores,players,created_at,source")
         .eq("is_live", false)
         .not("scores", "is", null)
         .gt("score_total", 0)
@@ -249,7 +249,10 @@ export default function LiveScreen({ user, openAuth, lang, liveGames, setLiveGam
                   {g.avatar_url ? <img src={g.avatar_url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/> : initials}
                 </div>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.player_name||"—"}</div>
+                  <div style={{fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
+                    <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.player_name||"—"}</span>
+                    {g.source === "federation" && <ShieldCheck size={11} style={{color:"#CAFF4D",flexShrink:0}}/>}
+                  </div>
                   <div style={{fontSize:10,color:"#555761",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.course_name||g.course} · {daysAgo}</div>
                 </div>
                 <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:diffColor,lineHeight:1,flexShrink:0}}>{diffLabel}</div>

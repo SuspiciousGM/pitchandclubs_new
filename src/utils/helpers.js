@@ -43,7 +43,7 @@ export const mapGameToFeedItem = (g) => {
   const diff = me?.diff ?? 0;
   const label = diff <= -3 ? "Eagle+" : diff === -2 ? "Eagle" : diff === -1 ? "Birdie" : diff === 0 ? "Par" : diff === 1 ? "Bogey" : `+${diff}`;
   const lc = diff < -1 ? "#FBBF24" : diff === -1 ? "#60A5FA" : diff === 0 ? "#CAFF4D" : "#9CA3AF";
-  return { id: g.id, user: me?.name || "Jugador", avatarUrl: me?.avatarUrl || null, course: g.course_name || g.course, diff, label, lc, points: me?.points ?? 0, created_at: g.created_at };
+  return { id: g.id, user: me?.name || "Jugador", avatarUrl: me?.avatarUrl || null, course: g.course_name || g.course, diff, label, lc, points: me?.points ?? 0, created_at: g.created_at, source: g.source || "manual" };
 };
 
 export const timeAgo = (isoStr) => {

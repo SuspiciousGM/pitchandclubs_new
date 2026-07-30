@@ -6,7 +6,7 @@
 
 import { assertEquals, assertExists } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { parseResultsPage } from "./pitchcat.ts";
-import { toGameMode, toGameRow, toHandicapRow } from "./rounds.ts";
+import { resolveCard, toGameMode, toGameRow, toHandicapRow } from "./rounds.ts";
 
 interface Entry {
   tr: string;
@@ -52,7 +52,8 @@ function row(opts: {
   const {
     date = "14.06.2025", tournament = "Trofeu Sant Joan", course = "Pitch & Putt Badalona",
     modality = "IN", format = "ST", round = "1", hcpBefore = "12,4", hcpAfter = "11,9",
-    gross = "58", net = "46", tournamentId = "4821", detailId = "detall_1",
+    // 17 holes add up to 54 and the raya is worth 5, so the card reconciles at 59.
+    gross = "59", net = "46", tournamentId = "4821", detailId = "detall_1",
   } = opts;
 
   const link = `<a href="/jugador/resultats/torneig.php?id=${tournamentId}"
@@ -84,18 +85,28 @@ Deno.test("parses the fields of a results row", () => {
   assertEquals(round.format, "ST");
   assertEquals(round.hcpBefore, 12.4);
   assertEquals(round.hcpAfter, 11.9);
-  assertEquals(round.grossStrokes, 58);
+  assertEquals(round.grossStrokes, 59);
   assertEquals(round.netStrokes, 46);
   assertEquals(round.tournamentId, "4821");
 });
 
-Deno.test("reads 18 holes and maps an unfinished hole to null", () => {
+Deno.test("reads 18 holes and reports the raya separately", () => {
   const [round] = parseResultsPage(fixture([row()]));
 
   assertEquals(round.scorecard?.length, 18);
   assertEquals(round.scorecard?.[0], 3);
   assertEquals(round.scorecard?.[13], null); // the "X"
   assertEquals(round.scorecard?.[17], 3);
+  assertEquals(round.rayaHoles, [13]);
+});
+
+Deno.test("reads the official result and playing handicap columns", () => {
+  const [round] = parseResultsPage(fixture([row()]));
+
+  assertEquals(round.playingHcp, 13);
+  assertEquals(round.resultGross, 4);
+  assertEquals(round.resultNet, 8);
+  assertEquals(round.netStrokes, 46);
 });
 
 Deno.test("round id is deterministic and distinguishes rounds of a tournament", () => {
@@ -145,19 +156,55 @@ Deno.test("builds a games row the app can render", () => {
   assertEquals(game.par, 54);
   assertEquals(game.is_live, false);
   assertEquals(game.course_name, "Pitch & Putt Badalona");
-  assertEquals(game.score_total, 4); // 58 strokes over a par of 54
+  assertEquals(game.score_total, 5); // 59 strokes over a par of 54
 
   const scores = game.scores as { hole: number; par: number; playerScores: Record<string, number | null> }[];
   assertEquals(scores.length, 18);
   assertEquals(scores[0].playerScores.me, 3);
-  assertEquals(scores[13].playerScores.me, null);
+  assertEquals(scores[13].playerScores.me, 5); // the raya, priced in
 
   const players = game.players as { isMe: boolean; name: string; diff: number; score: number }[];
   assertEquals(players.length, 1);
   assertEquals(players[0].isMe, true);
   assertEquals(players[0].name, "Marc");
-  assertEquals(players[0].score, 58);
-  assertEquals(players[0].diff, 4);
+  assertEquals(players[0].score, 59);
+  assertEquals(players[0].diff, 5);
+});
+
+Deno.test("backdates created_at to the day the round was played", () => {
+  const [round] = parseResultsPage(fixture([row()]));
+  assertEquals(toGameRow(round, "user-uuid", "Marc").created_at, "2025-06-14");
+});
+
+Deno.test("a card that reconciles with the gross total is treated as the player's", () => {
+  const [round] = parseResultsPage(fixture([row()]));
+  const { holes, reconciled } = resolveCard(round);
+
+  assertEquals(reconciled, true);
+  assertEquals(holes?.length, 18);
+  assertEquals(holes?.[13], 5);
+});
+
+Deno.test("a pairs card that does not add up is not shown as the player's own", () => {
+  // Same card, but the player's own gross is lower: this is the team's ball,
+  // which is what the federation publishes for FourBall rounds.
+  const [round] = parseResultsPage(fixture([row({ modality: "FB", gross: "51" })]));
+  const { holes, reconciled } = resolveCard(round);
+
+  assertEquals(reconciled, false);
+  assertEquals(holes, null);
+
+  const game = toGameRow(round, "user-uuid", "Marc");
+  const scores = game.scores as { playerScores: Record<string, number | null> }[];
+
+  // No misleading hole grid, but the official total is still recorded.
+  assertEquals(scores.every((s) => s.playerScores.me === null), true);
+  assertEquals(game.score_total, -3);
+  assertEquals(game.game_mode, "parelles");
+
+  const meta = game.federation_meta as { scorecard_is_own: boolean; published_scorecard: unknown };
+  assertEquals(meta.scorecard_is_own, false);
+  assertEquals(Array.isArray(meta.published_scorecard), true);
 });
 
 Deno.test("handicap row tracks the exact handicap after the round", () => {

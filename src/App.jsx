@@ -34,6 +34,13 @@ const sumMyPoints = (games) => games.reduce((sum, g) => {
   return sum + (me?.points || 0);
 }, 0);
 
+/* Imported rounds are backdated to the day they were played, so an old one
+   arriving from a sync is history rather than news. */
+const FEED_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const isFeedWorthy = (createdAt) =>
+  !createdAt || (Date.now() - new Date(createdAt).getTime()) <= FEED_MAX_AGE_MS;
+const byNewest = (a, b) => new Date(b.created_at) - new Date(a.created_at);
+
 /* ─── GLOBAL CSS ─────────────────────────────────────────────── */
 const G = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -327,10 +334,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Fetch activity feed (finished games only).
-    // Imported federation rounds are excluded: a bulk import would otherwise
-    // bury the feed under someone's back catalogue.
-    supabase.from("games").select("*").eq("is_live", false).eq("source", "manual")
+    // Fetch activity feed (finished games only). Official rounds take part on
+    // equal terms: they carry the date they were played, so ordering by
+    // created_at keeps a bulk import out of today's activity by itself.
+    supabase.from("games").select("*").eq("is_live", false)
       .order("created_at", { ascending: false }).limit(5)
       .then(({ data }) => {
         if (data) setActivityFeed(data.map(mapGameToFeedItem));
@@ -353,13 +360,14 @@ export default function App() {
     const channel = supabase
       .channel("games-feed")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "games" }, async (payload) => {
-        // A sync inserts many rows at once; they are history, not activity.
-        if (payload.new.source === "federation") return;
+        // A sync can insert a whole back catalogue at once. Skip the old ones
+        // before fetching avatars, then re-sort so the feed stays chronological.
+        if (!payload.new.is_live && !isFeedWorthy(payload.new.created_at)) return;
         const enriched = await enrichWithAvatar(payload.new);
         if (enriched.is_live) {
           setLiveGames(prev => [enriched, ...prev].slice(0, 20));
         } else {
-          setActivityFeed(prev => [mapGameToFeedItem(enriched), ...prev].slice(0, 5));
+          setActivityFeed(prev => [mapGameToFeedItem(enriched), ...prev].sort(byNewest).slice(0, 5));
         }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games" }, async (payload) => {
